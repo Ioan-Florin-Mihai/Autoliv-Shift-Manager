@@ -1,0 +1,45 @@
+{
+  "weeks": {
+    "2026-03-23": {
+      "week_start": "2026-03-23",
+      "week_end": "2026-03-29",
+      "week_label": "Saptamana 13",
+      "departments": [
+        "Sef Schimb",
+        "Receptii",
+        "Livrari",
+        "Etichetare Scanare",
+        "Retragere finite",
+        "Balotare Ambalare",
+        "BUCLA RA + RB",
+        "BUCLA TA + TB",
+        "BUCLA 02",
+        "BUCLA 03",
+        "BUCLA 04",
+        "BUCLA 05 + 07",
+        "Ambalaje"
+      ],
+      "schedule": {
+        "Receptii": {
+          "Luni": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Marti": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Miercuri": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Joi": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Vineri": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Sambata": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Duminica": { "Sch1": "", "Sch2": "", "Sch3": "" }
+        },
+        "Retragere finite": {
+          "Luni": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Marti": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Miercuri": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Joi": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Vineri": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Sambata": { "Sch1": "", "Sch2": "", "Sch3": "" },
+          "Duminica": { "Sch1": "", "Sch2": "", "Sch3": "" }
+        }
+      },
+      "updated_at": "2026-03-26T21:22:00"
+    }
+  }
+}

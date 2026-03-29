@@ -1,0 +1,9 @@
+{
+  "firebase_enabled": false,
+  "database_url": "",
+  "service_account_path": "data/firebase_service_account.json",
+  "status_path": "settings/app_status",
+  "allowed_devices_path": "settings/allowed_devices",
+  "check_interval_seconds": 10,
+  "max_offline_seconds": 120
+}
