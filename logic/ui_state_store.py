@@ -1,3 +1,10 @@
+# ============================================================
+# MODUL: ui_state_store.py
+# Salveaza si restaureaza starea interfetei intre sesiuni.
+# In prezent retine ultima data selectata de utilizator,
+# astfel incat la redeschidere sa se afiseze aceeasi saptamana.
+# ============================================================
+
 import json
 from datetime import date, datetime
 
@@ -6,11 +13,18 @@ from logic.app_paths import ensure_runtime_file
 from logic.schedule_store import get_week_start
 
 
+# Calea fisierului JSON cu starea UI — creat automat la primul rulaj
 UI_STATE_PATH = ensure_runtime_file("data/ui_state.json")
 
 
 class UIStateStore:
+    """Gestioneaza persistenta starii interfetei utilizatorului."""
+
     def load_last_selected_date(self):
+        """
+        Citeste ultima data selectata din fisierul de stare.
+        Returneaza un obiect date sau None daca nu exista / e invalida.
+        """
         if not UI_STATE_PATH.exists():
             return None
 
@@ -28,23 +42,35 @@ class UIStateStore:
         if not value:
             return None
 
+        # Parseaza data din format ISO (YYYY-MM-DD)
         try:
             return datetime.strptime(value, "%Y-%m-%d").date()
         except ValueError:
             return None
 
     def resolve_startup_date(self):
-        today = date.today()
+        """
+        Determina ce data sa afiseze la pornirea aplicatiei.
+        - Daca exista o data salvata DIN ACEEASI SAPTAMANA → o folosim
+        - Altfel → afisam saptamana curenta (azi)
+        Logica: daca utilizatorul a salvat joi, si azi e luni saptamana urmatoare,
+        se va afisa azi. Daca azi e miercuri din aceeasi saptamana, afisam joi.
+        """
+        today      = date.today()
         saved_date = self.load_last_selected_date()
+
         if saved_date is None:
             return today
 
+        # Comparam inceputul saptamanii (luni) pentru ambele date
         if get_week_start(saved_date) != get_week_start(today):
+            # Saptamana salvata e veche → resetam la saptamana curenta
             return today
 
         return saved_date
 
     def save_last_selected_date(self, selected_date: date):
+        """Salveaza data selectata curenta in fisierul de stare."""
         payload = {"last_selected_date": selected_date.isoformat()}
         try:
             UI_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
