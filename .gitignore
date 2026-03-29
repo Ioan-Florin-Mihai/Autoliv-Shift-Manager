@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Aider LLM
+.aider*
+
+# Continue IDE
+.continue/
+*.continueconfig.json
+
+# PyInstaller
+build/
+dist/
+
+# Data files (local only - nu se comite)
+data/app.log
+data/cache.json
+data/schedule_data.json
+data/ui_state.json
+
+# Credentiale sensibile - NICIODATA in git!
+data/firebase_service_account.json
+
+# Backups locale
+backups/
+
+# Exports
+Exports/
+
+# Livrare (build outputs)
+Livrare/
+
+# Windows
+desktop.ini
+Thumbs.db

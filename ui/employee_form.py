@@ -136,7 +136,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
         try:
             ore_num = int(ore)
         except ValueError:
-            messagebox.showerror("Eroare Validare", "Orele trebuie să fie un număr invalid.")
+            messagebox.showerror("Eroare Validare", "Orele trebuie să fie un număr valid.")
             return
 
         if ore_num > 12:

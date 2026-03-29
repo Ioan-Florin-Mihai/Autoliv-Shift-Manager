@@ -1,7 +1,0 @@
-[2026-03-25 22:25:48] run_app_tcl: TclError: Can't find a usable init.tcl in the following directories: 
-    {C:\Users\User\AppData\Local\Programs\Python\Python312\tcl\tcl8.6}
-
-
-
-This probably means that Tcl wasn't installed properly.
-

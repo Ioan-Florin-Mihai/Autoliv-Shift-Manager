@@ -80,7 +80,7 @@ class LoginFrame(ctk.CTkFrame):
                       font=ctk.CTkFont(size=16, weight="bold"),
                       corner_radius=12).grid(row=6, column=0, pady=(0, 16))
         ctk.CTkLabel(form, textvariable=self.status_var, text_color=MUTED_TEXT,
-                     font=ctk.CTkFont(size=13)).grid(row=7, column=0), padx=32, pady=(4, 24))
+                     font=ctk.CTkFont(size=13)).grid(row=7, column=0, padx=32, pady=(4, 24))
 
     def login(self):
         try:

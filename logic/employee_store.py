@@ -80,6 +80,7 @@ class EmployeeStore:
                     self._collect_names_from_mode(mode_record, seen, discovered)
             elif isinstance(week_record.get("schedule"), dict):
                 self._collect_names_from_schedule(week_record["schedule"], seen, discovered)
+        self._collect_names_from_personnel_manager(seen, discovered)
         return discovered
 
     def _collect_names_from_mode(self, mode_record, seen, discovered):
@@ -108,7 +109,7 @@ class EmployeeStore:
                             discovered.append(value)
                             seen.add(value.casefold())
 
-        # Extrage si din noul sistem de management personnel (data/cache.json)
+    def _collect_names_from_personnel_manager(self, seen, discovered):
         try:
             from logic.personnel_manager import PersonnelManager
             pm = PersonnelManager()
