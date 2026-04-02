@@ -221,8 +221,8 @@ class PlannerDashboard(ctk.CTkFrame):
         actions.grid_columnconfigure((0, 1), weight=1)
         ctk.CTkButton(actions, text="Adaugă", command=self.add_employee_from_search, fg_color=PRIMARY_BLUE, hover_color=HOVER_BLUE, height=28, font=ctk.CTkFont(size=10, weight="bold")).grid(row=0, column=0, sticky="ew", padx=(0, 3), pady=(0, 3))
         ctk.CTkButton(actions, text="Angajat Nou", command=self.add_new_employee, fg_color=ACCENT_BLUE, hover_color=HOVER_BLUE, height=28, font=ctk.CTkFont(size=10, weight="bold")).grid(row=0, column=1, sticky="ew", pady=(0, 3))
-        ctk.CTkButton(actions, text="Redenumește", command=self.rename_employee_global, fg_color="#E67E22", hover_color="#D35400", height=28, font=ctk.CTkFont(size=10, weight="bold")).grid(row=1, column=0, sticky="ew", padx=(0, 3))
-        ctk.CTkButton(actions, text="Șterge global", command=self.delete_employee_global, fg_color="#C0392B", hover_color="#A93226", height=28, font=ctk.CTkFont(size=10, weight="bold")).grid(row=1, column=1, sticky="ew")
+        ctk.CTkButton(actions, text="Redenumește", command=self.rename_employee_global, fg_color=PRIMARY_BLUE, hover_color=HOVER_BLUE, height=28, font=ctk.CTkFont(size=10, weight="bold")).grid(row=1, column=0, sticky="ew", padx=(0, 3))
+        ctk.CTkButton(actions, text="Șterge global", command=self.delete_employee_global, fg_color=PRIMARY_BLUE, hover_color=HOVER_BLUE, height=28, font=ctk.CTkFont(size=10, weight="bold")).grid(row=1, column=1, sticky="ew")
         ctk.CTkLabel(frame, text="Sugestii rapide", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=17, weight="bold")).grid(row=7, column=0, sticky="w", padx=16, pady=(0, 5))
         self.suggestion_frame = ctk.CTkScrollableFrame(frame, width=330, fg_color=PANEL_BG)
         self.suggestion_frame.grid(row=8, column=0, sticky="nsew", padx=16, pady=(0, 16))
@@ -480,7 +480,7 @@ class PlannerDashboard(ctk.CTkFrame):
             ctk.CTkButton(top_row, text="Sus",    width=40, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.reorder_employee(e, -1)).pack(side="right", padx=(3, 0))
             ctk.CTkButton(top_row, text="Jos",    width=40, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.reorder_employee(e,  1)).pack(side="right", padx=3)
             ctk.CTkButton(top_row, text="Mut",    width=40, height=26, fg_color=PRIMARY_BLUE, hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.move_employee_to_shift(e)).pack(side="right", padx=3)
-            ctk.CTkButton(top_row, text="✕",      width=28, height=26, fg_color="#C0392B",    hover_color="#A93226",  font=ctk.CTkFont(size=12), command=lambda e=employee: self.remove_employee(e)).pack(side="right", padx=(3, 0))
+            ctk.CTkButton(top_row, text="✕",      width=28, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=12), command=lambda e=employee: self.remove_employee(e)).pack(side="right", padx=(3, 0))
 
             # Randul de jos: paleta de culori
             palette_row = ctk.CTkFrame(card, fg_color="transparent")
