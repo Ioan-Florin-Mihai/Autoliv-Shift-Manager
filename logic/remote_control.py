@@ -34,8 +34,8 @@ class RemoteControlService:
     """
 
     def __init__(self):
-        # ID-ul unic al acestui dispozitiv (bazat pe adresa MAC)
-        self.device_id = str(uuid.getnode())
+        # ID-ul unic al acestui dispozitiv - generat o data si salvat persistent
+        self.device_id = self._get_or_create_device_id()
 
         # Stare interna Firebase
         self._firebase_ready  = False   # True dupa initializare reusita
@@ -49,6 +49,37 @@ class RemoteControlService:
 
         # Incarcam configuratia din remote_config.json
         self.config = self._load_config()
+
+    def _get_or_create_device_id(self):
+        """
+        Genereaza o ID unica la prima rulare si o salveaza in data/device_id.json.
+        La rulari viitoare, incarca ID-ul salvat (nu se mai schimba).
+        Asta evita probleme cu MAC address rotativ sau adaptatoare virtuale.
+        """
+        device_id_path = ensure_runtime_file("data/device_id.json")
+        
+        # Daca fisierul exista, citim ID-ul din el
+        if device_id_path.exists():
+            try:
+                with device_id_path.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    device_id = data.get("device_id")
+                    if device_id:
+                        return device_id
+            except (json.JSONDecodeError, OSError):
+                pass
+        
+        # Generam o ID noua (UUID)
+        device_id = str(uuid.uuid4())
+        
+        # O salvam pt. viitoare rulari
+        try:
+            with device_id_path.open("w", encoding="utf-8") as f:
+                json.dump({"device_id": device_id}, f, ensure_ascii=False, indent=2)
+        except OSError:
+            pass
+        
+        return device_id
 
     def _load_config(self):
         """

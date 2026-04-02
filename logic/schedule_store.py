@@ -72,7 +72,8 @@ def format_day_label(week_start: date, day_offset: int):
 
 
 def _empty_cell():
-    return {"employees": []}
+    # `colors` stocheaza culoarea aleasa manual per angajat: {"Nume Prenume": "#FF0000"}
+    return {"employees": [], "colors": {}}
 
 
 def _empty_schedule_for_departments(departments):
@@ -262,10 +263,14 @@ class ScheduleStore:
                         cell = day_schedule.get(shift, _empty_cell())
                         if isinstance(cell, str):
                             employees = [line.strip() for line in cell.splitlines() if line.strip()]
-                            cell = {"employees": employees}
+                            cell = {"employees": employees, "colors": {}}
                         elif not isinstance(cell, dict):
                             cell = _empty_cell()
                         cell.setdefault("employees", [])
+                        # Pastreaza culorile existente si elimina culorile pentru angajati stearsi
+                        existing_colors = cell.get("colors", {})
+                        if not isinstance(existing_colors, dict):
+                            existing_colors = {}
                         unique = []
                         seen = set()
                         for employee in cell["employees"]:
@@ -276,6 +281,8 @@ class ScheduleStore:
                                 unique.append(value)
                                 seen.add(value.casefold())
                         cell["employees"] = unique
+                        # Pastram doar culorile angajatilor ramasi
+                        cell["colors"] = {k: v for k, v in existing_colors.items() if any(k.casefold() == e.casefold() for e in unique)}
                         day_schedule[shift] = cell
 
         week_record.pop("departments", None)
