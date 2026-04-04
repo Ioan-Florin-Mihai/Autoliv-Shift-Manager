@@ -1,8 +1,23 @@
 # ============================================================
-# MODUL: app_paths.py
-# Defineste toate caile importante ale aplicatiei.
-# Functioneaza atat in modul dezvoltare (Python direct) cat si
-# in modul executabil (.exe generat cu PyInstaller).
+# MODUL: app_paths.py - GESTIONARE CĂREI APLICAȚIEI
+# ============================================================
+#
+# Responsabil cu:
+#   - Definirea tuturor căilor importante (APP_DIR, DATA_DIR, etc)
+#   - Adaptare automată pentru modul dev vs .exe (PyInstaller)
+#   - Copiere automată a fișierelor default din bundle la primul runtime
+#
+# Căile globale:
+#   - APP_DIR: rădăcina aplicației (unde e .exe sau root de proiect)
+#   - BUNDLE_DIR: fișiere embedded (assets, data default) din PyInstaller
+#   - DATA_DIR: folder date utilizator (schedule, users) - persistă
+#   - ASSETS_DIR: imagini și iconuri (autoliv_logo.png, etc)
+#   - EXPORT_DIR: export Excel-uri generate
+#
+# Flux:
+#   1. Detectează dacă rulează ca .exe (sys.frozen) sau Python
+#   2. Stabilește căile în consecință
+#   3. Copiază fișierele default la primul rulaj din .exe
 # ============================================================
 
 import shutil

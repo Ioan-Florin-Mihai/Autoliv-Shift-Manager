@@ -1,16 +1,26 @@
 # ============================================================
-# PUNCT DE INTRARE AL APLICATIEI
-# Ruleaza acest fisier pentru a porni Autoliv Shift Manager.
+# AUTOLIV SHIFT MANAGER - PUNCT DE INTRARE
+# ============================================================
+# 
+# Fișierul principal care pornește aplicația.
+# Rulează: python main.py (din IDE) sau Autoliv Shift Manager.exe
+#
+# Flux:
+#   1. Configurează mediul Tcl/Tk (runtime bootstrap)
+#   2. Importă UI-ul (dashboard) - care gestionează autentificarea
+#   3. Pornește bucla główna a aplicației (GUI)
+#
+# NOTE: În modul .exe (PyInstaller), bootstrapping-ul e inclus automat.
+#       Doar în dev mode (Python direct) e nevoie de setup suplimentar.
 # ============================================================
 
-# Configureaza mediul Tcl/Tk inainte de orice import UI
-# (necesar mai ales cand rulezi direct din Python, nu din .exe)
 from logic.runtime_bootstrap import configure_tk_runtime
 
 
 if __name__ == "__main__":
+    # Seteaza variabilele de mediu Tcl/Tk necesare pentru GUI
     configure_tk_runtime()
 
-    # Importam run_app dupa bootstrap ca sa evitam erori Tcl/Tk
+    # Importa și porneste aplicația după bootstrapping cu succes
     from ui.dashboard import run_app
     run_app()

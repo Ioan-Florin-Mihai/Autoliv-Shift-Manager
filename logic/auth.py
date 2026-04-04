@@ -1,8 +1,17 @@
 # ============================================================
-# MODUL: auth.py
-# Gestioneaza autentificarea utilizatorului.
-# Credentialele (username + hash parola) sunt stocate in
-# data/users.json. Parola este hashata cu bcrypt.
+# MODUL: auth.py - AUTENTIFICARE UTILIZATOR SIGURĂ
+# ============================================================
+#
+# Responsabil cu:
+#   - Încărcarea credențialelor din data/users.json
+#   - Verificare username și parola contrast bcrypt hash
+#   - Utilizează bcrypt (2^12 salts) pentru hashing sigur
+#
+# Securitate:
+#   - Parolele NU sunt NICIODATĂ stocate în clar
+#   - Comparația se face criptografic (bcrypt.checkpw)
+#   - Fișierul users.json trebuie protejat ca SECRET
+#   - Accesul e refuzat dacă fisierul lipsește sau e invalid
 # ============================================================
 
 import json
@@ -12,7 +21,7 @@ import bcrypt
 from logic.app_paths import ensure_runtime_file
 
 
-# Calea fisierului cu credentiale — copiat din bundle la primul rulaj
+# Calea fisierului cu credentiale — copiat din bundle la primul rulaj din .exe
 USERS_PATH = ensure_runtime_file("data/users.json")
 
 

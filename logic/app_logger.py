@@ -1,7 +1,16 @@
 # ============================================================
-# MODUL: app_logger.py
-# Responsabil cu logarea evenimentelor si exceptiilor aplicatiei
-# intr-un fisier app.log din folderul /data/.
+# MODUL: app_logger.py - LOGGING CENTRALIZAT
+# ============================================================
+#
+# Responsabil cu:
+#   - Logarea tuturor evenimentelor importante ale aplicației
+#   - Captarea și registrarea excepțiilor pentru debugging
+#   - Salvare în data/app.log cu timestamp pentru audit
+#
+# Fișierul log:
+#   - Se crează automat în data/app.log
+#   - Format: [YYYY-MM-DD HH:MM:SS] context: ErrorType: error message
+#   - Folosit pentru debugging și troubleshooting runtime
 # ============================================================
 
 from datetime import datetime

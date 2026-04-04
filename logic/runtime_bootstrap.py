@@ -1,8 +1,17 @@
 # ============================================================
-# MODUL: runtime_bootstrap.py
-# Configureaza variabilele de mediu Tcl/Tk necesare pentru
-# ca interfata grafica sa functioneze cand rulezi cu Python
-# direct (nu ca .exe). In .exe, PyInstaller se ocupa singur.
+# MODUL: runtime_bootstrap.py - INITIALIZARE TCL/TK RUNTIME
+# ============================================================
+#
+# Responsabil cu:
+#   - Configurarea variabilelor de mediu TCL_LIBRARY și TK_LIBRARY
+#   - Necesare doar în modul dev (Python direct), nu în .exe
+#   - În .exe, PyInstaller include deja bibliotecile Tcl/Tk
+#
+# Flux:
+#   1. Detectează dacă rulează ca .exe (sys.frozen)
+#   2. Dacă e dev mode, caută librariile Tcl/Tk lângă python.exe
+#   3. Seteaza variabilele de mediu dacă librairele există
+#   4. Dacă librairele lipsesc, va trebui instalat tk
 # ============================================================
 
 import os
