@@ -1,6 +1,8 @@
+from copy import deepcopy
 from datetime import date, datetime, timedelta
 import tkinter.messagebox as messagebox
 import tkinter as tk
+import threading
 from queue import Empty, Queue
 
 import customtkinter as ctk
@@ -61,6 +63,8 @@ class PlannerDashboard(ctk.CTkFrame):
         self.employee_search_var = ctk.StringVar()
         self.history_var = ctk.StringVar(value="")
         self._closing = False
+        self._dirty = False                        # modificari nesalvate
+        self._grid_cell_frames: dict = {}          # cache {(day, shift): CTkFrame}
         self.ui_state_store.save_last_selected_date(self.selected_date)
 
         self._build_ui()
@@ -301,6 +305,7 @@ class PlannerDashboard(ctk.CTkFrame):
     def render_grid(self):
         for widget in self.grid_frame.winfo_children():
             widget.destroy()
+        self._grid_cell_frames = {}   # reseteaza cache-ul la rebuild complet
         start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
         self.grid_frame.grid_columnconfigure(0, weight=0)
         for idx in range(1, len(DAYS) + 1):
@@ -347,6 +352,8 @@ class PlannerDashboard(ctk.CTkFrame):
                 cell_frame.grid(row=row_idx, column=day_idx, padx=5, pady=5, sticky="nsew")
                 cell_frame.grid_propagate(False)
                 cell_frame.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
+                # Stocam referinta pentru update rapid la selectie
+                self._grid_cell_frames[(day_name, shift)] = cell_frame
 
                 if employees:
                     for emp in employees:
@@ -386,12 +393,22 @@ class PlannerDashboard(ctk.CTkFrame):
                     add_lbl.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
     def _select_week(self, selected_date: date):
+        if self._dirty:
+            answer = messagebox.askyesnocancel(
+                "Modificări nesalvate",
+                "Există modificări nesalvate pentru săptămâna curentă.\nSalvezi înainte de a naviga?",
+            )
+            if answer is None:   # Cancel — rămânem pe săptămâna curentă
+                return
+            if answer:           # Yes — salvăm înainte de navigare
+                self.save_week()
         self.selected_date = selected_date
         self.ui_state_store.save_last_selected_date(self.selected_date)
         self.week_record = self.store.get_or_create_week(self.selected_date)
         self.selected_department = self.current_mode_record()["departments"][0]
         self.selected_day = DAY_NAMES[0]
         self.selected_shift = SHIFTS[0]
+        self._grid_cell_frames = {}   # forteaza rebuild complet la noua saptamana
         self.refresh_all()
 
     def shift_week(self, weeks_delta: int):
@@ -421,6 +438,7 @@ class PlannerDashboard(ctk.CTkFrame):
         else:
             key = existing_key or employee
             colors[key] = color
+        self._dirty = True
         self.render_grid()
         self.render_assignment_panel()
 
@@ -527,18 +545,39 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def select_department(self, department):
         self.selected_department = department
+        self._grid_cell_frames = {}   # departament nou = grid trebuie reconstruit
         self.refresh_all()
 
     def select_cell(self, day_name: str, shift: str):
+        old_day, old_shift = self.selected_day, self.selected_shift
         self.selected_day = day_name
         self.selected_shift = shift
-        self.refresh_all()
+        # Fast path: actualizeaza doar highlight-ul + panoul dreapta (fara rebuild grid)
+        self._update_cell_highlight(old_day, old_shift)
+        self.render_assignment_panel()
+        self.refresh_week_display()
+
+    def _update_cell_highlight(self, old_day: str, old_shift: str):
+        """Actualizeaza culoarea de fundal a celulei selectate/deselectate fara rebuild."""
+        if not self._grid_cell_frames:
+            self.render_grid()
+            return
+        # Restaureaza celula anterioara
+        old_frame = self._grid_cell_frames.get((old_day, old_shift))
+        if old_frame and old_frame.winfo_exists():
+            old_bg = WEEKEND_BG if old_day in WEEKEND_DAYS else GRID_CELL_BG
+            old_frame.configure(fg_color=old_bg, border_width=1, border_color=LINE_BLUE)
+        # Marcheaza celula noua
+        new_frame = self._grid_cell_frames.get((self.selected_day, self.selected_shift))
+        if new_frame and new_frame.winfo_exists():
+            new_frame.configure(fg_color=SELECTED_BG, border_width=2, border_color=PRIMARY_BLUE)
 
     def change_mode(self, selected_mode):
         self.current_mode = selected_mode
         self.selected_department = self.current_mode_record()["departments"][0]
         self.selected_day = DAY_NAMES[0]
         self.selected_shift = SHIFTS[0]
+        self._grid_cell_frames = {}   # mod nou = grid trebuie reconstruit
         self.refresh_all()
 
     def load_history_week(self, selected_value):
@@ -550,6 +589,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self.selected_department = self.current_mode_record()["departments"][0]
         self.selected_day = DAY_NAMES[0]
         self.selected_shift = SHIFTS[0]
+        self._grid_cell_frames = {}   # saptamana noua = grid trebuie reconstruit
         self.refresh_all()
 
     def _on_search_change(self, _event=None):
@@ -565,7 +605,7 @@ class PlannerDashboard(ctk.CTkFrame):
                 self.add_employee_to_selected_cell(employee)
             except ValueError as exc:
                 messagebox.showerror("Date invalide", str(exc))
-                
+
         EmployeeRegistrationWindow(self.winfo_toplevel(), on_employee_added=on_employee_added)
 
     def add_employee_from_search(self):
@@ -584,6 +624,7 @@ class PlannerDashboard(ctk.CTkFrame):
             self.show_inline_message(str(exc), is_error=True)
             return
         self.current_cell()["employees"].append(employee)
+        self._dirty = True
         self.employee_search_var.set("")
         self.show_inline_message(f"{employee} adăugat.")
         self.refresh_all()
@@ -621,33 +662,79 @@ class PlannerDashboard(ctk.CTkFrame):
         if not old_val:
             self.show_inline_message("Scrie angajatul în search înainte de a-l redenumi.", is_error=True)
             return
-            
+
         dialog = ctk.CTkInputDialog(text=f"Introdu noul nume pentru '{old_val}':", title="Redenumire Angajat")
         new_val = dialog.get_input()
         if not new_val:
             return
-            
+
         try:
             new_name = self.employee_store.rename_employee(old_val, new_val)
+            # Actualizare si in toate saptamanile din planificari (nu doar in lista)
+            count = self._rename_in_schedule_store(old_val, new_name)
+            # Reload week record actualizat din store
+            self.week_record = self.store.get_or_create_week(self.selected_date)
+            self._grid_cell_frames = {}   # forteaza rebuild grid
             self.employee_search_var.set(new_name)
-            self.refresh_suggestions()
-            self.show_inline_message(f"Angajatul a fost redenumit în '{new_name}'.")
+            self.refresh_all()
+            self.show_inline_message(
+                f"Redenumit în '{new_name}'. {count} intrare(i) actualizate în planificări."
+            )
         except ValueError as exc:
             self.show_inline_message(str(exc), is_error=True)
+
+    def _rename_in_schedule_store(self, old_name: str, new_name: str) -> int:
+        """
+        Redenumeste angajatul in toate saptamanile/modurile/celulele din store.
+        Actualizeaza si cheile din dict-urile de culori.
+        Returneaza numarul de intrari modificate.
+        """
+        count  = 0
+        old_cf = old_name.casefold()
+        for week_rec in self.store.data.get("weeks", {}).values():
+            if not isinstance(week_rec, dict):
+                continue
+            for mode_rec in week_rec.get("modes", {}).values():
+                if not isinstance(mode_rec, dict):
+                    continue
+                for dept_sched in mode_rec.get("schedule", {}).values():
+                    for day_sched in dept_sched.values():
+                        for cell in day_sched.values():
+                            if not isinstance(cell, dict):
+                                continue
+                            employees = cell.get("employees", [])
+                            for i, emp in enumerate(employees):
+                                if emp.casefold() == old_cf:
+                                    employees[i] = new_name
+                                    count += 1
+                            # Actualizeaza si culorile (cheia = nume angajat)
+                            colors = cell.get("colors", {})
+                            for k in list(colors.keys()):
+                                if k.casefold() == old_cf:
+                                    colors[new_name] = colors.pop(k)
+        if count > 0:
+            try:
+                self.store.save()
+            except Exception as exc:
+                log_exception("rename_in_schedule_store_save", exc)
+        return count
             
     def remove_employee(self, employee: str):
         self.current_cell()["employees"] = [item for item in self.current_cell()["employees"] if item.casefold() != employee.casefold()]
+        self._dirty = True
         self.refresh_all()
 
     def reorder_employee(self, employee: str, direction: int):
         employees = self.current_cell()["employees"]
         index = next((idx for idx, value in enumerate(employees) if value.casefold() == employee.casefold()), None)
         if index is None:
-            return
+            r_dirty = True
+        self.eturn
         target = index + direction
         if target < 0 or target >= len(employees):
             return
         employees[index], employees[target] = employees[target], employees[index]
+        self._dirty = True
         self.refresh_all()
 
     def move_employee_to_shift(self, employee: str):
@@ -668,6 +755,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self.remove_employee(employee)
         self.current_mode_record()["schedule"][self.selected_department][self.selected_day][target_shift]["employees"].append(employee)
         self.selected_shift = target_shift
+        self._dirty = True
         self.refresh_all()
 
     def add_department(self):
@@ -683,7 +771,9 @@ class PlannerDashboard(ctk.CTkFrame):
             return
         self.current_mode_record()["departments"].append(department)
         self.current_mode_record()["schedule"][department] = {day: {shift: {"employees": []} for shift in SHIFTS} for day in DAY_NAMES}
+        self._dirty = True
         self.selected_department = department
+        self.save_week()   # auto-save dupa adaugare departament
         self.refresh_all()
 
     def pick_week(self):
@@ -696,6 +786,7 @@ class PlannerDashboard(ctk.CTkFrame):
     def duplicate_previous_week(self):
         try:
             self.week_record = self.store.duplicate_previous_week(self.selected_date)
+            self._dirty = True
             self.refresh_all()
             self.show_inline_message("Săptămâna anterioară a fost duplicată cu succes.")
         except ValueError as exc:
@@ -703,6 +794,7 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def clear_weekend(self):
         self.store.clear_weekend(self.week_record, self.current_mode)
+        self._dirty = True
         self.refresh_all()
         self.show_inline_message(f"Weekend curățat pentru {self.current_mode}.")
 
@@ -710,12 +802,14 @@ class PlannerDashboard(ctk.CTkFrame):
         if not messagebox.askyesno("Confirmare", f"Sterg toate alocarile din {self.selected_department}?"):
             return
         self.store.clear_department(self.week_record, self.current_mode, self.selected_department)
+        self._dirty = True
         self.refresh_all()
         self.show_inline_message(f"Departamentul {self.selected_department} a fost golit.")
 
     def save_week(self):
         try:
             self.store.update_week(self.week_record)
+            self._dirty = False
             self.refresh_history()
             self.show_inline_message(f"Săptămâna salvată.")
         except Exception as exc:
@@ -725,17 +819,24 @@ class PlannerDashboard(ctk.CTkFrame):
     # ── Gestionare imprimante ──────────────────────────────────
 
     def load_printers(self):
-        """
-        Incarca lista imprimantelor disponibile in retea/local.
-        Foloseste win32print daca e disponibil, altfel fallback simplu.
-        """
+        """Porneste descoperirea imprimantelor in background (non-blocant)."""
+        self.printer_var.set("Se incarca...")
+        threading.Thread(target=self._discover_printers, daemon=True).start()
+
+    def _discover_printers(self):
+        """Rulat in thread background — fara acces la UI."""
+        printers = []
+        default  = ""
         try:
             import win32print
             printers = [p[2] for p in win32print.EnumPrinters(
                 win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
             )]
+            try:
+                default = win32print.GetDefaultPrinter()
+            except Exception:
+                pass
         except ImportError:
-            # win32print indisponibil — incercam prin subprocess
             try:
                 import subprocess
                 result = subprocess.run(
@@ -745,24 +846,21 @@ class PlannerDashboard(ctk.CTkFrame):
                 )
                 printers = [p.strip() for p in result.stdout.splitlines() if p.strip()]
             except Exception:
-                printers = []
-        except Exception:
-            printers = []
-
-        if not printers:
-            printers = ["(nicio imprimanta gasita)"]
-
-        self.printer_menu.configure(values=printers)
-        # Selectam implicit imprimanta default daca e in lista
-        try:
-            import win32print
-            default = win32print.GetDefaultPrinter()
-            if default in printers:
-                self.printer_var.set(default)
-                return
+                pass
         except Exception:
             pass
-        self.printer_var.set(printers[0])
+        # Actualizare UI — garantat pe main thread
+        self.after(0, lambda: self._apply_printers(printers, default))
+
+    def _apply_printers(self, printers: list, default: str):
+        """Actualizare UI cu lista de imprimante (rulat pe main thread)."""
+        if not printers:
+            printers = ["(nicio imprimanta gasita)"]
+        self.printer_menu.configure(values=printers)
+        if default and default in printers:
+            self.printer_var.set(default)
+        else:
+            self.printer_var.set(printers[0])
 
     def print_excel(self):
         """
@@ -778,7 +876,7 @@ class PlannerDashboard(ctk.CTkFrame):
 
         # 2. Exporta fisierul xlsx
         try:
-            export_path = self._export_mode(return_path=True)
+            export_path = self._export_mode()
         except Exception as exc:
             log_exception("print_excel_export", exc)
             messagebox.showerror("Eroare export", str(exc))
@@ -825,20 +923,46 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def export_excel(self):
         self.save_week()
-        try:
-            self._export_mode(return_path=False)
-        except Exception as exc:
-            log_exception("export_excel", exc)
-            messagebox.showerror("Eroare export", str(exc))
+        self.show_inline_message("Se exporta planificarea, asteata...")
+        week_snap = deepcopy(self.week_record)
+        mode_snap = self.current_mode
+        threading.Thread(
+            target=self._export_thread,
+            args=(week_snap, mode_snap),
+            daemon=True,
+        ).start()
 
-    def _export_mode(self, return_path: bool = False):
+    def _export_thread(self, week_record, current_mode):
+        """Rulat in background — genereaza Excel fara a bloca UI-ul."""
+        try:
+            path = self._export_mode(week_record=week_record, current_mode=current_mode)
+            self.after(0, lambda p=path: self._on_export_success(p))
+        except Exception as exc:
+            log_exception("export_excel_thread", exc)
+            self.after(0, lambda e=str(exc): messagebox.showerror("Eroare export", e))
+
+    def _on_export_success(self, path):
+        """Callback pe main thread dupa export reusit."""
+        self.status_var.set(f"Export realizat: {path.name}")
+        messagebox.showinfo("Export finalizat", f"Fisierul a fost salvat in:\n{path}")
+
+    def _export_mode(self, week_record=None, current_mode=None):
+        """
+        Genereaza fisierul Excel A3 pentru modul curent.
+        Poate fi apelat din background thread (fara acces la UI).
+        Returneaza intotdeauna calea fisierului exportat.
+        """
+        if week_record is None:
+            week_record = self.week_record
+        if current_mode is None:
+            current_mode = self.current_mode
         EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-        week_start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
-        filename = f"{self.current_mode.lower()}_{week_start.isoformat()}_{self.week_record['week_label'].replace(' ', '_')}.xlsx"
+        week_start = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
+        filename = f"{current_mode.lower()}_{week_start.isoformat()}_{week_record['week_label'].replace(' ', '_')}.xlsx"
         export_path = EXPORT_DIR / filename
         workbook = Workbook()
         sheet = workbook.active
-        sheet.title = self.current_mode
+        sheet.title = current_mode
         sheet.sheet_view.showGridLines = False
         sheet.page_setup.orientation = "landscape"
         if hasattr(sheet, "PAPERSIZE_A3"):
@@ -853,7 +977,7 @@ class PlannerDashboard(ctk.CTkFrame):
         vertical = Alignment(horizontal="center", vertical="center", text_rotation=90, wrap_text=True)
 
         sheet.merge_cells("A1:I2")
-        sheet["A1"] = f"Planificare {self.current_mode.lower()} : {self.week_record['week_label']}"
+        sheet["A1"] = f"Planificare {current_mode.lower()} : {week_record['week_label']}"
         sheet["A1"].fill = PatternFill("solid", fgColor="4F81BD")
         sheet["A1"].font = Font(color="FFFFFF", bold=True, size=18)
         sheet["A1"].alignment = centered
@@ -875,8 +999,8 @@ class PlannerDashboard(ctk.CTkFrame):
             sheet.column_dimensions[get_column_letter(col)].width = width
 
         current_row = 4
-        start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
-        mode_record = self.current_mode_record()
+        start = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
+        mode_record = week_record["modes"][current_mode]
         for department in mode_record["departments"]:
             schedule = mode_record["schedule"][department]
             sheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row + 3, end_column=1)
@@ -923,12 +1047,6 @@ class PlannerDashboard(ctk.CTkFrame):
             current_row += 5
         sheet.freeze_panes = "C5"
         workbook.save(export_path)
-        if return_path:
-            # Mod silentios — returnam calea pentru printare directa
-            return export_path
-        # Mod normal — afisam mesaj si notificare
-        self.status_var.set(f"Export {self.current_mode} realizat: {filename}")
-        messagebox.showinfo("Export finalizat", f"Fisierul a fost salvat in:\n{export_path}")
         return export_path
 
     def process_remote_events(self):
@@ -956,3 +1074,17 @@ class PlannerDashboard(ctk.CTkFrame):
         self._closing = True
         self.remote_checker.stop()
         super().destroy()
+
+    def confirm_close(self) -> bool:
+        """Returneaza True daca e sigur sa se inchida (fara modificari sau user a confirmat)."""
+        if not self._dirty:
+            return True
+        answer = messagebox.askyesnocancel(
+            "Modificări nesalvate",
+            "Există modificări nesalvate.\nSalvezi înainte de a ieși din aplicație?",
+        )
+        if answer is None:   # Cancel
+            return False
+        if answer:           # Yes
+            self.save_week()
+        return True

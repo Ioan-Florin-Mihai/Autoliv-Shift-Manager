@@ -127,6 +127,10 @@ class ShiftManagerApp(ctk.CTk):
         self.current_frame = PlannerDashboard(self, self.remote_service)
 
     def close_app(self):
+        # Verifica modificari nesalvate in PlannerDashboard
+        if isinstance(self.current_frame, PlannerDashboard):
+            if not self.current_frame.confirm_close():
+                return   # utilizatorul a ales Cancel
         if self.current_frame is not None:
             try:
                 self.current_frame.destroy()

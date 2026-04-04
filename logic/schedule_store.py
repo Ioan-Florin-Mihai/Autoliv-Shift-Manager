@@ -1,5 +1,7 @@
 import json
+import os
 import shutil
+import tempfile
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
@@ -136,9 +138,22 @@ class ScheduleStore:
         return {"weeks": weeks}
 
     def save(self):
+        """Salveaza datele folosind scriere atomica (temp + os.replace)."""
         SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with SCHEDULE_PATH.open("w", encoding="utf-8") as file:
-            json.dump(self.data, file, ensure_ascii=False, indent=2)
+        try:
+            tmp_fd, tmp_path = tempfile.mkstemp(
+                dir=SCHEDULE_PATH.parent, suffix=".tmp"
+            )
+            try:
+                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
+                    json.dump(self.data, tmp, ensure_ascii=False, indent=2)
+            except Exception:
+                os.unlink(tmp_path)
+                raise
+            os.replace(tmp_path, SCHEDULE_PATH)
+        except OSError as exc:
+            log_exception("schedule_store_save", exc)
+            raise
 
     def backup(self):
         BACKUP_DIR.mkdir(parents=True, exist_ok=True)
@@ -146,6 +161,16 @@ class ScheduleStore:
             return
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         shutil.copy2(SCHEDULE_PATH, BACKUP_DIR / f"schedule_backup_{timestamp}.json")
+        self._rotate_backups()
+
+    def _rotate_backups(self, max_backups: int = 20):
+        """Pastreaza doar ultimele max_backups fisiere. Sterge restul."""
+        backups = sorted(BACKUP_DIR.glob("schedule_backup_*.json"))
+        for old in backups[:-max_backups]:
+            try:
+                old.unlink()
+            except OSError:
+                pass
 
     def get_week_history(self):
         weeks = self.data.get("weeks", {})

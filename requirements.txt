@@ -1,6 +1,6 @@
-customtkinter
-openpyxl
-bcrypt
-firebase-admin
-Pillow
-tkcalendar
+customtkinter==5.2.2
+openpyxl==3.1.5
+bcrypt==5.0.0
+firebase-admin==7.3.0
+Pillow==12.2.0
+tkcalendar==1.6.1

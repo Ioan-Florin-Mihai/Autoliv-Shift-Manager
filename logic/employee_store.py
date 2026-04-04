@@ -10,6 +10,8 @@
 # ============================================================
 
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from logic.app_logger import log_exception
@@ -175,10 +177,22 @@ class EmployeeStore:
     # ── Operatii CRUD ─────────────────────────────────────────────
 
     def save(self):
-        """Salveaza lista curenta in employees.json."""
+        """Salveaza lista curenta in employees.json (scriere atomica)."""
         EMPLOYEES_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with EMPLOYEES_PATH.open("w", encoding="utf-8") as file:
-            json.dump(self.data, file, ensure_ascii=False, indent=2)
+        try:
+            tmp_fd, tmp_path = tempfile.mkstemp(
+                dir=EMPLOYEES_PATH.parent, suffix=".tmp"
+            )
+            try:
+                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
+                    json.dump(self.data, tmp, ensure_ascii=False, indent=2)
+            except Exception:
+                os.unlink(tmp_path)
+                raise
+            os.replace(tmp_path, EMPLOYEES_PATH)
+        except OSError as exc:
+            log_exception("employee_store_save", exc)
+            raise
 
     def get_all(self):
         """Returneaza toti angajatii din lista."""

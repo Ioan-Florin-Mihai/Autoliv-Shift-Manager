@@ -5,7 +5,11 @@ from datetime import datetime
 import customtkinter as ctk
 
 from logic.personnel_manager import PersonnelManager
+from logic.schedule_store import TEMPLATES
 from ui.common_ui import PRIMARY_BLUE, CARD_WHITE, BG_WHITE, LINE_BLUE, ENTRY_BG, BODY_TEXT, MUTED_TEXT, PANEL_BG, ACCENT_BLUE, HOVER_BLUE
+
+# Departamente disponibile — derivate din TEMPLATES pentru consistenta cu gridulu
+_DEPT_LIST = sorted({dept for depts in TEMPLATES.values() for dept in depts}) or ["Buclă", "Finite", "Asamblare"]
 
 class EmployeeRegistrationWindow(ctk.CTkToplevel):
     def __init__(self, master, on_employee_added=None):
@@ -59,8 +63,8 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
         # 2. Dropdown pentru departament
         ctk.CTkLabel(form_frame, text="Departament:", text_color=MUTED_TEXT, font=ctk.CTkFont(size=14, weight="bold")).grid(row=4, column=0, sticky="w", padx=20, pady=8)
         self.departament_var = ctk.StringVar(value="Eroare")
-        self.departament_cb = ctk.CTkComboBox(form_frame, variable=self.departament_var, values=["Buclă", "Finite", "Asamblare"], width=300, fg_color=ENTRY_BG, border_color=LINE_BLUE, text_color=BODY_TEXT, state="readonly")
-        self.departament_cb.set("Buclă") 
+        self.departament_cb = ctk.CTkComboBox(form_frame, variable=self.departament_var, values=_DEPT_LIST, width=300, fg_color=ENTRY_BG, border_color=LINE_BLUE, text_color=BODY_TEXT, state="readonly")
+        self.departament_cb.set(_DEPT_LIST[0]) 
         self.departament_cb.grid(row=4, column=1, sticky="w", padx=10, pady=8)
 
         # 3. Auto setare ore după contract
@@ -203,7 +207,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
         self.prenume_var.set("")
         
         # resetează dropdown-urile
-        self.departament_var.set("Buclă")
+        self.departament_var.set(_DEPT_LIST[0])
         self.contract_cb.set("8")
         
         # setează automat ora înapoi

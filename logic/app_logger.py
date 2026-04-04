@@ -24,10 +24,15 @@ LOG_PATH = DATA_DIR / "app.log"
 
 def log_event(message: str):
     """Adauga un mesaj cu timestamp in fisierul de log."""
-    ensure_directory(DATA_DIR)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with LOG_PATH.open("a", encoding="utf-8") as file:
-        file.write(f"[{timestamp}] {message}\n")
+    try:
+        ensure_directory(DATA_DIR)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with LOG_PATH.open("a", encoding="utf-8") as file:
+            file.write(f"[{timestamp}] {message}\n")
+    except OSError:
+        # Fallback: scriem in stderr cand fisierul de log nu e accesibil
+        import sys
+        print(f"[LOG FALLBACK] {message}", file=sys.stderr)
 
 
 def log_exception(context: str, exc: Exception):

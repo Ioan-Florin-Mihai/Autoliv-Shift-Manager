@@ -44,11 +44,20 @@ class PersonnelManager:
             return []
 
     def save_cache(self):
-        """Scrie lista curenta de inregistrari in cache.json."""
+        """Scrie lista curenta de inregistrari in cache.json (scriere atomica)."""
+        import os, tempfile
         CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         try:
-            with CACHE_PATH.open("w", encoding="utf-8") as file:
-                json.dump(self.records, file, ensure_ascii=False, indent=2)
+            tmp_fd, tmp_path = tempfile.mkstemp(
+                dir=CACHE_PATH.parent, suffix=".tmp"
+            )
+            try:
+                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
+                    json.dump(self.records, tmp, ensure_ascii=False, indent=2)
+            except Exception:
+                os.unlink(tmp_path)
+                raise
+            os.replace(tmp_path, CACHE_PATH)
         except OSError as exc:
             log_exception("personnel_save_cache", exc)
 
