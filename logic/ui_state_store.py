@@ -70,11 +70,19 @@ class UIStateStore:
         return saved_date
 
     def save_last_selected_date(self, selected_date: date):
-        """Salveaza data selectata curenta in fisierul de stare."""
+        """Salveaza data selectata curenta in fisierul de stare — scriere atomica."""
+        import os, tempfile
         payload = {"last_selected_date": selected_date.isoformat()}
         try:
             UI_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with UI_STATE_PATH.open("w", encoding="utf-8") as file:
-                json.dump(payload, file, ensure_ascii=False, indent=2)
+            tmp_fd, tmp_path = tempfile.mkstemp(dir=UI_STATE_PATH.parent, suffix=".tmp")
+            try:
+                import json as _json
+                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
+                    _json.dump(payload, tmp, ensure_ascii=False, indent=2)
+            except Exception:
+                os.unlink(tmp_path)
+                raise
+            os.replace(tmp_path, UI_STATE_PATH)
         except OSError as exc:
             log_exception("ui_state_save", exc)

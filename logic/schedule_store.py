@@ -5,7 +5,7 @@ import tempfile
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
-from logic.app_logger import log_exception
+from logic.app_logger import log_exception, log_warning, log_info
 from logic.app_paths import APP_DIR, ensure_runtime_file
 
 
@@ -122,20 +122,45 @@ class ScheduleStore:
         if not SCHEDULE_PATH.exists():
             return {"weeks": {}}
 
+        # Prima incercare: fisierul principal
         try:
             with SCHEDULE_PATH.open("r", encoding="utf-8") as file:
                 data = json.load(file)
+            if isinstance(data, dict) and isinstance(data.get("weeks", {}), dict):
+                return {"weeks": data.get("weeks", {})}
+            log_warning("schedule_store: structura invalida in fisierul principal, se incearca recovery")
         except (OSError, json.JSONDecodeError) as exc:
-            log_exception("schedule_store_load", exc)
+            log_exception("schedule_store_load_main", exc)
+            log_warning("schedule_store: fisierul principal corupt, se incearca recovery din backup")
+
+        # Recovery automat: cel mai recent backup valid
+        return self._load_from_backup()
+
+    def _load_from_backup(self) -> dict:
+        """
+        Incearca sa incarce datele din cel mai recent backup valid.
+        Returneaza {"weeks": {}} daca nu exista niciun backup valid.
+        """
+        if not BACKUP_DIR.exists():
             return {"weeks": {}}
 
-        if not isinstance(data, dict):
-            return {"weeks": {}}
+        backups = sorted(BACKUP_DIR.glob("schedule_backup_*.json"), reverse=True)
+        for backup_path in backups:
+            try:
+                with backup_path.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and isinstance(data.get("weeks", {}), dict):
+                    log_warning(
+                        "schedule_store: recovery reusit din backup '%s'",
+                        backup_path.name,
+                    )
+                    return {"weeks": data.get("weeks", {})}
+            except (OSError, json.JSONDecodeError) as exc:
+                log_exception(f"schedule_store_load_backup_{backup_path.name}", exc)
+                continue
 
-        weeks = data.get("weeks", {})
-        if not isinstance(weeks, dict):
-            weeks = {}
-        return {"weeks": weeks}
+        log_warning("schedule_store: niciun backup valid gasit, se porneste gol")
+        return {"weeks": {}}
 
     def save(self):
         """Salveaza datele folosind scriere atomica (temp + os.replace)."""
@@ -169,8 +194,9 @@ class ScheduleStore:
         for old in backups[:-max_backups]:
             try:
                 old.unlink()
-            except OSError:
-                pass
+            except OSError as exc:
+                from logic.app_logger import log_warning
+                log_warning("schedule_store: nu s-a putut sterge backup vechi %s: %s", old.name, exc)
 
     def get_week_history(self):
         weeks = self.data.get("weeks", {})

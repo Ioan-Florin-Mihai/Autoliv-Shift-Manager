@@ -13,6 +13,7 @@ from openpyxl.utils import get_column_letter
 
 from logic.app_logger import log_exception
 from logic.app_paths import EXPORT_DIR
+from logic.excel_exporter import ExcelExporter
 from logic.employee_store import EmployeeStore
 from logic.remote_control import RemoteChecker, RemoteControlService
 from logic.schedule_store import DAYS, DAY_NAMES, SHIFTS, TEMPLATES, WEEKEND_DAYS, DEPARTMENT_COLORS, ScheduleStore, format_day_label
@@ -42,9 +43,10 @@ EMPLOYEE_COLOR_PALETTE = [
 
 
 class PlannerDashboard(ctk.CTkFrame):
-    def __init__(self, master, remote_service: RemoteControlService):
+    def __init__(self, master, remote_service: RemoteControlService, username: str = ""):
         super().__init__(master, corner_radius=0)
         self.remote_service = remote_service
+        self._username = username          # utilizatorul autentificat curent
         self.store = ScheduleStore()
         self.ui_state_store = UIStateStore()
         self.employee_store = EmployeeStore()
@@ -172,9 +174,16 @@ class PlannerDashboard(ctk.CTkFrame):
         self.department_frame.grid(row=17, column=0, padx=16, pady=(0, 8), sticky="nsew")
         frame.grid_rowconfigure(17, weight=1)
         self.theme_switch = ctk.CTkSwitch(frame, text="Dark Mode", command=self.toggle_theme, onvalue="Dark", offvalue="Light")
-        self.theme_switch.grid(row=18, column=0, sticky="w", padx=16, pady=(0, 16))
+        self.theme_switch.grid(row=18, column=0, sticky="w", padx=16, pady=(0, 4))
         if ctk.get_appearance_mode() == "Dark":
             self.theme_switch.select()
+        ctk.CTkButton(
+            frame, text="🔑  Schimba parola",
+            command=self._open_change_password,
+            fg_color=PANEL_BG, hover_color=LINE_BLUE,
+            text_color=PRIMARY_BLUE, height=30,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        ).grid(row=19, column=0, sticky="ew", padx=16, pady=(0, 12))
 
     def _build_center(self):
         frame = ctk.CTkFrame(self, fg_color=CARD_WHITE, corner_radius=18, border_width=1, border_color=LINE_BLUE)
@@ -593,7 +602,10 @@ class PlannerDashboard(ctk.CTkFrame):
         self.refresh_all()
 
     def _on_search_change(self, _event=None):
-        self.refresh_suggestions()
+        """Debounce 200 ms: evita refresh la fiecare tasta."""
+        if hasattr(self, "_search_debounce_id"):
+            self.after_cancel(self._search_debounce_id)
+        self._search_debounce_id = self.after(200, self.refresh_suggestions)
 
     def add_new_employee(self):
         from ui.employee_form import EmployeeRegistrationWindow
@@ -632,6 +644,14 @@ class PlannerDashboard(ctk.CTkFrame):
     def toggle_theme(self):
         mode = self.theme_switch.get()
         ctk.set_appearance_mode(mode)
+
+    def _open_change_password(self):
+        """Deschide dialogul de schimbare parola daca exista un user autentificat."""
+        from ui.dashboard import ChangePasswordDialog
+        if self._username:
+            ChangePasswordDialog(self.winfo_toplevel(), self._username)
+        else:
+            messagebox.showwarning("Indisponibil", "Nu exista un utilizator autentificat.")
 
     def delete_employee_global(self):
         value = self.employee_search_var.get().strip()
@@ -728,8 +748,7 @@ class PlannerDashboard(ctk.CTkFrame):
         employees = self.current_cell()["employees"]
         index = next((idx for idx, value in enumerate(employees) if value.casefold() == employee.casefold()), None)
         if index is None:
-            r_dirty = True
-        self.eturn
+            return
         target = index + direction
         if target < 0 or target >= len(employees):
             return
@@ -950,104 +969,13 @@ class PlannerDashboard(ctk.CTkFrame):
         """
         Genereaza fisierul Excel A3 pentru modul curent.
         Poate fi apelat din background thread (fara acces la UI).
-        Returneaza intotdeauna calea fisierului exportat.
+        Delegheaza catre ExcelExporter pentru separarea logicii de UI.
         """
-        if week_record is None:
-            week_record = self.week_record
-        if current_mode is None:
-            current_mode = self.current_mode
-        EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-        week_start = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
-        filename = f"{current_mode.lower()}_{week_start.isoformat()}_{week_record['week_label'].replace(' ', '_')}.xlsx"
-        export_path = EXPORT_DIR / filename
-        workbook = Workbook()
-        sheet = workbook.active
-        sheet.title = current_mode
-        sheet.sheet_view.showGridLines = False
-        sheet.page_setup.orientation = "landscape"
-        if hasattr(sheet, "PAPERSIZE_A3"):
-            sheet.page_setup.paperSize = sheet.PAPERSIZE_A3
-        sheet.page_setup.fitToWidth = 1
-        sheet.page_setup.fitToHeight = 1
-        sheet.sheet_properties.pageSetUpPr.fitToPage = True
-        thin = Side(style="thin", color="666666")
-        border = Border(left=thin, right=thin, top=thin, bottom=thin)
-        centered = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        left_aligned = Alignment(horizontal="left", vertical="top", wrap_text=True)
-        vertical = Alignment(horizontal="center", vertical="center", text_rotation=90, wrap_text=True)
-
-        sheet.merge_cells("A1:I2")
-        sheet["A1"] = f"Planificare {current_mode.lower()} : {week_record['week_label']}"
-        sheet["A1"].fill = PatternFill("solid", fgColor="4F81BD")
-        sheet["A1"].font = Font(color="FFFFFF", bold=True, size=18)
-        sheet["A1"].alignment = centered
-        sheet.merge_cells("J1:J2")
-        sheet["J1"] = "Autoliv"
-        sheet["J1"].fill = PatternFill("solid", fgColor="4F81BD")
-        sheet["J1"].font = Font(color="FFFFFF", bold=True, size=12)
-        sheet["J1"].alignment = centered
-        if LOGO_PATH.exists():
-            try:
-                image = XLImage(str(LOGO_PATH))
-                image.width = 120
-                image.height = 38
-                sheet.add_image(image, "A1")
-            except Exception:
-                pass
-        widths = {1: 20, 2: 10, 3: 17, 4: 17, 5: 17, 6: 17, 7: 17, 8: 17, 9: 17, 10: 11}
-        for col, width in widths.items():
-            sheet.column_dimensions[get_column_letter(col)].width = width
-
-        current_row = 4
-        start = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
-        mode_record = week_record["modes"][current_mode]
-        for department in mode_record["departments"]:
-            schedule = mode_record["schedule"][department]
-            sheet.merge_cells(start_row=current_row, start_column=1, end_row=current_row + 3, end_column=1)
-            dep = sheet.cell(current_row, 1)
-            dep.value = department
-            dep.fill = PatternFill("solid", fgColor=DEPARTMENT_COLORS.get(department, "D9A35F"))
-            dep.font = Font(bold=True)
-            dep.alignment = vertical
-            dep.border = border
-            h = sheet.cell(current_row, 2)
-            h.value = "Schimbul"
-            h.font = Font(bold=True)
-            h.fill = PatternFill("solid", fgColor="F2F2F2")
-            h.alignment = centered
-            h.border = border
-            for offset, (day_name, _) in enumerate(DAYS, start=3):
-                cell = sheet.cell(current_row, offset)
-                current_day = start + timedelta(days=offset - 3)
-                cell.value = f"{day_name}\n{current_day.strftime('%d-%b-%y')}"
-                cell.font = Font(bold=True)
-                cell.fill = PatternFill("solid", fgColor="F2F2F2" if day_name not in WEEKEND_DAYS else "FCE4D6")
-                cell.alignment = centered
-                cell.border = border
-            for shift_index, shift in enumerate(SHIFTS, start=1):
-                row = current_row + shift_index
-                sheet.row_dimensions[row].height = 40
-                shift_cell = sheet.cell(row, 2)
-                shift_cell.value = shift
-                shift_cell.font = Font(bold=True)
-                shift_cell.alignment = centered
-                shift_cell.fill = PatternFill("solid", fgColor="FAFAFA")
-                shift_cell.border = border
-                for offset, (day_name, _) in enumerate(DAYS, start=3):
-                    value_cell = sheet.cell(row, offset)
-                    cell_employees = schedule[day_name][shift]["employees"]
-                    value_cell.value = "\n".join(cell_employees)
-                    value_cell.alignment = left_aligned
-                    value_cell.border = border
-                    if cell_employees:
-                        value_cell.font = Font(bold=True, size=11)
-                    if day_name in WEEKEND_DAYS:
-                        value_cell.fill = PatternFill("solid", fgColor="FFF7ED")
-            sheet.row_dimensions[current_row].height = 46
-            current_row += 5
-        sheet.freeze_panes = "C5"
-        workbook.save(export_path)
-        return export_path
+        return ExcelExporter.export(
+            week_record   = week_record  or self.week_record,
+            current_mode  = current_mode or self.current_mode,
+            logo_path     = LOGO_PATH,
+        )
 
     def process_remote_events(self):
         if self._closing or not self.winfo_exists():

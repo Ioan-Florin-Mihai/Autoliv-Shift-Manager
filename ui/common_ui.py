@@ -120,13 +120,15 @@ def apply_window_icon(window):
         if APP_ICON_PATH.exists():
             window.iconbitmap(default=str(APP_ICON_PATH))
             return
-    except Exception:
-        pass
+    except Exception as exc:
+        from logic.app_logger import log_warning
+        log_warning("apply_window_icon: iconbitmap failed: %s", exc)
 
     try:
         if APP_ICON_PNG_PATH.exists():
             icon_image = tk.PhotoImage(file=str(APP_ICON_PNG_PATH))
             window._autoliv_icon_image = icon_image
             window.iconphoto(True, icon_image)
-    except Exception:
-        pass
+    except Exception as exc:
+        from logic.app_logger import log_warning
+        log_warning("apply_window_icon: iconphoto failed: %s", exc)

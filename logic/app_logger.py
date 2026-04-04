@@ -1,41 +1,95 @@
 # ============================================================
-# MODUL: app_logger.py - LOGGING CENTRALIZAT
+# MODUL: app_logger.py - LOGGING CENTRALIZAT PROFESIONAL
 # ============================================================
 #
 # Responsabil cu:
-#   - Logarea tuturor evenimentelor importante ale aplicației
-#   - Captarea și registrarea excepțiilor pentru debugging
-#   - Salvare în data/app.log cu timestamp pentru audit
+#   - Logging cu nivele (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+#   - RotatingFileHandler: maxim 5 MB per fisier, 3 backup-uri
+#   - Fallback automat la stderr daca fisierul nu e accesibil
+#   - Stack trace complet la log_exception (prin logger.exception)
 #
-# Fișierul log:
-#   - Se crează automat în data/app.log
-#   - Format: [YYYY-MM-DD HH:MM:SS] context: ErrorType: error message
-#   - Folosit pentru debugging și troubleshooting runtime
+# Fisierul log:
+#   - data/app.log (rotit automat)
+#   - Format: 2026-01-01 12:00:00 [LEVEL  ] mesaj
 # ============================================================
 
-from datetime import datetime
+import logging
+import sys
+from logging.handlers import RotatingFileHandler
 
 from logic.app_paths import DATA_DIR, ensure_directory
 
+# ── Configurare logger ─────────────────────────────────────────
+_LOG_PATH = DATA_DIR / "app.log"
+_LOGGER_NAME = "autoliv_shift_manager"
+_logger: logging.Logger | None = None
 
-# Calea fisierului de log — se afla in /data/app.log
-LOG_PATH = DATA_DIR / "app.log"
 
+def _get_logger() -> logging.Logger:
+    """Returneaza (si initializeaza lazy) logger-ul aplicatiei."""
+    global _logger
+    if _logger is not None:
+        return _logger
 
-def log_event(message: str):
-    """Adauga un mesaj cu timestamp in fisierul de log."""
+    logger = logging.getLogger(_LOGGER_NAME)
+    if logger.handlers:
+        # Logger deja configurat (ex: import multiplu)
+        _logger = logger
+        return _logger
+
+    logger.setLevel(logging.DEBUG)
+
+    # ── Handler fisier rotativ ─────────────────────────────────
     try:
         ensure_directory(DATA_DIR)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with LOG_PATH.open("a", encoding="utf-8") as file:
-            file.write(f"[{timestamp}] {message}\n")
+        fh = RotatingFileHandler(
+            _LOG_PATH,
+            maxBytes=5 * 1024 * 1024,   # 5 MB
+            backupCount=3,
+            encoding="utf-8",
+        )
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)-8s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+        logger.addHandler(fh)
     except OSError:
-        # Fallback: scriem in stderr cand fisierul de log nu e accesibil
-        import sys
-        print(f"[LOG FALLBACK] {message}", file=sys.stderr)
+        pass  # Fallback-ul stderr de mai jos acopera cazul
+
+    # ── Handler stderr (WARNING+) — fallback si consola dev ───
+    sh = logging.StreamHandler(sys.stderr)
+    sh.setLevel(logging.WARNING)
+    sh.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+    logger.addHandler(sh)
+
+    _logger = logger
+    return _logger
 
 
-def log_exception(context: str, exc: Exception):
-    """Logheaza o exceptie cu contextul in care a aparut."""
-    # Formatul: [timestamp] context: TipExceptie: mesaj
-    log_event(f"{context}: {type(exc).__name__}: {exc}")
+# ── API public ─────────────────────────────────────────────────
+
+def log_event(message: str, level: str = "INFO", *args) -> None:
+    """Logheza un mesaj la nivelul specificat (compatibilitate backward)."""
+    lvl = getattr(logging, level.upper(), logging.INFO)
+    _get_logger().log(lvl, message, *args)
+
+
+def log_info(message: str, *args) -> None:
+    """Inregistreaza un eveniment informational."""
+    _get_logger().info(message, *args)
+
+
+def log_warning(message: str, *args) -> None:
+    """Inregistreaza un avertisment."""
+    _get_logger().warning(message, *args)
+
+
+def log_error(message: str, *args) -> None:
+    """Inregistreaza o eroare non-fatala."""
+    _get_logger().error(message, *args)
+
+
+def log_exception(context: str, exc: Exception) -> None:
+    """Inregistreaza o exceptie cu stack trace complet."""
+    _get_logger().exception("%s: %s: %s", context, type(exc).__name__, exc)

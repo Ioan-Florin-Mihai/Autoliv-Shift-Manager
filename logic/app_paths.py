@@ -63,12 +63,15 @@ def ensure_directory(path: Path):
     path.mkdir(parents=True, exist_ok=True)
 
 
-def ensure_runtime_file(relative_path: str):
+def ensure_runtime_file(relative_path: str) -> Path:
     """
     Asigura ca un fisier de date exista in APP_DIR.
     Daca lipseste si exista o versiune default in BUNDLE_DIR,
     o copiaza automat (util la primul rulaj al .exe-ului).
     Returneaza calea finala a fisierului.
+
+    NU folosi aceasta functie pentru fisiere sensibile (credentiale,
+    chei private) — pentru acelea foloseste get_sensitive_path().
     """
     target_path = APP_DIR / relative_path
     source_path = BUNDLE_DIR / relative_path
@@ -79,4 +82,21 @@ def ensure_runtime_file(relative_path: str):
     if not target_path.exists() and source_path.exists():
         shutil.copy2(source_path, target_path)
 
+    return target_path
+
+
+def get_sensitive_path(relative_path: str) -> Path:
+    """
+    Returneaza calea unui fisier sensibil din APP_DIR.
+
+    DIFERENTA CRITICA fata de ensure_runtime_file():
+    - Nu copiaza NICIODATA din bundle in APP_DIR
+    - Fisierul trebuie sa existe deja (pus de administrator)
+    - Daca lipseste, apelantul primeste un Path care nu exista
+      si ar trebui sa raporteze eroarea explicit
+
+    Folosit pentru: data/users.json, data/firebase_service_account.json
+    """
+    target_path = APP_DIR / relative_path
+    ensure_directory(target_path.parent)
     return target_path

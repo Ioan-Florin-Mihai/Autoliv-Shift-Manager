@@ -21,14 +21,15 @@ hiddenimports += [
 ]
 
 datas = [
-    ("assets/autoliv_logo.png", "assets"),
-    ("assets/autoliv_app.ico", "assets"),
-    ("assets/autoliv_app_icon.png", "assets"),
-    ("data/users.json", "data"),
-    ("data/remote_config.json", "data"),
-    ("data/firebase_service_account.json", "data"),
-    ("data/schedule_data.json", "data"),
-    ("data/employees.json", "data"),
+    ("assets/autoliv_logo.png",       "assets"),
+    ("assets/autoliv_app.ico",         "assets"),
+    ("assets/autoliv_app_icon.png",    "assets"),
+    # NOTA SECURITATE: users.json si firebase_service_account.json sunt
+    # fisiere SENSIBILE — NU se includ niciodata in bundle (.exe).
+    # Se depun manual langa executabil de catre administrator.
+    ("data/remote_config.json",        "data"),
+    ("data/schedule_data.json",        "data"),
+    ("data/employees.json",            "data"),
 ]
 
 binaries = []
