@@ -134,6 +134,7 @@ class ExcelExporter:
         sheet.page_setup.paperSize   = sheet.PAPERSIZE_A3
         sheet.page_setup.fitToWidth  = 1
         sheet.page_setup.fitToHeight = 0      # 0 = fara constrangere pe inaltime (nu comprima)
+        sheet.page_setup.scale       = None   # elimina conflictul cu fitToWidth
         sheet.sheet_properties.pageSetUpPr.fitToPage = True
 
         # Margini minime A3 (in inch: ~0.5 cm)
@@ -142,9 +143,8 @@ class ExcelExporter:
             header=0.2, footer=0.2,
         )
 
-        # Centrat orizontal pe pagina
-        sheet.print_options.horizontalCentered = True
-        sheet.print_options.verticalCentered   = False
+        # Nu centram pe orizontala — cauzeaza efect de micro-scalare
+        sheet.print_options.verticalCentered = False
 
         # ── Stiluri comune ───────────────────────────────────────────
         thin   = Side(style="thin",   color="AAAAAA")
@@ -162,7 +162,8 @@ class ExcelExporter:
         #   Col 2: Schimb
         #   Col 3-9: Luni–Duminica
         #   Col 10: Logo / spatiu
-        col_widths = {1: 5, 2: 9, 3: 22, 4: 22, 5: 22, 6: 22, 7: 22, 8: 22, 9: 22, 10: 14}
+        # Col 3-9 = 7 zile @ 25 unitati — umple latime completa A3 landscape
+        col_widths = {1: 5, 2: 10, 3: 25, 4: 25, 5: 25, 6: 25, 7: 25, 8: 25, 9: 25, 10: 15}
         for col, width in col_widths.items():
             sheet.column_dimensions[get_column_letter(col)].width = width
 
@@ -187,10 +188,12 @@ class ExcelExporter:
         if logo_path and logo_path.exists():
             try:
                 img        = XLImage(str(logo_path))
-                img.width  = 120
-                img.height = 42
+                img.width  = 150
+                img.height = 55
                 logo_cell.value = ""
-                sheet.add_image(img, "J1")
+                # Ancora dinamica la ultima coloana (intotdeauna J = col 10)
+                last_col_ref = get_column_letter(sheet.max_column or 10) + "1"
+                sheet.add_image(img, last_col_ref)
             except Exception as exc:
                 log_exception("excel_export_logo", exc)
                 logo_cell.value = "Autoliv"
