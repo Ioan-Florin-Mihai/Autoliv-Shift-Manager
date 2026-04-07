@@ -11,6 +11,9 @@ try:
 except Exception:
     hiddenimports = []
 
+hiddenimports += collect_submodules("logic")
+hiddenimports += collect_submodules("ui")
+
 hiddenimports += [
     "tkinter",
     "tkinter.ttk",
@@ -18,6 +21,22 @@ hiddenimports += [
     "tkinter.filedialog",
     "tkinter.font",
     "tkinter.constants",
+    "logic.remote_control",
+    "logic.app_logger",
+    "logic.app_paths",
+    "logic.auth",
+    "logic.employee_store",
+    "logic.excel_exporter",
+    "logic.personnel_manager",
+    "logic.runtime_bootstrap",
+    "logic.schedule_store",
+    "logic.ui_state_store",
+    "logic.validation",
+    "logic.version",
+    "ui.common_ui",
+    "ui.dashboard",
+    "ui.employee_form",
+    "ui.planner_dashboard",
 ]
 
 datas = [
