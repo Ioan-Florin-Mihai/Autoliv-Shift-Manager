@@ -142,7 +142,7 @@ class ExcelExporter:
         border_dept   = Border(left=medium, right=medium, top=medium, bottom=medium)
 
         centered     = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        center_top   = Alignment(horizontal="center", vertical="top",    wrap_text=True)
+        center_top   = Alignment(horizontal="center", vertical="center", wrap_text=True)
         vertical_aln = Alignment(horizontal="center", vertical="center", text_rotation=90, wrap_text=True)
 
         # ── Latimi coloane (A3 landscape — ajustate pentru lizibilitate) ──
@@ -155,15 +155,15 @@ class ExcelExporter:
             sheet.column_dimensions[get_column_letter(col)].width = width
 
         # ── Inaltimi randuri fixe ────────────────────────────────────
-        sheet.row_dimensions[1].height = 22
-        sheet.row_dimensions[2].height = 22
+        sheet.row_dimensions[1].height = 26
+        sheet.row_dimensions[2].height = 26
 
         # ── Header principal (rand 1-2) ──────────────────────────────
         sheet.merge_cells("A1:I2")
         hdr = sheet["A1"]
         hdr.value     = f"Planificare {current_mode.lower()} — {week_record['week_label']}"
         hdr.fill      = PatternFill("solid", fgColor="0067C8")
-        hdr.font      = Font(name=FONT_NAME, color="FFFFFF", bold=True, size=16)
+        hdr.font      = Font(name=FONT_NAME, color="FFFFFF", bold=True, size=18)
         hdr.alignment = centered
 
         sheet.merge_cells("J1:J2")
@@ -203,7 +203,7 @@ class ExcelExporter:
                     (len(schedule[day_name][shift]["employees"]) for day_name, _ in DAYS),
                     default=0,
                 )
-                row_heights.append(max(38, max_emp * 17 + 8))
+                row_heights.append(max(44, max_emp * 20 + 12))
 
             total_rows = 1 + len(SHIFTS)  # 1 header + N schimburi
 
@@ -276,6 +276,9 @@ class ExcelExporter:
 
         # Ingheata pane-urile dupa header si coloana schimb
         sheet.freeze_panes = "C4"
+
+        # Repeta randurile de header (1-3) pe fiecare pagina printata
+        sheet.print_title_rows = "1:3"
 
         workbook.save(export_path)
         return export_path
