@@ -48,13 +48,18 @@ FONT_NAME = "Calibri"
 
 
 def _hex_to_openpyxl(hex_color: str | None) -> str:
-    """Converteste "  #C0392B  " → "C0392B". Returneaza DEFAULT_TEXT_COLOR la eroare."""
+    """
+    Converteste "  #C0392B  " → "FFC0392B" (ARGB, alpha=FF = opac 100%).
+    openpyxl interpreteaza 6 caractere ca RGB cu alpha=00 (transparent),
+    deci trebuie adaugat prefixul "FF" pentru culori complet opace.
+    Returneaza DEFAULT_TEXT_COLOR la eroare.
+    """
     if not hex_color:
-        return DEFAULT_TEXT_COLOR
+        return "FF" + DEFAULT_TEXT_COLOR
     cleaned = hex_color.strip().lstrip("#").upper()
     if len(cleaned) == 6 and all(c in "0123456789ABCDEF" for c in cleaned):
-        return cleaned
-    return DEFAULT_TEXT_COLOR
+        return "FF" + cleaned
+    return "FF" + DEFAULT_TEXT_COLOR
 
 
 def _build_rich_cell(employees: list[str], colors: dict) -> CellRichText | str:
@@ -84,7 +89,7 @@ def _build_rich_cell(employees: list[str], colors: dict) -> CellRichText | str:
             sz=11,
             color=hex_color,
         )
-        rt.append(TextBlock(font, emp))
+        rt.append(TextBlock(font, f"● {emp}"))
         if i < len(employees) - 1:
             rt.append("\n")
 
@@ -264,13 +269,8 @@ class ExcelExporter:
                     value_cell.value     = _build_rich_cell(employees, colors)
                     value_cell.alignment = center_top
                     value_cell.border    = border_thin
-
-                    # Fond weekend mai calduros
-                    if day_name in WEEKEND_DAYS:
-                        value_cell.fill = PatternFill("solid", fgColor="FFF3E8")
-                    elif not employees:
-                        # Celula goala — fond usor colorat pentru lizibilitate
-                        value_cell.fill = PatternFill("solid", fgColor="FAFCFF")
+                    # Fond alb pur — culoarea este DOAR pe text (WYSIWYG)
+                    value_cell.fill = PatternFill("solid", fgColor="FFFFFF")
 
             current_row += total_rows
 
