@@ -56,6 +56,16 @@ BUNDLE_DIR = get_bundle_dir()  # Fisiere embedded (assets, data default)
 DATA_DIR   = APP_DIR / "data"  # Folder date utilizzator (schedule, users etc.)
 EXPORT_DIR = APP_DIR / "Exports"  # Folder export Excel
 ASSETS_DIR = APP_DIR / "assets"   # Imagini, iconuri
+BACKUPS_DIR = APP_DIR / "backups" # Folder backup-uri planificari
+
+# ── Debug startup log ─────────────────────────────────────────
+print(f"[app_paths] BASE PATH: {APP_DIR}")
+print(f"[app_paths] BUNDLE DIR: {BUNDLE_DIR}")
+print(f"[app_paths] DATA DIR:   {DATA_DIR}")
+
+# ── Auto-create directoare critice la pornire ─────────────────
+for _critical_dir in (DATA_DIR, ASSETS_DIR, EXPORT_DIR, BACKUPS_DIR):
+    _critical_dir.mkdir(parents=True, exist_ok=True)
 
 
 def ensure_directory(path: Path):

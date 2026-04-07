@@ -26,6 +26,24 @@ def configure_tk_runtime():
     librariile Tcl/Tk (ex: medii virtuale, instalari non-standard).
     In modul .exe (frozen), se sare peste aceasta configurare.
     """
+    # ── Startup diagnostic ────────────────────────────────────
+    if getattr(sys, "frozen", False):
+        base = Path(sys.executable).resolve().parent
+        print(f"[bootstrap] Mod EXE  — BASE PATH: {base}")
+        print(f"[bootstrap] MEIPASS  — BUNDLE:    {getattr(sys, '_MEIPASS', 'N/A')}")
+    else:
+        base = Path(__file__).resolve().parent.parent
+        print(f"[bootstrap] Mod DEV  — BASE PATH: {base}")
+
+    # ── Startup diagnostic ────────────────────────────────────
+    if getattr(sys, "frozen", False):
+        base = Path(sys.executable).resolve().parent
+        print(f"[bootstrap] Mod EXE  — BASE PATH: {base}")
+        print(f"[bootstrap] MEIPASS  — BUNDLE:    {getattr(sys, '_MEIPASS', 'N/A')}")
+    else:
+        base = Path(__file__).resolve().parent.parent
+        print(f"[bootstrap] Mod DEV  — BASE PATH: {base}")
+
     # Daca rulam ca .exe, PyInstaller a inclus deja Tcl/Tk
     if getattr(sys, "frozen", False):
         return
