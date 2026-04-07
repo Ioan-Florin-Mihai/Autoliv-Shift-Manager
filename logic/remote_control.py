@@ -27,9 +27,6 @@ from logic.app_paths import APP_DIR, ensure_runtime_file, get_sensitive_path
 # remote_config.json e non-sensibil, poate fi in bundle
 REMOTE_CONFIG_PATH    = ensure_runtime_file("data/remote_config.json")
 # firebase_service_account.json contine cheia privata GCP — NU e in bundle
-FIREBASE_SERVICE_PATH = get_sensitive_pathfi in bundle
-REMOTE_CONFIG_PATH    = ensure_runtime_file("data/remote_config.json")
-# firebase_service_account.json contine cheia privata GCP — NU e in bundle
 FIREBASE_SERVICE_PATH = get_sensitive_path("data/firebase_service_account.json")
 
 
@@ -153,9 +150,7 @@ class RemoteControlService:
                     self._app = firebase_admin.get_app()
                 else:
                     cred      = credentials.Certificate(str(service_account_path))
-                log_info("firebase: initializare reusita (device_id=%s)", self.device_id)
-        except Exception as exc:
-            log_exception("firebase_init", exc)_app = firebase_admin.initialize_app(cred, {"databaseURL": database_url})
+                    self._app = firebase_admin.initialize_app(cred, {"databaseURL": database_url})
                 self._db            = db
                 self._firebase_ready = True
                 log_info("firebase: initializare reusita (device_id=%s)", self.device_id)
