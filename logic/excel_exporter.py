@@ -133,8 +133,8 @@ class ExcelExporter:
         sheet.page_setup.orientation = sheet.ORIENTATION_LANDSCAPE
         sheet.page_setup.paperSize   = sheet.PAPERSIZE_A3
         sheet.page_setup.fitToWidth  = 1
-        sheet.page_setup.fitToHeight = 0      # 0 = fara constrangere pe inaltime (nu comprima)
-        sheet.page_setup.scale       = None   # elimina conflictul cu fitToWidth
+        sheet.page_setup.fitToHeight = 1      # 1 = forteaza o singura pagina A3
+        sheet.page_setup.scale       = None   # elimina conflictul cu fitToWidth/Height
         sheet.sheet_properties.pageSetUpPr.fitToPage = True
 
         # Margini minime A3 (in inch: ~0.5 cm)
@@ -142,9 +142,6 @@ class ExcelExporter:
             left=0.2, right=0.2, top=0.3, bottom=0.3,
             header=0.2, footer=0.2,
         )
-
-        # Nu centram pe orizontala — cauzeaza efect de micro-scalare
-        sheet.print_options.verticalCentered = False
 
         # ── Stiluri comune ───────────────────────────────────────────
         thin   = Side(style="thin",   color="AAAAAA")
@@ -162,8 +159,8 @@ class ExcelExporter:
         #   Col 2: Schimb
         #   Col 3-9: Luni–Duminica
         #   Col 10: Logo / spatiu
-        # Col 3-9 = 7 zile @ 25 unitati — umple latime completa A3 landscape
-        col_widths = {1: 5, 2: 10, 3: 25, 4: 25, 5: 25, 6: 25, 7: 25, 8: 25, 9: 25, 10: 15}
+        # Col 3-9 = 7 zile @ 28 unitati — umple latimea completa A3 landscape
+        col_widths = {1: 5, 2: 11, 3: 28, 4: 28, 5: 28, 6: 28, 7: 28, 8: 28, 9: 28, 10: 14}
         for col, width in col_widths.items():
             sheet.column_dimensions[get_column_letter(col)].width = width
 
@@ -171,38 +168,27 @@ class ExcelExporter:
         sheet.row_dimensions[1].height = 30
         sheet.row_dimensions[2].height = 30
 
-        # ── Header principal (rand 1-2) ──────────────────────────────
-        sheet.merge_cells("A1:I2")
+        # ── Header principal (rand 1-2) — merge full width + logo ancorat la dreapta ──
+        sheet.merge_cells("A1:J2")
         hdr = sheet["A1"]
         hdr.value     = f"Planificare {current_mode.lower()} — {week_record['week_label']}"
         hdr.fill      = _fill("0067C8")
         hdr.font      = Font(name=FONT_NAME, color="FFFFFFFF", bold=True, size=20)
         hdr.alignment = centered
 
-        sheet.merge_cells("J1:J2")
-        logo_cell = sheet["J1"]
-        logo_cell.fill      = _fill("0067C8")
-        logo_cell.font      = Font(name=FONT_NAME, color="FFFFFFFF", bold=True, size=12)
-        logo_cell.alignment = centered
-
         if logo_path and logo_path.exists():
             try:
                 img        = XLImage(str(logo_path))
-                img.width  = 150
-                img.height = 55
-                logo_cell.value = ""
-                # Ancora dinamica la ultima coloana (intotdeauna J = col 10)
-                last_col_ref = get_column_letter(sheet.max_column or 10) + "1"
-                sheet.add_image(img, last_col_ref)
+                img.width  = 140
+                img.height = 45
+                # Ancora la coloana I rand 1 — dreapta header-ului, suprapus pe merge
+                sheet.add_image(img, "I1")
             except Exception as exc:
                 log_exception("excel_export_logo", exc)
-                logo_cell.value = "Autoliv"
-        else:
-            logo_cell.value = "Autoliv"
 
-        # ── Rand 3: subtitlu raport (generat, mod, versiune) ──────────
+        # ── Rand 3: subtitlu raport (generat, mod, versiune) ───────────
         sheet.row_dimensions[3].height = 18
-        sheet.merge_cells("A3:I3")
+        sheet.merge_cells("A3:J3")
         sub = sheet["A3"]
         sub.value     = (
             f"Generat: {datetime.now().strftime('%d-%m-%Y %H:%M')}  │  "
@@ -213,9 +199,6 @@ class ExcelExporter:
         sub.fill      = _fill("1A4A80")
         sub.alignment = Alignment(horizontal="left", vertical="center",
                                   indent=1, wrap_text=False)
-
-        sheet.merge_cells("J3:J3")
-        sheet["J3"].fill = _fill("1A4A80")
 
         start       = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
         mode_record = week_record["modes"][current_mode]
