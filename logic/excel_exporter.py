@@ -1,10 +1,11 @@
 # ============================================================
-# MODUL: excel_exporter.py - EXPORT EXCEL A3
+# MODUL: excel_exporter.py - EXPORT EXCEL A3 WYSIWYG
 # ============================================================
 #
 # Responsabil cu:
 #   - Generarea fisierelor .xlsx pentru planificarea saptamanala
-#   - Formatare A3 landscape cu logo, culori departament, grid
+#   - Export WYSIWYG: culorile angajatilor din UI sunt pastrate exact
+#   - Formatare A3 landscape, print-ready, fara taieri
 #   - Complet independent de UI (testabil izolat)
 #
 # Utilizare:
@@ -16,17 +17,82 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.cell.rich_text import CellRichText, TextBlock, InlineFont
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.page import PageMargins
 
 from logic.app_logger import log_exception
 from logic.app_paths import EXPORT_DIR
 from logic.schedule_store import DAYS, DEPARTMENT_COLORS, SHIFTS, WEEKEND_DAYS
 
 
+# ── COLOR_MAP — replica exacta a EMPLOYEE_COLOR_PALETTE din UI ──────────────
+# cheie → culoare hex fara "#" (format openpyxl)
+# Se foloseste cand angajatul NU are o culoare personalizata stocata in celula.
+COLOR_MAP = {
+    "8h":  "1A1A1A",   # Negru — 8 ore
+    "12h": "7B3FC4",   # Violet — 12 ore
+    "R":   "C0392B",   # Rosu
+    "V":   "27AE60",   # Verde
+    "P":   "E67E22",   # Portocaliu
+    "AL":  "2471A3",   # Albastru inchis
+}
+
+# Culoare implicita pentru text fara marcare (negru inchis — lizibil pe fond alb)
+DEFAULT_TEXT_COLOR = "1A1A1A"
+
+# Font folosit in tot documentul
+FONT_NAME = "Calibri"
+
+
+def _hex_to_openpyxl(hex_color: str | None) -> str:
+    """Converteste "  #C0392B  " → "C0392B". Returneaza DEFAULT_TEXT_COLOR la eroare."""
+    if not hex_color:
+        return DEFAULT_TEXT_COLOR
+    cleaned = hex_color.strip().lstrip("#").upper()
+    if len(cleaned) == 6 and all(c in "0123456789ABCDEF" for c in cleaned):
+        return cleaned
+    return DEFAULT_TEXT_COLOR
+
+
+def _build_rich_cell(employees: list[str], colors: dict) -> CellRichText | str:
+    """
+    Construieste un CellRichText cu fiecare angajat pe linie noua,
+    cu culoarea individuala pastrata din UI.
+    Returneaza string simplu daca nu exista angajati.
+    """
+    if not employees:
+        return ""
+
+    rt = CellRichText()
+    for i, emp in enumerate(employees):
+        # Culoarea stocata in celula (din paleta UI a utilizatorului)
+        stored_color = colors.get(emp) if colors else None
+        if not stored_color:
+            # cautare case-insensitive
+            stored_color = next(
+                (v for k, v in (colors or {}).items() if k.casefold() == emp.casefold()),
+                None,
+            )
+        hex_color = _hex_to_openpyxl(stored_color)
+
+        font = InlineFont(
+            rFont=FONT_NAME,
+            b=True,
+            sz=11,
+            color=hex_color,
+        )
+        rt.append(TextBlock(font, emp))
+        if i < len(employees) - 1:
+            rt.append("\n")
+
+    return rt
+
+
 class ExcelExporter:
-    """Serviciu de export Excel A3 pentru planificarea saptamanala."""
+    """Serviciu de export Excel A3 WYSIWYG pentru planificarea saptamanala."""
 
     @staticmethod
     def export(
@@ -36,136 +102,180 @@ class ExcelExporter:
     ) -> Path:
         """
         Genereaza fisierul Excel A3 pentru modul si saptamana date.
+        Culorile angajatilor sunt identice cu cele din UI (WYSIWYG).
         Returneaza calea fisierului exportat.
-        Poate fi apelat din background thread (nu acceseaza UI).
 
         :param week_record: dict cu structura saptamanii (din ScheduleStore)
         :param current_mode: "Magazie" sau "Bucle"
         :param logo_path: cale optionala catre logo PNG
-        :raises Exception: orice eroare de I/O sau openpyxl
         """
         EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-        week_start = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
-        week_label = week_record["week_label"].replace(" ", "_")
-        filename   = f"{current_mode.lower()}_{week_start.isoformat()}_{week_label}.xlsx"
+        week_start  = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
+        week_label  = week_record["week_label"].replace(" ", "_")
+        filename    = f"{current_mode.lower()}_{week_start.isoformat()}_{week_label}.xlsx"
         export_path = EXPORT_DIR / filename
 
         workbook = Workbook()
         sheet    = workbook.active
         sheet.title = current_mode
         sheet.sheet_view.showGridLines = False
+
+        # ── A3 Landscape, fit-to-page ────────────────────────────────
         sheet.page_setup.orientation = "landscape"
-        if hasattr(sheet.page_setup, "PAPERSIZE_A3"):
-            sheet.page_setup.paperSize = sheet.page_setup.PAPERSIZE_A3
-        else:
-            sheet.page_setup.paperSize = 8  # A3 = 8 in openpyxl enum
+        sheet.page_setup.paperSize   = 8      # 8 = A3 in Excel/openpyxl enum
         sheet.page_setup.fitToWidth  = 1
         sheet.page_setup.fitToHeight = 1
         sheet.sheet_properties.pageSetUpPr.fitToPage = True
 
-        thin   = Side(style="thin", color="666666")
-        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+        # Margini reduse pentru A3 (in inch: ~0.5 cm = 0.2 in)
+        sheet.page_margins = PageMargins(
+            left=0.28, right=0.28, top=0.35, bottom=0.35,
+            header=0.2, footer=0.2,
+        )
+
+        # ── Stiluri comune ───────────────────────────────────────────
+        thin   = Side(style="thin",   color="AAAAAA")
+        medium = Side(style="medium", color="666666")
+
+        border_thin   = Border(left=thin,   right=thin,   top=thin,   bottom=thin)
+        border_dept   = Border(left=medium, right=medium, top=medium, bottom=medium)
 
         centered     = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        left_aligned = Alignment(horizontal="left",   vertical="top",    wrap_text=True)
+        center_top   = Alignment(horizontal="center", vertical="top",    wrap_text=True)
         vertical_aln = Alignment(horizontal="center", vertical="center", text_rotation=90, wrap_text=True)
 
-        # ── Header ──────────────────────────────────────────────────
+        # ── Latimi coloane (A3 landscape — ajustate pentru lizibilitate) ──
+        #   Col 1: Departament (name vertical)
+        #   Col 2: Schimb
+        #   Col 3-9: Luni–Duminica
+        #   Col 10: Logo / spatiu
+        col_widths = {1: 5, 2: 8, 3: 18, 4: 18, 5: 18, 6: 18, 7: 18, 8: 18, 9: 18, 10: 13}
+        for col, width in col_widths.items():
+            sheet.column_dimensions[get_column_letter(col)].width = width
+
+        # ── Inaltimi randuri fixe ────────────────────────────────────
+        sheet.row_dimensions[1].height = 22
+        sheet.row_dimensions[2].height = 22
+
+        # ── Header principal (rand 1-2) ──────────────────────────────
         sheet.merge_cells("A1:I2")
-        header_cell = sheet["A1"]
-        header_cell.value     = f"Planificare {current_mode.lower()} : {week_record['week_label']}"
-        header_cell.fill      = PatternFill("solid", fgColor="4F81BD")
-        header_cell.font      = Font(color="FFFFFF", bold=True, size=18)
-        header_cell.alignment = centered
+        hdr = sheet["A1"]
+        hdr.value     = f"Planificare {current_mode.lower()} — {week_record['week_label']}"
+        hdr.fill      = PatternFill("solid", fgColor="0067C8")
+        hdr.font      = Font(name=FONT_NAME, color="FFFFFF", bold=True, size=16)
+        hdr.alignment = centered
 
         sheet.merge_cells("J1:J2")
         logo_cell = sheet["J1"]
-        logo_cell.value     = "Autoliv"
-        logo_cell.fill      = PatternFill("solid", fgColor="4F81BD")
-        logo_cell.font      = Font(color="FFFFFF", bold=True, size=12)
+        logo_cell.fill      = PatternFill("solid", fgColor="0067C8")
+        logo_cell.font      = Font(name=FONT_NAME, color="FFFFFF", bold=True, size=12)
         logo_cell.alignment = centered
 
-        # Logo PNG opptional
         if logo_path and logo_path.exists():
             try:
                 img        = XLImage(str(logo_path))
                 img.width  = 120
-                img.height = 38
-                sheet.add_image(img, "A1")
+                img.height = 42
+                logo_cell.value = ""
+                sheet.add_image(img, "J1")
             except Exception as exc:
                 log_exception("excel_export_logo", exc)
+                logo_cell.value = "Autoliv"
+        else:
+            logo_cell.value = "Autoliv"
 
-        # ── Latimi coloane ───────────────────────────────────────────
-        for col, width in {1: 20, 2: 10, 3: 17, 4: 17, 5: 17, 6: 17, 7: 17, 8: 17, 9: 17, 10: 11}.items():
-            sheet.column_dimensions[get_column_letter(col)].width = width
-
-        # ── Date header row (row 3) ──────────────────────────────────
+        # ── Date compacta in header row 3 (rand cu zile saptamanii) ──
         start       = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
         mode_record = week_record["modes"][current_mode]
 
+        # ── Corpul tabelului ─────────────────────────────────────────
         current_row = 4
         for department in mode_record["departments"]:
             schedule = mode_record["schedule"][department]
+            dep_color = DEPARTMENT_COLORS.get(department, "D9A35F")
 
-            # Celula departament (merge pe 4 randuri: header + 3 schimburi)
+            # Calculam inaltimea maxima de rand pentru fiecare schimb
+            # (bazata pe cel mai aglomerat cell din schimb)
+            row_heights = []
+            for shift in SHIFTS:
+                max_emp = max(
+                    (len(schedule[day_name][shift]["employees"]) for day_name, _ in DAYS),
+                    default=0,
+                )
+                row_heights.append(max(38, max_emp * 17 + 8))
+
+            total_rows = 1 + len(SHIFTS)  # 1 header + N schimburi
+
+            # Celula departament — merge pe header + toate schimburile
             sheet.merge_cells(
-                start_row=current_row, start_column=1,
-                end_row=current_row + 3, end_column=1,
+                start_row=current_row,    start_column=1,
+                end_row=current_row + total_rows - 1, end_column=1,
             )
             dep_cell           = sheet.cell(current_row, 1)
             dep_cell.value     = department
-            dep_cell.fill      = PatternFill("solid", fgColor=DEPARTMENT_COLORS.get(department, "D9A35F"))
-            dep_cell.font      = Font(bold=True)
+            dep_cell.fill      = PatternFill("solid", fgColor=dep_color)
+            dep_cell.font      = Font(name=FONT_NAME, bold=True, size=10)
             dep_cell.alignment = vertical_aln
-            dep_cell.border    = border
+            dep_cell.border    = border_dept
 
-            # Coloana "Schimbul"
-            h_cell           = sheet.cell(current_row, 2)
-            h_cell.value     = "Schimbul"
-            h_cell.font      = Font(bold=True)
-            h_cell.fill      = PatternFill("solid", fgColor="F2F2F2")
-            h_cell.alignment = centered
-            h_cell.border    = border
+            # ── Rand header departament (cu zile) ──
+            sheet.row_dimensions[current_row].height = 34
 
-            # Zile in header
-            for offset, (day_name, _) in enumerate(DAYS, start=3):
-                cell_obj       = sheet.cell(current_row, offset)
-                current_day    = start + timedelta(days=offset - 3)
+            h_shift = sheet.cell(current_row, 2)
+            h_shift.value     = "Schimb"
+            h_shift.font      = Font(name=FONT_NAME, bold=True, size=10)
+            h_shift.fill      = PatternFill("solid", fgColor="EAF1FB")
+            h_shift.alignment = centered
+            h_shift.border    = border_thin
+
+            for col_offset, (day_name, day_idx) in enumerate(DAYS, start=3):
+                current_day = start + timedelta(days=day_idx)
+                cell_obj    = sheet.cell(current_row, col_offset)
                 cell_obj.value = f"{day_name}\n{current_day.strftime('%d-%b-%y')}"
-                cell_obj.font  = Font(bold=True)
+                cell_obj.font  = Font(name=FONT_NAME, bold=True, size=10)
                 cell_obj.fill  = PatternFill(
-                    "solid", fgColor="F2F2F2" if day_name not in WEEKEND_DAYS else "FCE4D6"
+                    "solid",
+                    fgColor="FCE4D6" if day_name in WEEKEND_DAYS else "EAF1FB",
                 )
                 cell_obj.alignment = centered
-                cell_obj.border    = border
+                cell_obj.border    = border_thin
 
-            # Randuri schimburi
-            for shift_index, shift in enumerate(SHIFTS, start=1):
-                row = current_row + shift_index
-                sheet.row_dimensions[row].height = 40
+            # ── Randuri schimburi ──
+            for shift_index, shift in enumerate(SHIFTS):
+                row = current_row + 1 + shift_index
+                sheet.row_dimensions[row].height = row_heights[shift_index]
 
+                # Celula schimb
                 shift_cell           = sheet.cell(row, 2)
                 shift_cell.value     = shift
-                shift_cell.font      = Font(bold=True)
+                shift_cell.font      = Font(name=FONT_NAME, bold=True, size=10)
                 shift_cell.alignment = centered
-                shift_cell.fill      = PatternFill("solid", fgColor="FAFAFA")
-                shift_cell.border    = border
+                shift_cell.fill      = PatternFill("solid", fgColor="F5F5F5")
+                shift_cell.border    = border_thin
 
-                for offset, (day_name, _) in enumerate(DAYS, start=3):
-                    value_cell = sheet.cell(row, offset)
-                    cell_employees = schedule[day_name][shift]["employees"]
-                    value_cell.value     = "\n".join(cell_employees)
-                    value_cell.alignment = left_aligned
-                    value_cell.border    = border
-                    if cell_employees:
-                        value_cell.font = Font(bold=True, size=11)
+                # Celule angajati — WYSIWYG culori
+                for col_offset, (day_name, _) in enumerate(DAYS, start=3):
+                    cell_data  = schedule[day_name][shift]
+                    employees  = cell_data.get("employees", [])
+                    colors     = cell_data.get("colors", {})
+
+                    value_cell = sheet.cell(row, col_offset)
+                    value_cell.value     = _build_rich_cell(employees, colors)
+                    value_cell.alignment = center_top
+                    value_cell.border    = border_thin
+
+                    # Fond weekend mai calduros
                     if day_name in WEEKEND_DAYS:
-                        value_cell.fill = PatternFill("solid", fgColor="FFF7ED")
+                        value_cell.fill = PatternFill("solid", fgColor="FFF3E8")
+                    elif not employees:
+                        # Celula goala — fond usor colorat pentru lizibilitate
+                        value_cell.fill = PatternFill("solid", fgColor="FAFCFF")
 
-            sheet.row_dimensions[current_row].height = 46
-            current_row += 5
+            current_row += total_rows
 
-        sheet.freeze_panes = "C5"
+        # Ingheata pane-urile dupa header si coloana schimb
+        sheet.freeze_panes = "C4"
+
         workbook.save(export_path)
         return export_path
