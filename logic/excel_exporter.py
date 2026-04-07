@@ -57,6 +57,12 @@ def _to_argb(hex_color: str | None) -> str:
     return "FF" + DEFAULT_TEXT_COLOR
 
 
+def _fill(hex_color: str) -> "PatternFill":
+    """PatternFill solid cu alpha FF (complet opac). Evita bug-ul openpyxl cu alpha=00."""
+    cleaned = hex_color.strip().lstrip("#").upper()
+    return PatternFill("solid", fgColor="FF" + cleaned)
+
+
 def _cell_text_and_color(employees: list[str], colors: dict) -> tuple[str, str]:
     """
     Returneaza (text_celula, culoare_ARGB) pentru o celula din grid.
@@ -164,14 +170,14 @@ class ExcelExporter:
         sheet.merge_cells("A1:I2")
         hdr = sheet["A1"]
         hdr.value     = f"Planificare {current_mode.lower()} — {week_record['week_label']}"
-        hdr.fill      = PatternFill("solid", fgColor="0067C8")
-        hdr.font      = Font(name=FONT_NAME, color="FFFFFF", bold=True, size=20)
+        hdr.fill      = _fill("0067C8")
+        hdr.font      = Font(name=FONT_NAME, color="FFFFFFFF", bold=True, size=20)
         hdr.alignment = centered
 
         sheet.merge_cells("J1:J2")
         logo_cell = sheet["J1"]
-        logo_cell.fill      = PatternFill("solid", fgColor="0067C8")
-        logo_cell.font      = Font(name=FONT_NAME, color="FFFFFF", bold=True, size=12)
+        logo_cell.fill      = _fill("0067C8")
+        logo_cell.font      = Font(name=FONT_NAME, color="FFFFFFFF", bold=True, size=12)
         logo_cell.alignment = centered
 
         if logo_path and logo_path.exists():
@@ -196,13 +202,13 @@ class ExcelExporter:
             f"Mod: {current_mode}  │  "
             f"v{VERSION}"
         )
-        sub.font      = Font(name=FONT_NAME, color="FFFFFF", size=9, italic=True)
-        sub.fill      = PatternFill("solid", fgColor="1A4A80")
+        sub.font      = Font(name=FONT_NAME, color="FFFFFFFF", size=9, italic=True)
+        sub.fill      = _fill("1A4A80")
         sub.alignment = Alignment(horizontal="left", vertical="center",
                                   indent=1, wrap_text=False)
 
         sheet.merge_cells("J3:J3")
-        sheet["J3"].fill = PatternFill("solid", fgColor="1A4A80")
+        sheet["J3"].fill = _fill("1A4A80")
 
         start       = datetime.strptime(week_record["week_start"], "%Y-%m-%d").date()
         mode_record = week_record["modes"][current_mode]
@@ -232,7 +238,7 @@ class ExcelExporter:
             )
             dep_cell           = sheet.cell(current_row, 1)
             dep_cell.value     = department
-            dep_cell.fill      = PatternFill("solid", fgColor=dep_color)
+            dep_cell.fill      = _fill(dep_color)
             dep_cell.font      = Font(name=FONT_NAME, bold=True, size=10)
             dep_cell.alignment = vertical_aln
             dep_cell.border    = border_dept
@@ -243,7 +249,7 @@ class ExcelExporter:
             h_shift = sheet.cell(current_row, 2)
             h_shift.value     = "Schimb"
             h_shift.font      = Font(name=FONT_NAME, bold=True, size=10)
-            h_shift.fill      = PatternFill("solid", fgColor="EAF1FB")
+            h_shift.fill      = _fill("EAF1FB")
             h_shift.alignment = centered
             h_shift.border    = border_thin
 
@@ -252,10 +258,7 @@ class ExcelExporter:
                 cell_obj    = sheet.cell(current_row, col_offset)
                 cell_obj.value = f"{day_name}\n{current_day.strftime('%d-%b-%y')}"
                 cell_obj.font  = Font(name=FONT_NAME, bold=True, size=10)
-                cell_obj.fill  = PatternFill(
-                    "solid",
-                    fgColor="FCE4D6" if day_name in WEEKEND_DAYS else "EAF1FB",
-                )
+                cell_obj.fill  = _fill("FCE4D6" if day_name in WEEKEND_DAYS else "EAF1FB")
                 cell_obj.alignment = centered
                 cell_obj.border    = border_thin
 
@@ -269,7 +272,7 @@ class ExcelExporter:
                 shift_cell.value     = shift
                 shift_cell.font      = Font(name=FONT_NAME, bold=True, size=10)
                 shift_cell.alignment = centered
-                shift_cell.fill      = PatternFill("solid", fgColor="F5F5F5")
+                shift_cell.fill      = _fill("F5F5F5")
                 shift_cell.border    = border_thin
 
                 # Celule angajati — text simplu + un singur Font (fara RichText)
@@ -286,7 +289,7 @@ class ExcelExporter:
                     value_cell.alignment  = center_top
                     value_cell.border     = border_thin
                     # Fond alb pur — culoarea este DOAR pe text (WYSIWYG)
-                    value_cell.fill = PatternFill("solid", fgColor="FFFFFF")
+                    value_cell.fill = _fill("FFFFFF")
 
             current_row += total_rows
 
