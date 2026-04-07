@@ -17,7 +17,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from openpyxl import Workbook
-from openpyxl.cell.rich_text import CellRichText, TextBlock, InlineFont
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -48,13 +47,8 @@ DEFAULT_TEXT_COLOR = "1A1A1A"
 FONT_NAME = "Calibri"
 
 
-def _hex_to_openpyxl(hex_color: str | None) -> str:
-    """
-    Converteste "  #C0392B  " → "FFC0392B" (ARGB, alpha=FF = opac 100%).
-    openpyxl interpreteaza 6 caractere ca RGB cu alpha=00 (transparent),
-    deci trebuie adaugat prefixul "FF" pentru culori complet opace.
-    Returneaza DEFAULT_TEXT_COLOR la eroare.
-    """
+def _to_argb(hex_color: str | None) -> str:
+    """Converteste '#C0392B' sau 'C0392B' → 'FFC0392B' (ARGB opac). Sigur pentru Font(color=...)."""
     if not hex_color:
         return "FF" + DEFAULT_TEXT_COLOR
     cleaned = hex_color.strip().lstrip("#").upper()
@@ -63,38 +57,34 @@ def _hex_to_openpyxl(hex_color: str | None) -> str:
     return "FF" + DEFAULT_TEXT_COLOR
 
 
-def _build_rich_cell(employees: list[str], colors: dict) -> CellRichText | str:
+def _cell_text_and_color(employees: list[str], colors: dict) -> tuple[str, str]:
     """
-    Construieste un CellRichText cu fiecare angajat pe linie noua,
-    cu culoarea individuala pastrata din UI.
-    Returneaza string simplu daca nu exista angajati.
+    Returneaza (text_celula, culoare_ARGB) pentru o celula din grid.
+
+    Textul: fiecare angajat pe linie noua, prefixat cu '● '.
+    Culoarea: daca toti angajatii au aceeasi culoare → acea culoare;
+              altfel → negru inchis (DEFAULT_TEXT_COLOR).
+    Fara CellRichText — compatibil 100% Excel (fara avertismente de reparare).
     """
     if not employees:
-        return ""
+        return "", "FF" + DEFAULT_TEXT_COLOR
 
-    rt = CellRichText()
-    for i, emp in enumerate(employees):
-        # Culoarea stocata in celula (din paleta UI a utilizatorului)
-        stored_color = colors.get(emp) if colors else None
-        if not stored_color:
-            # cautare case-insensitive
-            stored_color = next(
+    text = "\n".join(f"\u25cf {emp}" for emp in employees)
+
+    # Colecteaza culorile unice ale angajatilor (case-insensitive lookup)
+    unique_colors: set[str] = set()
+    for emp in employees:
+        raw = colors.get(emp) if colors else None
+        if not raw:
+            raw = next(
                 (v for k, v in (colors or {}).items() if k.casefold() == emp.casefold()),
                 None,
             )
-        hex_color = _hex_to_openpyxl(stored_color)
+        unique_colors.add(_to_argb(raw))
 
-        font = InlineFont(
-            rFont=FONT_NAME,
-            b=True,
-            sz=11,
-            color=hex_color,
-        )
-        rt.append(TextBlock(font, f"● {emp}"))
-        if i < len(employees) - 1:
-            rt.append("\n")
-
-    return rt
+    # O singura culoare → aplica pe toata celula; mai multe → negru
+    color = unique_colors.pop() if len(unique_colors) == 1 else "FF" + DEFAULT_TEXT_COLOR
+    return text, color
 
 
 class ExcelExporter:
@@ -282,16 +272,19 @@ class ExcelExporter:
                 shift_cell.fill      = PatternFill("solid", fgColor="F5F5F5")
                 shift_cell.border    = border_thin
 
-                # Celule angajati — WYSIWYG culori
+                # Celule angajati — text simplu + un singur Font (fara RichText)
                 for col_offset, (day_name, _) in enumerate(DAYS, start=3):
                     cell_data  = schedule[day_name][shift]
                     employees  = cell_data.get("employees", [])
                     colors     = cell_data.get("colors", {})
 
-                    value_cell = sheet.cell(row, col_offset)
-                    value_cell.value     = _build_rich_cell(employees, colors)
-                    value_cell.alignment = center_top
-                    value_cell.border    = border_thin
+                    text, color = _cell_text_and_color(employees, colors)
+
+                    value_cell            = sheet.cell(row, col_offset)
+                    value_cell.value      = text
+                    value_cell.font       = Font(name=FONT_NAME, bold=True, size=11, color=color)
+                    value_cell.alignment  = center_top
+                    value_cell.border     = border_thin
                     # Fond alb pur — culoarea este DOAR pe text (WYSIWYG)
                     value_cell.fill = PatternFill("solid", fgColor="FFFFFF")
 
