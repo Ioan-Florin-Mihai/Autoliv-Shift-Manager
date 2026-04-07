@@ -2392,6 +2392,1339 @@
         }
       },
       "updated_at": "2026-04-02T13:48:53"
+    },
+    "2026-04-06": {
+      "week_start": "2026-04-06",
+      "week_end": "2026-04-12",
+      "week_label": "Saptamana 15",
+      "modes": {
+        "Magazie": {
+          "departments": [
+            "Sef Schimb",
+            "Receptii",
+            "Livrari",
+            "Etichetare Scanare",
+            "Retragere finite",
+            "Balotare Ambalare"
+          ],
+          "schedule": {
+            "Sef Schimb": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "Receptii": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "Livrari": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "Etichetare Scanare": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "Retragere finite": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "Balotare Ambalare": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            }
+          }
+        },
+        "Bucle": {
+          "departments": [
+            "BUCLA RA + RB",
+            "BUCLA TA + TB",
+            "BUCLA 02",
+            "BUCLA 03",
+            "BUCLA 04",
+            "BUCLA 05 + 07",
+            "Ambalaje"
+          ],
+          "schedule": {
+            "BUCLA RA + RB": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "BUCLA TA + TB": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "BUCLA 02": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "BUCLA 03": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "BUCLA 04": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "BUCLA 05 + 07": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            },
+            "Ambalaje": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "updated_at": "2026-04-07T08:22:45"
     }
   }
 }
