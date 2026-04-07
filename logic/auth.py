@@ -54,13 +54,27 @@ def _load_users() -> list[dict]:
     """
     Citeste lista de utilizatori din users.json.
     Suporta atat format vechi (dict unic) cat si format nou (lista).
-    Arunca exceptie daca fisierul lipseste sau e corupt.
+    Daca fisierul lipseste, CREEAZA un cont admin default.
     """
     if not USERS_PATH.exists():
-        raise FileNotFoundError(
-            f"Fisierul de utilizatori lipseste: {USERS_PATH}\n"
-            "Rulati setup_device_firebase.py sau creati manual data/users.json."
+        log_warning(
+            "auth: users.json lipseste (%s) — se creeaza cont admin default.",
+            USERS_PATH,
         )
+        default_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt(rounds=12))
+        default_users = [
+            {
+                "username": "admin",
+                "password_hash": default_hash.decode("utf-8"),
+                "role": "admin",
+            }
+        ]
+        _save_users(default_users)
+        log_info(
+            "auth: cont admin creat (user: admin, parola: admin123). "
+            "SCHIMBATI PAROLA IMEDIAT!"
+        )
+        return default_users
     try:
         with USERS_PATH.open("r", encoding="utf-8") as file:
             raw = json.load(file)

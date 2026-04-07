@@ -96,10 +96,13 @@ class TestVerifyLoginDetailed:
         ok, _ = verify_login_detailed("ADMIN", single_user["password"])
         assert ok is True
 
-    def test_missing_users_file_raises(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(auth_module, "USERS_PATH", tmp_path / "missing.json")
-        with pytest.raises(FileNotFoundError):
-            verify_login_detailed("admin", "parola")
+    def test_missing_users_file_creates_default(self, tmp_path, monkeypatch):
+        """Dacă users.json lipsește, se creează automat un cont admin default."""
+        fake_path = tmp_path / "missing.json"
+        monkeypatch.setattr(auth_module, "USERS_PATH", fake_path)
+        ok, _ = verify_login_detailed("admin", "admin123")
+        assert ok is True
+        assert fake_path.exists(), "users.json ar fi trebuit creat automat"
 
 
 # ── verify_login (backward compat) ───────────────────────────────────────────

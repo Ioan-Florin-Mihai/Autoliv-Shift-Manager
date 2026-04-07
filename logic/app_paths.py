@@ -1,23 +1,16 @@
 # ============================================================
-# MODUL: app_paths.py - GESTIONARE CĂREI APLICAȚIEI
+# MODUL: app_paths.py - GESTIONARE CĂI APLICAȚIE
 # ============================================================
 #
-# Responsabil cu:
-#   - Definirea tuturor căilor importante (APP_DIR, DATA_DIR, etc)
-#   - Adaptare automată pentru modul dev vs .exe (PyInstaller)
-#   - Copiere automată a fișierelor default din bundle la primul runtime
+# Singura sursă de adevăr pentru TOATE căile din aplicație.
 #
-# Căile globale:
-#   - APP_DIR: rădăcina aplicației (unde e .exe sau root de proiect)
-#   - BUNDLE_DIR: fișiere embedded (assets, data default) din PyInstaller
-#   - DATA_DIR: folder date utilizator (schedule, users) - persistă
-#   - ASSETS_DIR: imagini și iconuri (autoliv_logo.png, etc)
-#   - EXPORT_DIR: export Excel-uri generate
+# Regulă de aur:
+#   - EXE (PyInstaller): BASE_DIR = folderul unde se află .exe-ul
+#   - DEV (Python):       BASE_DIR = rădăcina proiectului
+#   - USB (portabil):     funcționează identic cu EXE
 #
-# Flux:
-#   1. Detectează dacă rulează ca .exe (sys.frozen) sau Python
-#   2. Stabilește căile în consecință
-#   3. Copiază fișierele default la primul rulaj din .exe
+# NICIUN alt modul nu trebuie să folosească __file__ sau
+# os.path.dirname() direct. Totul se importă de aici.
 # ============================================================
 
 import shutil
@@ -25,70 +18,76 @@ import sys
 from pathlib import Path
 
 
-def get_app_dir():
+# ── Funcții de rezolvare cale ──────────────────────────────────
+
+def get_base_path() -> Path:
     """
-    Returneaza directorul radacina al aplicatiei.
-    - Daca ruleaza ca .exe → directorul unde se afla .exe-ul
-    - Daca ruleaza ca Python → directorul proiectului
+    Returnează directorul rădăcină al aplicației.
+    - EXE  → folderul în care se află .exe-ul (portabil)
+    - DEV  → rădăcina proiectului (parent al logic/)
     """
     if getattr(sys, "frozen", False):
-        # Mod .exe — executabilul e in root-ul aplicatiei
         return Path(sys.executable).resolve().parent
-    # Mod dezvoltare — urcam 2 nivele din logic/ -> root/
     return Path(__file__).resolve().parent.parent
 
 
-def get_bundle_dir():
+def get_bundle_dir() -> Path:
     """
-    Returneaza directorul unde PyInstaller a extras fisierele
-    embedded (assets, data) la rularea .exe-ului.
-    In modul dezvoltare, e acelasi cu radacina proiectului.
+    Returnează directorul temporar unde PyInstaller extrage
+    fișierele embedded (assets, data default).
+    În DEV mode returnează rădăcina proiectului.
     """
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        # Directorul temporar unde PyInstaller extrage fisierele
         return Path(sys._MEIPASS)
     return Path(__file__).resolve().parent.parent
 
 
-# ── Cai globale utilizate in toata aplicatia ──────────────────
-APP_DIR    = get_app_dir()     # Radacina aplicatiei (unde e .exe sau proiectul)
-BUNDLE_DIR = get_bundle_dir()  # Fisiere embedded (assets, data default)
-DATA_DIR   = APP_DIR / "data"  # Folder date utilizzator (schedule, users etc.)
-EXPORT_DIR = APP_DIR / "Exports"  # Folder export Excel
-ASSETS_DIR = APP_DIR / "assets"   # Imagini, iconuri
-BACKUPS_DIR = APP_DIR / "backups" # Folder backup-uri planificari
+# ── Căi globale — SINGURA SURSĂ DE ADEVĂR ─────────────────────
 
-# ── Debug startup log ─────────────────────────────────────────
-print(f"[app_paths] BASE PATH: {APP_DIR}")
-print(f"[app_paths] BUNDLE DIR: {BUNDLE_DIR}")
-print(f"[app_paths] DATA DIR:   {DATA_DIR}")
+BASE_DIR    = get_base_path()       # Rădăcina aplicației
+BUNDLE_DIR  = get_bundle_dir()      # Fișiere PyInstaller extracted
+DATA_DIR    = BASE_DIR / "data"     # Date utilizator (users, schedule)
+EXPORT_DIR  = BASE_DIR / "Exports"  # Export Excel
+ASSETS_DIR  = BASE_DIR / "assets"   # Logo, iconuri
+BACKUP_DIR  = BASE_DIR / "backups"  # Backup-uri planificări
 
-# ── Auto-create directoare critice la pornire ─────────────────
-for _critical_dir in (DATA_DIR, ASSETS_DIR, EXPORT_DIR, BACKUPS_DIR):
-    _critical_dir.mkdir(parents=True, exist_ok=True)
+# Backward-compatibility aliases (modulele vechi importă APP_DIR)
+APP_DIR     = BASE_DIR
+BACKUPS_DIR = BACKUP_DIR
 
+# ── Diagnostic startup ────────────────────────────────────────
+
+print(f"[app_paths] RUN MODE:   {'EXE' if getattr(sys, 'frozen', False) else 'DEV'}")
+print(f"[app_paths] BASE_DIR:   {BASE_DIR}")
+print(f"[app_paths] DATA_DIR:   {DATA_DIR}")
+print(f"[app_paths] BUNDLE_DIR: {BUNDLE_DIR}")
+
+# ── Auto-creare directoare critice ────────────────────────────
+
+for _d in (DATA_DIR, ASSETS_DIR, EXPORT_DIR, BACKUP_DIR):
+    _d.mkdir(parents=True, exist_ok=True)
+
+
+# ── Utilități cale ─────────────────────────────────────────────
 
 def ensure_directory(path: Path):
-    """Creaza directorul daca nu exista (inclusiv subdirectoare)."""
+    """Creează directorul dacă nu există (inclusiv subdirectoare)."""
     path.mkdir(parents=True, exist_ok=True)
 
 
 def ensure_runtime_file(relative_path: str) -> Path:
     """
-    Asigura ca un fisier de date exista in APP_DIR.
-    Daca lipseste si exista o versiune default in BUNDLE_DIR,
-    o copiaza automat (util la primul rulaj al .exe-ului).
-    Returneaza calea finala a fisierului.
+    Asigură că un fișier de date există în BASE_DIR.
+    Dacă lipsește și există o versiune default în BUNDLE_DIR,
+    o copiază automat (util la primul rulaj al .exe-ului).
 
-    NU folosi aceasta functie pentru fisiere sensibile (credentiale,
-    chei private) — pentru acelea foloseste get_sensitive_path().
+    NU folosi pentru fișiere sensibile → get_sensitive_path().
     """
-    target_path = APP_DIR / relative_path
+    target_path = BASE_DIR / relative_path
     source_path = BUNDLE_DIR / relative_path
 
     ensure_directory(target_path.parent)
 
-    # Copie fisierul default din bundle doar daca target-ul lipseste
     if not target_path.exists() and source_path.exists():
         shutil.copy2(source_path, target_path)
 
@@ -97,16 +96,10 @@ def ensure_runtime_file(relative_path: str) -> Path:
 
 def get_sensitive_path(relative_path: str) -> Path:
     """
-    Returneaza calea unui fisier sensibil din APP_DIR.
-
-    DIFERENTA CRITICA fata de ensure_runtime_file():
-    - Nu copiaza NICIODATA din bundle in APP_DIR
-    - Fisierul trebuie sa existe deja (pus de administrator)
-    - Daca lipseste, apelantul primeste un Path care nu exista
-      si ar trebui sa raporteze eroarea explicit
-
-    Folosit pentru: data/users.json, data/firebase_service_account.json
+    Returnează calea unui fișier sensibil din BASE_DIR.
+    NU copiază niciodată din bundle — fișierul trebuie să existe deja
+    (pus de administrator) sau modulul apelant trebuie să creeze un default.
     """
-    target_path = APP_DIR / relative_path
+    target_path = BASE_DIR / relative_path
     ensure_directory(target_path.parent)
     return target_path

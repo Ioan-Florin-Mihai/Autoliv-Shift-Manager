@@ -1,4 +1,7 @@
-{
-  "username": "admin",
-  "password_hash": "$2b$12$drq0vcwW6a3plOcKRLlFSOGI09SfJ78cfElx/UrLLBBUZiGBx3/zq"
-}
+[
+  {
+    "username": "admin",
+    "password_hash": "$2b$12$drq0vcwW6a3plOcKRLlFSOGI09SfJ78cfElx/UrLLBBUZiGBx3/zq",
+    "role": "admin"
+  }
+]
