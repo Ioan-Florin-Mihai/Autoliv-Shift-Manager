@@ -182,7 +182,7 @@ class ChangePasswordDialog(ctk.CTkToplevel):
             self._status_var.set(msg)
 
 
-
+class ShiftManagerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title(f"{APP_NAME} v{VERSION}")

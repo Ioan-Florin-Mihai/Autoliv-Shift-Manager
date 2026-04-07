@@ -23,4 +23,9 @@ if __name__ == "__main__":
 
     # Importa și porneste aplicația după bootstrapping cu succes
     from ui.dashboard import run_app
-    run_app()
+    try:
+        run_app()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        input("EROARE - Apasa Enter pentru a inchide...")
