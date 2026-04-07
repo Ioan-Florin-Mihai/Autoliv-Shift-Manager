@@ -1,13 +1,13 @@
 # ============================================================
 # MODUL: remote_control.py
-# Implementeaza sistemul de control remote via Firebase.
-# Permite blocarea aplicatiei de la distanta (anti-furt).
+# Control remote OPȚIONAL via Firebase Realtime Database.
 #
-# Flux:
-#   1. RemoteControlService verifica Firebase la fiecare N secunde
-#   2. Daca statusul e "blocked" → aplicatia se inchide
-#   3. Daca nu exista conexiune > max_offline_seconds → se inchide
-#   4. Daca device-ul nu e in allowed_devices → se blocheaza
+# PRINCIPIU FUNDAMENTAL: aplicația NICIODATĂ nu se oprește
+# din cauza Firebase. Remote control este un feature non-critic.
+#
+# Dacă Firebase e indisponibil → app rulează în LOCAL MODE.
+# Singura situație de blocare: status "blocked" setat ACTIV
+# în Firebase de administrator (anti-furt confirmat).
 #
 # Configurare: data/remote_config.json
 # Credentiale: data/firebase_service_account.json
@@ -23,45 +23,35 @@ from logic.app_logger import log_exception, log_warning, log_info
 from logic.app_paths import APP_DIR, ensure_runtime_file, get_sensitive_path
 
 
-# Caile fisierelor de configurare Firebase
-# remote_config.json e non-sensibil, poate fi in bundle
+# Căile fișierelor de configurare Firebase
 REMOTE_CONFIG_PATH    = ensure_runtime_file("data/remote_config.json")
-# firebase_service_account.json contine cheia privata GCP — NU e in bundle
 FIREBASE_SERVICE_PATH = get_sensitive_path("data/firebase_service_account.json")
 
 
 class RemoteControlService:
     """
     Serviciu de control remote prin Firebase Realtime Database.
-    Instanta unica creata la pornirea aplicatiei.
+    FAIL-SAFE: dacă Firebase nu e disponibil, aplicația continuă normal.
     """
 
     def __init__(self):
-        # ID-ul unic al acestui dispozitiv - generat o data si salvat persistent
         self.device_id = self._get_or_create_device_id()
 
-        # Stare interna Firebase
-        self._firebase_ready  = False   # True dupa initializare reusita
-        self._firebase_failed = False   # True daca initializarea a esuat
+        # Stare internă Firebase
+        self._firebase_ready  = False
+        self._firebase_failed = False
         self._db  = None
         self._app = None
 
-        # Timestamp de cand s-a pierdut conexiunea (pentru timeout offline)
         self._offline_started_at = None
         self._lock = threading.Lock()
 
-        # Incarcam configuratia din remote_config.json
         self.config = self._load_config()
 
     def _get_or_create_device_id(self):
-        """
-        Genereaza o ID unica la prima rulare si o salveaza in data/device_id.json.
-        La rulari viitoare, incarca ID-ul salvat (nu se mai schimba).
-        Asta evita probleme cu MAC address rotativ sau adaptatoare virtuale.
-        """
+        """Generează un device ID unic persistent."""
         device_id_path = ensure_runtime_file("data/device_id.json")
-        
-        # Daca fisierul exista, citim ID-ul din el
+
         if device_id_path.exists():
             try:
                 with device_id_path.open("r", encoding="utf-8") as f:
@@ -71,33 +61,29 @@ class RemoteControlService:
                         return device_id
             except (json.JSONDecodeError, OSError):
                 pass
-        
-        # Generam o ID noua (UUID)
+
         device_id = str(uuid.uuid4())
-        
-        # O salvam pt. viitoare rulari
         try:
             with device_id_path.open("w", encoding="utf-8") as f:
                 json.dump({"device_id": device_id}, f, ensure_ascii=False, indent=2)
         except OSError:
             pass
-        
         return device_id
 
     def _load_config(self):
         """
-        Incarca configuratia Firebase din remote_config.json.
-        Daca fisierul lipseste sau e invalid, foloseste valorile default
-        cu firebase_enabled=False (fara protectie remote).
+        Încarcă configurația Firebase. Dacă lipsește/corrupt → default SAFE
+        cu firebase_enabled=False (fără protecție remote).
         """
         default_config = {
-            "firebase_enabled":        False,
-            "database_url":            "",
-            "service_account_path":    "data/firebase_service_account.json",
-            "status_path":             "settings/app_status",
-            "allowed_devices_path":    "settings/allowed_devices",
-            "check_interval_seconds":  10,
-            "max_offline_seconds":     120,
+            "firebase_enabled":              False,
+            "database_url":                  "",
+            "service_account_path":          "data/firebase_service_account.json",
+            "status_path":                   "settings/app_status",
+            "allowed_devices_path":          "settings/allowed_devices",
+            "check_interval_seconds":        10,
+            "block_on_unauthorized_device":  False,
+            "fail_safe_mode":                True,
         }
 
         if not REMOTE_CONFIG_PATH.exists():
@@ -109,17 +95,11 @@ class RemoteControlService:
         except (json.JSONDecodeError, OSError):
             return default_config
 
-        # Suprascriem valorile default cu cele din fisier
         default_config.update(data)
         return default_config
 
     def _init_firebase(self):
-        """
-        Initializeaza conexiunea Firebase Admin SDK.
-        Apelata lazy (la primul check_access) pentru a nu bloca pornirea.
-        Seteaza _firebase_ready=True la succes sau _firebase_failed=True la esec.
-        """
-        # Evitam re-initializarea
+        """Inițializează Firebase Admin SDK (lazy, la primul check)."""
         if self._firebase_ready or self._firebase_failed:
             return
 
@@ -127,168 +107,180 @@ class RemoteControlService:
             import firebase_admin
             from firebase_admin import credentials, db
         except ImportError:
-            # firebase-admin nu e instalat
             self._firebase_failed = True
+            log_warning("firebase: firebase-admin nu e instalat — mod local activ.")
             return
 
-        # Determinam calea catre service account JSON
         service_account_path = APP_DIR / self.config["service_account_path"]
         if self.config["service_account_path"] == "data/firebase_service_account.json":
             service_account_path = FIREBASE_SERVICE_PATH
 
         database_url = self.config["database_url"]
 
-        # Nu continuam fara URL sau fara fisierul de credentiale
         if not database_url or not service_account_path.exists():
             self._firebase_failed = True
+            log_warning("firebase: lipsește database_url sau service_account — mod local activ.")
             return
 
         try:
             with self._lock:
-                # Evitam initializarea dubla daca app-ul Firebase exista deja
-                if firebase_admin._apps:
-                    self._app = firebase_admin.get_app()
+                import firebase_admin as _fa
+                if _fa._apps:
+                    self._app = _fa.get_app()
                 else:
                     cred      = credentials.Certificate(str(service_account_path))
-                    self._app = firebase_admin.initialize_app(cred, {"databaseURL": database_url})
-                self._db            = db
+                    self._app = _fa.initialize_app(cred, {"databaseURL": database_url})
+                self._db             = db
                 self._firebase_ready = True
-                log_info("firebase: initializare reusita (device_id=%s)", self.device_id)
+                log_info("firebase: inițializare reușită (device_id=%s)", self.device_id)
         except Exception as exc:
             log_exception("firebase_init", exc)
             self._firebase_failed = True
+            log_warning("firebase: inițializare eșuată — mod local activ.")
 
     def _get_reference_value(self, path: str):
-        """Citeste o valoare dintr-un path al Realtime Database."""
+        """Citește o valoare din Realtime Database."""
         self._init_firebase()
         if not self._firebase_ready or self._db is None:
-            raise ConnectionError("Firebase nu este configurat sau nu poate fi accesat.")
+            raise ConnectionError("Firebase indisponibil.")
         return self._db.reference(path).get()
 
     def _set_reference_value(self, path: str, value):
-        """Scrie o valoare intr-un path al Realtime Database."""
+        """Scrie o valoare în Realtime Database."""
         self._init_firebase()
         if not self._firebase_ready or self._db is None:
-            raise ConnectionError("Firebase nu este configurat sau nu poate fi accesat.")
+            raise ConnectionError("Firebase indisponibil.")
         self._db.reference(path).set(value)
 
     def get_status(self):
-        """
-        Returneaza statusul curent din Firebase ("active" / "blocked").
-        Daca Firebase e dezactivat, returneaza "firebase_disabled".
-        """
+        """Returnează statusul curent („active"/„blocked"/„firebase_disabled")."""
         if not self.config.get("firebase_enabled", False):
             return "firebase_disabled"
         value = self._get_reference_value(self.config["status_path"])
         return str(value).lower() if value is not None else "unknown"
 
     def set_status(self, status: str):
-        """
-        Seteaza statusul in Firebase ("active" sau "blocked").
-        Arunca ValueError pentru valori invalide.
-        """
+        """Setează statusul în Firebase."""
         normalized = status.strip().lower()
         if normalized not in {"active", "blocked"}:
-            raise ValueError("Statusul trebuie sa fie active sau blocked.")
+            raise ValueError("Statusul trebuie să fie active sau blocked.")
         self._set_reference_value(self.config["status_path"], normalized)
         return normalized
 
     def check_access(self):
         """
-        Verifica daca aplicatia are dreptul sa ruleze.
-        Returneaza un dict cu cheile:
+        Verifică dreptul de acces al aplicației.
+        Returnează dict cu:
           - "action": "allow" | "warn" | "block"
           - "message": descriere text
+
+        REGULĂ FAIL-SAFE:
+          - Orice eroare de conexiune → "allow" (cu warning log)
+          - Singura blocare reală: status=="blocked" CONFIRMAT din Firebase
+          - Timeout offline NU mai oprește aplicația
         """
-        # Firebase dezactivat → accesul e permis mereu
+        # Firebase dezactivat → acces permis mereu
         if not self.config.get("firebase_enabled", False):
-            return {"action": "allow", "message": f"Control remote dezactivat. Device ID: {self.device_id}"}
+            return {
+                "action": "allow",
+                "message": f"Control remote dezactivat. Device ID: {self.device_id}",
+            }
 
         try:
             status          = self._get_reference_value(self.config["status_path"])
             allowed_devices = self._get_reference_value(self.config["allowed_devices_path"])
-        except Exception:
-            # Nu putem contacta Firebase — masuram cat timp suntem offline
+        except Exception as exc:
+            # ── FAIL-SAFE: Firebase indisponibil → app continuă normal ──
             now = time.time()
             if self._offline_started_at is None:
                 self._offline_started_at = now
+                log_warning("firebase: conexiune pierdută — se continuă în mod local.")
 
             offline_seconds = now - self._offline_started_at
-            max_offline     = self.config.get("max_offline_seconds", 120)
 
-            if offline_seconds >= max_offline:
-                # Depasit timeout-ul offline → blocam aplicatia
-                return {
-                    "action":  "block",
-                    "message": f"Conexiunea la controlul remote lipseste de {int(offline_seconds)} secunde.",
-                }
-
-            # Inca in fereastra de gratie offline → avertizam
+            # Doar log + warn, NICIODATĂ block
             return {
                 "action":  "warn",
-                "message": f"Fara conexiune la Firebase de {int(offline_seconds)} secunde.",
+                "message": f"Mod offline ({int(offline_seconds)}s). Control remote indisponibil.",
             }
 
-        # Conexiune reusita — resetam contorul offline
+        # Conexiune reușită — resetăm contorul offline
+        if self._offline_started_at is not None:
+            log_info("firebase: conexiune restabilită după offline.")
         self._offline_started_at = None
 
-        # Verificam daca statusul e "blocked"
+        # Status „blocked" setat ACTIV de administrator — singura blocare reală
         if str(status).lower() == "blocked":
-            return {"action": "block", "message": "Aplicatia a fost blocata remote."}
+            return {"action": "block", "message": "Aplicația a fost blocată remote de administrator."}
 
-        # Verificam daca device-ul curent e autorizat
-        if not self._is_device_allowed(allowed_devices):
-            return {"action": "block", "message": f"Device neautorizat: {self.device_id}"}
+        # Verificare device autorizat — doar dacă e activată explicit
+        if self.config.get("block_on_unauthorized_device", False):
+            if not self._is_device_allowed(allowed_devices):
+                return {"action": "block", "message": f"Device neautorizat: {self.device_id}"}
 
-        return {"action": "allow", "message": f"Aplicatia este activa. Device ID: {self.device_id}"}
+        return {"action": "allow", "message": f"Aplicația este activă. Device ID: {self.device_id}"}
 
     def _is_device_allowed(self, allowed_devices):
-        """
-        Verifica daca device-ul curent (dupa MAC address) e in lista alba.
-        Accepta mai multe formate de stocare in Firebase:
-          - lista: ["123456", "789012"]
-          - dict:  {"123456": true, "789012": false}
-          - string: "123456"
-        """
+        """Verifică dacă device-ul curent e în lista albă Firebase."""
         if allowed_devices is None:
             return False
-
         if isinstance(allowed_devices, list):
             return self.device_id in {str(item) for item in allowed_devices}
-
         if isinstance(allowed_devices, dict):
             return bool(allowed_devices.get(self.device_id))
-
         return str(allowed_devices) == self.device_id
+
+
+# ── Backoff constants ─────────────────────────────────────────
+_BACKOFF_SCHEDULE = [5, 10, 30, 60]  # secunde — ciclic
 
 
 class RemoteChecker(threading.Thread):
     """
-    Thread daemon care verifica periodic accesul remote.
-    Ruleaza in fundal si pune rezultatele intr-o coada (Queue).
-    PlannerDashboard consuma coada via process_remote_events().
+    Thread daemon care verifică periodic accesul remote.
+    NICIODATĂ nu oprește thread-ul din cauza erorilor.
+    Folosește exponential backoff la erori de conexiune.
     """
 
     def __init__(self, service: RemoteControlService, events: Queue):
-        super().__init__(daemon=True)  # daemon=True: se opreste cand se inchide app-ul
+        super().__init__(daemon=True)
         self.service   = service
         self.events    = events
         self._running  = True
+        self._backoff_idx = 0
 
     def run(self):
-        """Bucla principala: verifica accesul si pune rezultatul in coada."""
+        """Buclă infinită: verifică accesul și pune rezultatul în coadă."""
         while self._running:
-            result = self.service.check_access()
-            self.events.put(result)
+            try:
+                result = self.service.check_access()
+                self.events.put(result)
 
-            # La blocare, oprim thread-ul (nu mai are rost sa continue)
-            if result["action"] == "block":
-                break
+                if result["action"] == "warn":
+                    # Backoff progresiv la probleme de conexiune
+                    delay = _BACKOFF_SCHEDULE[min(self._backoff_idx, len(_BACKOFF_SCHEDULE) - 1)]
+                    self._backoff_idx += 1
+                    time.sleep(delay)
+                    continue
 
-            # Asteptam intervalul configurat (minim 3 secunde)
+                # Conexiune OK sau block — resetăm backoff
+                self._backoff_idx = 0
+
+                # La block CONFIRMAT (admin a blocat activ), thread-ul se oprește
+                if result["action"] == "block":
+                    break
+
+            except Exception as exc:
+                # NICIODATĂ crash — orice eroare e logată și ignorată
+                log_exception("remote_checker_run", exc)
+                delay = _BACKOFF_SCHEDULE[min(self._backoff_idx, len(_BACKOFF_SCHEDULE) - 1)]
+                self._backoff_idx += 1
+                time.sleep(delay)
+                continue
+
             interval = max(3, int(self.service.config.get("check_interval_seconds", 10)))
             time.sleep(interval)
 
     def stop(self):
-        """Semnaleaza thread-ului sa se opreasca la urmatoarea iteratie."""
+        """Semnalează thread-ului să se oprească."""
         self._running = False

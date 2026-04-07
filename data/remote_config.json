@@ -5,7 +5,7 @@
   "status_path": "settings/app_status",
   "allowed_devices_path": "settings/allowed_devices",
   "block_on_unauthorized_device": false,
-  "check_interval_seconds": 10,
-  "max_offline_seconds": 120
+  "fail_safe_mode": true,
+  "check_interval_seconds": 10
 }
 

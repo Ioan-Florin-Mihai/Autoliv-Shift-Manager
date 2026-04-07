@@ -986,11 +986,18 @@ class PlannerDashboard(ctk.CTkFrame):
                 latest = self.events.get_nowait()
         except Empty:
             pass
-        if latest and latest["action"] == "block":
-            messagebox.showerror("Aplicatie oprita", latest["message"])
-            self.destroy()
-            self.winfo_toplevel().destroy()
-            return
+
+        if latest:
+            if latest["action"] == "block":
+                # Blocare CONFIRMATĂ de administrator — singura cauză de oprire
+                messagebox.showerror("Aplicatie oprita", latest["message"])
+                self.destroy()
+                self.winfo_toplevel().destroy()
+                return
+            elif latest["action"] == "warn":
+                # Probleme de conexiune — doar status bar, app continuă normal
+                self.status_var.set(latest["message"])
+
         try:
             self.after(1000, self.process_remote_events)
         except tk.TclError:
