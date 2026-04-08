@@ -33,7 +33,7 @@ from logic.version import VERSION
 # Se foloseste cand angajatul NU are o culoare personalizata stocata in celula.
 COLOR_MAP = {
     "8h":  "1A1A1A",   # Negru — 8 ore
-    "12h": "7B3FC4",   # Violet — 12 ore
+    "12h": "C0392B",   # Rosu — 12 ore
     "R":   "C0392B",   # Rosu
     "V":   "27AE60",   # Verde
     "P":   "E67E22",   # Portocaliu
@@ -67,7 +67,7 @@ def _cell_text_and_color(employees: list[str], colors: dict) -> tuple[str, str]:
     """
     Returneaza (text_celula, culoare_ARGB) pentru o celula din grid.
 
-    Textul: fiecare angajat pe linie noua, prefixat cu '8h ' sau '12h '.
+    Textul: fiecare angajat pe linie noua, prefixat cu '● 8 ' sau '● 12 '.
     Culoarea: daca toti angajatii au aceeasi culoare → acea culoare;
               altfel → negru inchis (DEFAULT_TEXT_COLOR).
     Fara CellRichText — compatibil 100% Excel (fara avertismente de reparare).
@@ -86,9 +86,9 @@ def _cell_text_and_color(employees: list[str], colors: dict) -> tuple[str, str]:
 
     def _hours_label(emp: str) -> str:
         raw = (_raw_color_for_employee(emp) or "").strip().upper().lstrip("#")
-        return "12h" if raw == "7B3FC4" else "8h"
+        return "12" if raw == "C0392B" else "8"
 
-    text = "\n".join(f"{_hours_label(emp)} {emp}" for emp in employees)
+    text = "\n".join(f"\u25cf {_hours_label(emp)} {emp}" for emp in employees)
 
     # Colecteaza culorile unice ale angajatilor (case-insensitive lookup)
     unique_colors: set[str] = set()
@@ -159,7 +159,7 @@ class ExcelExporter:
         border_dept   = Border(left=medium, right=medium, top=medium, bottom=medium)
 
         centered     = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        center_top   = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell_text_aln = Alignment(horizontal="left", vertical="center", wrap_text=True)
         vertical_aln = Alignment(horizontal="center", vertical="center", text_rotation=90, wrap_text=True)
 
         # ── Latimi coloane (A3 landscape — 9 coloane, fara coloana goala) ──
@@ -283,10 +283,14 @@ class ExcelExporter:
                     value_cell            = sheet.cell(row, col_offset)
                     value_cell.value      = text
                     value_cell.font       = Font(name=FONT_NAME, bold=True, size=11, color=color)
-                    value_cell.alignment  = center_top
+                    value_cell.alignment  = cell_text_aln
                     value_cell.border     = border_thin
-                    # Fond alb pur — culoarea este DOAR pe text (WYSIWYG)
-                    value_cell.fill = _fill("FFFFFF")
+                    # Fond neutru pe toata celula pentru print A3 consistent.
+                    value_cell.fill = PatternFill(
+                        start_color="FFFFFFFF",
+                        end_color="FFFFFFFF",
+                        fill_type="solid",
+                    )
 
             current_row += total_rows
 

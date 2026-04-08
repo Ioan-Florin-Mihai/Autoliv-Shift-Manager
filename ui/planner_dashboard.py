@@ -33,13 +33,13 @@ GRID_BORDER_LIGHT = "#D0D7E2"
 GRID_BORDER_DARK = "#4A5C70"
 GRID_HOVER_LIGHT = "#9EB6CF"
 GRID_HOVER_DARK = "#6A7F97"
-HOURS_COLOR_MAP = {"8h": "#1A1A1A", "12h": "#7B3FC4"}
-BADGE_WIDTH = 30
-BADGE_HEIGHT = 22
-GRID_NAME_MAX_CHARS = 15
+HOURS_COLOR_MAP = {"8h": "#1A1A1A", "12h": "#C0392B"}
+BADGE_WIDTH = 28
+BADGE_HEIGHT = 28
+GRID_NAME_MAX_CHARS = 16
 PANEL_NAME_MAX_CHARS = 28
 VISIBLE_EMPLOYEE_ROWS = 4
-EMPLOYEE_ROW_HEIGHT = 24
+EMPLOYEE_ROW_HEIGHT = 26
 EMPLOYEE_ROW_PADY = 2
 EMPLOYEE_NAME_TEXT = ("#15304B", "#F4F7FB")
 
@@ -147,7 +147,7 @@ class PlannerDashboard(ctk.CTkFrame):
         clean = " ".join(employee.split()).strip()
         if len(clean) <= max_chars:
             return clean
-        cutoff = max(12, max_chars - 3)
+        cutoff = max(14, max_chars - 3)
         return clean[:cutoff].rstrip() + "..."
 
     def _attach_tooltip_if_truncated(self, widget, full_text: str, shown_text: str):
@@ -166,10 +166,10 @@ class PlannerDashboard(ctk.CTkFrame):
             text=self._hours_badge_value(colors, employee),
             width=BADGE_WIDTH,
             height=BADGE_HEIGHT,
-            corner_radius=11,
+            corner_radius=14,
             fg_color=badge_color,
             text_color="white",
-            font=ctk.CTkFont(size=10, weight="bold"),
+            font=ctk.CTkFont(size=9, weight="bold"),
             anchor="center",
         )
         return badge
@@ -520,10 +520,11 @@ class PlannerDashboard(ctk.CTkFrame):
                     for emp in employees:
                         emp_row = ctk.CTkFrame(content_frame, fg_color="transparent")
                         emp_row.pack(fill="x", padx=4, pady=EMPLOYEE_ROW_PADY)
+                        emp_row.grid_columnconfigure(1, weight=1)
                         emp_row.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
                         badge = self._create_hours_badge(emp_row, cell_colors, emp)
-                        badge.pack(side="left", padx=(0, 8))
+                        badge.grid(row=0, column=0, sticky="w", padx=(0, 8))
                         badge.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
                         shown_name = self._display_employee_name(emp, GRID_NAME_MAX_CHARS)
@@ -532,12 +533,12 @@ class PlannerDashboard(ctk.CTkFrame):
                             emp_row,
                             text=shown_name,
                             text_color=EMPLOYEE_NAME_TEXT,
-                            font=ctk.CTkFont(size=12, weight="bold"),
+                            font=ctk.CTkFont(size=13, weight="bold"),
                             anchor="w",
                             justify="left",
                             height=EMPLOYEE_ROW_HEIGHT,
                         )
-                        lbl.pack(side="left", fill="x", expand=True)
+                        lbl.grid(row=0, column=1, sticky="ew")
                         lbl.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
                         self._attach_tooltip_if_truncated(lbl, emp, shown_name)
                 else:
@@ -642,24 +643,27 @@ class PlannerDashboard(ctk.CTkFrame):
             # Randul de sus: indicator culoare + nume + butoane actiune
             top_row = ctk.CTkFrame(card, fg_color="transparent")
             top_row.pack(fill="x", padx=6, pady=(6, 2))
+            top_row.grid_columnconfigure(1, weight=1)
 
             badge = self._create_hours_badge(top_row, cell_colors, employee)
-            badge.pack(side="left", padx=(0, 8))
+            badge.grid(row=0, column=0, sticky="w", padx=(0, 8))
 
             name_label = ctk.CTkLabel(
                 top_row,
                 text=shown_name,
                 text_color=EMPLOYEE_NAME_TEXT,
-                font=ctk.CTkFont(size=14, weight="bold"),
+                font=ctk.CTkFont(size=15, weight="bold"),
                 anchor="w",
             )
-            name_label.pack(side="left", fill="x", expand=True)
+            name_label.grid(row=0, column=1, sticky="ew")
             self._attach_tooltip_if_truncated(name_label, employee, shown_name)
 
-            ctk.CTkButton(top_row, text="Sus",    width=40, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.reorder_employee(e, -1)).pack(side="right", padx=(3, 0))
-            ctk.CTkButton(top_row, text="Jos",    width=40, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.reorder_employee(e,  1)).pack(side="right", padx=3)
-            ctk.CTkButton(top_row, text="Mut",    width=40, height=26, fg_color=PRIMARY_BLUE, hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.move_employee_to_shift(e)).pack(side="right", padx=3)
-            ctk.CTkButton(top_row, text="✕",      width=28, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=12), command=lambda e=employee: self.remove_employee(e)).pack(side="right", padx=(3, 0))
+            actions = ctk.CTkFrame(top_row, fg_color="transparent")
+            actions.grid(row=0, column=2, sticky="e", padx=(8, 0))
+            ctk.CTkButton(actions, text="Sus", width=40, height=26, fg_color=ACCENT_BLUE, hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.reorder_employee(e, -1)).pack(side="left", padx=(0, 3))
+            ctk.CTkButton(actions, text="Jos", width=40, height=26, fg_color=ACCENT_BLUE, hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.reorder_employee(e, 1)).pack(side="left", padx=3)
+            ctk.CTkButton(actions, text="Mut", width=40, height=26, fg_color=PRIMARY_BLUE, hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.move_employee_to_shift(e)).pack(side="left", padx=3)
+            ctk.CTkButton(actions, text="✕", width=28, height=26, fg_color=ACCENT_BLUE, hover_color=HOVER_BLUE, font=ctk.CTkFont(size=12), command=lambda e=employee: self.remove_employee(e)).pack(side="left", padx=(3, 0))
 
             # Randul de jos: selector ore (comportament radio)
             palette_row = ctk.CTkFrame(card, fg_color="transparent")
