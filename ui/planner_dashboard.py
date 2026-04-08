@@ -915,13 +915,26 @@ class PlannerDashboard(ctk.CTkFrame):
         if target_shift not in candidates:
             messagebox.showwarning("Shift invalid", f"Foloseste: {', '.join(candidates)}")
             return
+        source_colors = self.current_cell().get("colors", {})
+        employee_color = self._lookup_color(source_colors if isinstance(source_colors, dict) else {}, employee)
         try:
-            self.store.validate_assignment(self.week_record, self.current_mode, self.selected_department, self.selected_day, target_shift, employee)
+            self.store.validate_assignment(
+                self.week_record,
+                self.current_mode,
+                self.selected_department,
+                self.selected_day,
+                target_shift,
+                employee,
+                ignore_assignment=(self.selected_department, self.selected_shift),
+            )
         except ValueError as exc:
             messagebox.showwarning("Mutare invalida", str(exc))
             return
         self.remove_employee(employee)
-        self.current_mode_record()["schedule"][self.selected_department][self.selected_day][target_shift]["employees"].append(employee)
+        target_cell = self.current_mode_record()["schedule"][self.selected_department][self.selected_day][target_shift]
+        target_cell["employees"].append(employee)
+        if employee_color:
+            target_cell.setdefault("colors", {})[employee] = employee_color
         self.selected_shift = target_shift
         self._dirty = True
         self.refresh_all()

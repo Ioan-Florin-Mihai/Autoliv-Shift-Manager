@@ -17,6 +17,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.cell.text import InlineFont
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -45,6 +47,8 @@ DEFAULT_TEXT_COLOR = "1A1A1A"
 
 # Font folosit in tot documentul
 FONT_NAME = "Calibri"
+COLOR_8H = "1A1A1A"
+COLOR_12H = "C0392B"
 
 
 def _to_argb(hex_color: str | None) -> str:
@@ -63,6 +67,20 @@ def _fill(hex_color: str) -> "PatternFill":
     return PatternFill("solid", fgColor="FF" + cleaned)
 
 
+def _hours_label_from_colors(colors: dict | None, employee: str) -> str:
+    def _raw_color_for_employee(emp: str):
+        raw = colors.get(emp) if isinstance(colors, dict) else None
+        if raw:
+            return raw
+        return next(
+            (v for k, v in (colors or {}).items() if isinstance(k, str) and k.casefold() == emp.casefold()),
+            None,
+        )
+
+    raw = (_raw_color_for_employee(employee) or "").strip().upper().lstrip("#")
+    return "12" if raw == COLOR_12H else "8"
+
+
 def _cell_text_and_color(employees: list[str], colors: dict) -> tuple[str, str]:
     """
     Returneaza (text_celula, culoare_ARGB) pentru o celula din grid.
@@ -75,30 +93,38 @@ def _cell_text_and_color(employees: list[str], colors: dict) -> tuple[str, str]:
     if not employees:
         return "", "FF" + DEFAULT_TEXT_COLOR
 
-    def _raw_color_for_employee(emp: str):
-        raw = colors.get(emp) if colors else None
-        if raw:
-            return raw
-        return next(
-            (v for k, v in (colors or {}).items() if k.casefold() == emp.casefold()),
-            None,
-        )
-
-    def _hours_label(emp: str) -> str:
-        raw = (_raw_color_for_employee(emp) or "").strip().upper().lstrip("#")
-        return "12" if raw == "C0392B" else "8"
-
-    text = "\n".join(f"\u25cf {_hours_label(emp)} {emp}" for emp in employees)
+    text = "\n".join(f"\u25cf {_hours_label_from_colors(colors, emp)} {emp}" for emp in employees)
 
     # Colecteaza culorile unice ale angajatilor (case-insensitive lookup)
     unique_colors: set[str] = set()
     for emp in employees:
-        raw = _raw_color_for_employee(emp)
+        raw = None
+        if isinstance(colors, dict):
+            raw = colors.get(emp)
+            if not raw:
+                raw = next((v for k, v in colors.items() if isinstance(k, str) and k.casefold() == emp.casefold()), None)
         unique_colors.add(_to_argb(raw))
 
     # O singura culoare → aplica pe toata celula; mai multe → negru
     color = unique_colors.pop() if len(unique_colors) == 1 else "FF" + DEFAULT_TEXT_COLOR
     return text, color
+
+
+def _build_employee_rich_text(employees: list[str], colors: dict) -> CellRichText:
+    rich_text = CellRichText()
+    for index, employee in enumerate(employees):
+        hours_label = _hours_label_from_colors(colors, employee)
+        line_text = f"\u25cf {hours_label} {employee}"
+        line_color = "FF" + (COLOR_12H if hours_label == "12" else COLOR_8H)
+        rich_text.append(
+            TextBlock(
+                InlineFont(rFont=FONT_NAME, b=True, sz=11, color=line_color),
+                line_text,
+            )
+        )
+        if index < len(employees) - 1:
+            rich_text.append("\n")
+    return rich_text
 
 
 class ExcelExporter:
@@ -272,17 +298,17 @@ class ExcelExporter:
                 shift_cell.fill      = _fill("F5F5F5")
                 shift_cell.border    = border_thin
 
-                # Celule angajati — text simplu + un singur Font (fara RichText)
+                # Celule angajati — text multi-linie cu stil unitar, culoare per linie.
                 for col_offset, (day_name, _) in enumerate(DAYS, start=3):
                     cell_data  = schedule[day_name][shift]
                     employees  = cell_data.get("employees", [])
                     colors     = cell_data.get("colors", {})
 
-                    text, color = _cell_text_and_color(employees, colors)
+                    text, _ = _cell_text_and_color(employees, colors)
 
                     value_cell            = sheet.cell(row, col_offset)
                     value_cell.value      = text
-                    value_cell.font       = Font(name=FONT_NAME, bold=True, size=11, color=color)
+                    value_cell.font       = Font(name=FONT_NAME, bold=True, size=11, color="FF" + DEFAULT_TEXT_COLOR)
                     value_cell.alignment  = cell_text_aln
                     value_cell.border     = border_thin
                     # Fond neutru pe toata celula pentru print A3 consistent.
@@ -291,6 +317,14 @@ class ExcelExporter:
                         end_color="FFFFFFFF",
                         fill_type="solid",
                     )
+                    if employees:
+                        try:
+                            value_cell.value = _build_employee_rich_text(employees, colors)
+                        except Exception as exc:
+                            # Fallback robust: text simplu integral negru, fara artefacte la print.
+                            log_exception("excel_export_rich_text_fallback", exc)
+                            value_cell.value = text
+                            value_cell.font = Font(name=FONT_NAME, bold=True, size=11, color="FF" + DEFAULT_TEXT_COLOR)
 
             current_row += total_rows
 

@@ -24,6 +24,7 @@ DAYS = [
 DAY_NAMES = [item[0] for item in DAYS]
 WEEKEND_DAYS = {"Sambata", "Duminica"}
 SHIFTS = ["Sch1", "Sch2", "Sch3"]
+HOURS_12_COLOR = "C0392B"
 
 TEMPLATES = {
     "Magazie": [
@@ -267,24 +268,79 @@ class ScheduleStore:
                         )
         return result
 
-    def validate_assignment(self, week_record, mode_name: str, department: str, day_name: str, shift: str, employee: str):
+    def _employee_shift_assignments_for_day(
+        self,
+        week_record,
+        mode_name: str,
+        day_name: str,
+        employee: str,
+        ignore_assignment: tuple[str, str] | None = None,
+    ):
+        mode_record = week_record["modes"][mode_name]
+        assignments = []
+        for other_department in mode_record["departments"]:
+            for other_shift in SHIFTS:
+                if ignore_assignment and ignore_assignment == (other_department, other_shift):
+                    continue
+                cell = mode_record["schedule"][other_department][day_name][other_shift]
+                employees = cell.get("employees", [])
+                if any(existing.casefold() == employee.casefold() for existing in employees):
+                    assignments.append((other_department, other_shift, cell))
+        return assignments
+
+    def _employee_hours_for_day(self, assignments: list[tuple[str, str, dict]], employee: str) -> str:
+        for _department, _shift, cell in assignments:
+            colors = cell.get("colors", {}) if isinstance(cell, dict) else {}
+            if not isinstance(colors, dict):
+                continue
+            for key, value in colors.items():
+                if isinstance(key, str) and key.casefold() == employee.casefold():
+                    if str(value or "").strip().upper().lstrip("#") == HOURS_12_COLOR:
+                        return "12h"
+        return "8h"
+
+    def validate_assignment(
+        self,
+        week_record,
+        mode_name: str,
+        department: str,
+        day_name: str,
+        shift: str,
+        employee: str,
+        ignore_assignment: tuple[str, str] | None = None,
+    ):
         mode_record = week_record["modes"][mode_name]
         target_cell = mode_record["schedule"][department][day_name][shift]["employees"]
         if any(existing.casefold() == employee.casefold() for existing in target_cell):
             raise ValueError("Angajatul exista deja in aceasta celula.")
 
-        for other_department in mode_record["departments"]:
-            for other_shift in SHIFTS:
-                other_cell = mode_record["schedule"][other_department][day_name][other_shift]["employees"]
-                for existing in other_cell:
-                    if existing.casefold() != employee.casefold():
-                        continue
-                    if other_department == department and other_shift == shift:
-                        raise ValueError("Angajatul exista deja in aceasta celula.")
-                    if other_shift == shift:
-                        raise ValueError(
-                            f"{employee} este deja planificat in {other_department}, {day_name}, {other_shift}."
-                        )
+        assignments = self._employee_shift_assignments_for_day(
+            week_record,
+            mode_name,
+            day_name,
+            employee,
+            ignore_assignment=ignore_assignment,
+        )
+        existing_shifts = {assigned_shift for _dept, assigned_shift, _cell in assignments}
+
+        if shift in existing_shifts:
+            raise ValueError(f"{employee} este deja planificat in {day_name}, {shift}.")
+
+        if not assignments:
+            return
+
+        hours_type = self._employee_hours_for_day(assignments, employee)
+        candidate_shifts = existing_shifts | {shift}
+
+        if hours_type == "8h":
+            raise ValueError("Angajatul are deja 8h alocat in aceasta zi.")
+
+        if len(candidate_shifts) > 2:
+            raise ValueError("Angajatul cu 12h poate avea maximum doua schimburi in aceeasi zi.")
+
+        shift_indexes = sorted(SHIFTS.index(value) for value in candidate_shifts)
+        if len(shift_indexes) == 2 and shift_indexes[1] - shift_indexes[0] != 1:
+            raise ValueError("12h trebuie sa fie pe schimburi consecutive.")
 
     def _normalize_week_record(self, week_record):
         modes = week_record.get("modes")

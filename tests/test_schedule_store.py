@@ -85,8 +85,8 @@ class TestValidateAssignment:
         with pytest.raises(ValueError, match="deja"):
             store.validate_assignment(week, mode, dept, day, shift, "Maria Ion")
 
-    def test_duplicate_in_other_shift_same_dept_does_not_raise(self, store):
-        """Acelasi angajat in tura diferita din acelasi departament e permis."""
+    def test_8h_in_other_shift_same_day_raises(self, store):
+        """8h nu poate fi alocat in doua schimburi in aceeasi zi."""
         week  = store.get_or_create_week(date(2026, 4, 7))
         mode  = list(TEMPLATES.keys())[0]
         dept  = week["modes"][mode]["departments"][0]
@@ -94,9 +94,35 @@ class TestValidateAssignment:
         shift1 = SHIFTS[0]
         shift2 = SHIFTS[1]
         week["modes"][mode]["schedule"][dept][day][shift1]["employees"].append("Vasile Dan")
-        # Angajatul e in shift1 — regula interzice acelasi angajat in ALT DEPT, aceeasi tura
-        # In acelasi dept, ture diferite, nu se ridica exceptie
-        store.validate_assignment(week, mode, dept, day, shift2, "Vasile Dan")  # trebuie sa treaca
+        with pytest.raises(ValueError, match="8h"):
+            store.validate_assignment(week, mode, dept, day, shift2, "Vasile Dan")
+
+    def test_12h_consecutive_shifts_allowed(self, store):
+        """12h poate avea doua schimburi consecutive in aceeasi zi."""
+        week = store.get_or_create_week(date(2026, 4, 7))
+        mode = list(TEMPLATES.keys())[0]
+        dept = week["modes"][mode]["departments"][0]
+        day = DAY_NAMES[0]
+        shift1 = SHIFTS[0]
+        shift2 = SHIFTS[1]
+        cell1 = week["modes"][mode]["schedule"][dept][day][shift1]
+        cell1["employees"].append("Vasile Dan")
+        cell1.setdefault("colors", {})["Vasile Dan"] = "#C0392B"
+        store.validate_assignment(week, mode, dept, day, shift2, "Vasile Dan")
+
+    def test_12h_non_consecutive_shifts_raise(self, store):
+        """12h pe Sch1 + Sch3 este invalid (neconsecutiv)."""
+        week = store.get_or_create_week(date(2026, 4, 7))
+        mode = list(TEMPLATES.keys())[0]
+        dept = week["modes"][mode]["departments"][0]
+        day = DAY_NAMES[0]
+        shift1 = SHIFTS[0]
+        shift3 = SHIFTS[2]
+        cell1 = week["modes"][mode]["schedule"][dept][day][shift1]
+        cell1["employees"].append("Vasile Dan")
+        cell1.setdefault("colors", {})["Vasile Dan"] = "#C0392B"
+        with pytest.raises(ValueError, match="consecutive"):
+            store.validate_assignment(week, mode, dept, day, shift3, "Vasile Dan")
 
 
 # ── Backup recovery ───────────────────────────────────────────────────────────
