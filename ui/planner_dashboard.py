@@ -28,19 +28,19 @@ SELECTED_BG = ("#B9D8FF", "#1A3A5C")
 GRID_CELL_BG = ("#FFFFFF", "#2A2A2A")
 SUGGESTION_BG = ("#D9E6F5", "#1E3A5F")
 HOVER_BLUE = "#2E7FD2"
-CELL_MIN_HEIGHT = 104
+CELL_MIN_HEIGHT = 208
 GRID_BORDER_LIGHT = "#D0D7E2"
 GRID_BORDER_DARK = "#4A5C70"
 GRID_HOVER_LIGHT = "#9EB6CF"
 GRID_HOVER_DARK = "#6A7F97"
 HOURS_COLOR_MAP = {"8h": "#1A1A1A", "12h": "#C0392B"}
-BADGE_WIDTH = 28
-BADGE_HEIGHT = 28
+BADGE_WIDTH = 25
+BADGE_HEIGHT = 25
 GRID_NAME_MAX_CHARS = 16
 PANEL_NAME_MAX_CHARS = 28
-VISIBLE_EMPLOYEE_ROWS = 4
-EMPLOYEE_ROW_HEIGHT = 26
-EMPLOYEE_ROW_PADY = 2
+VISIBLE_EMPLOYEE_ROWS = 5
+EMPLOYEE_ROW_HEIGHT = 30
+EMPLOYEE_ROW_PADY = 3
 EMPLOYEE_NAME_TEXT = ("#15304B", "#F4F7FB")
 
 
@@ -156,7 +156,9 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def _visible_cell_content_height(self) -> int:
         row_height = EMPLOYEE_ROW_HEIGHT + EMPLOYEE_ROW_PADY * 2
-        return min(CELL_MIN_HEIGHT - 8, VISIBLE_EMPLOYEE_ROWS * row_height + 6)
+        available_height = CELL_MIN_HEIGHT - 20
+        preferred_height = VISIBLE_EMPLOYEE_ROWS * row_height + 8
+        return min(available_height, preferred_height)
 
     def _create_hours_badge(self, parent, colors: dict, employee: str):
         hours_label = self._hours_for_employee(colors, employee)
@@ -166,7 +168,7 @@ class PlannerDashboard(ctk.CTkFrame):
             text=self._hours_badge_value(colors, employee),
             width=BADGE_WIDTH,
             height=BADGE_HEIGHT,
-            corner_radius=14,
+            corner_radius=13,
             fg_color=badge_color,
             text_color="white",
             font=ctk.CTkFont(size=9, weight="bold"),
@@ -494,14 +496,25 @@ class PlannerDashboard(ctk.CTkFrame):
                     relief="flat",
                     bg=self._resolve_theme_color(cell_bg),
                 )
-                content_canvas.place(x=4, y=4, relwidth=1, width=-8, height=canvas_height)
+                content_canvas.place(x=6, y=6, relwidth=1, width=-12, height=canvas_height)
                 self._grid_cell_canvases[(day_name, shift)] = content_canvas
 
                 if len(employees) > VISIBLE_EMPLOYEE_ROWS:
                     scrollbar = ctk.CTkScrollbar(cell_frame, orientation="vertical", command=content_canvas.yview, width=8)
-                    scrollbar.place(relx=1.0, x=-4, y=6, anchor="ne", height=canvas_height - 4)
+                    scrollbar.place(relx=1.0, x=-6, y=8, anchor="ne", height=canvas_height - 8)
                     content_canvas.configure(yscrollcommand=scrollbar.set)
-                    content_canvas.place_configure(width=-16)
+                    content_canvas.place_configure(width=-18)
+
+                    overflow_count = len(employees) - VISIBLE_EMPLOYEE_ROWS
+                    overflow_label = ctk.CTkLabel(
+                        cell_frame,
+                        text=f"+{overflow_count}",
+                        text_color=("#5B7691", "#AFC3D8"),
+                        fg_color="transparent",
+                        font=ctk.CTkFont(size=11, weight="bold"),
+                    )
+                    overflow_label.place(relx=1.0, rely=1.0, x=-18, y=-8, anchor="se")
+                    overflow_label.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
                 content_frame = ctk.CTkFrame(content_canvas, fg_color="transparent")
                 content_window = content_canvas.create_window((0, 0), window=content_frame, anchor="nw")
@@ -533,7 +546,7 @@ class PlannerDashboard(ctk.CTkFrame):
                             emp_row,
                             text=shown_name,
                             text_color=EMPLOYEE_NAME_TEXT,
-                            font=ctk.CTkFont(size=13, weight="bold"),
+                            font=ctk.CTkFont(size=14, weight="bold"),
                             anchor="w",
                             justify="left",
                             height=EMPLOYEE_ROW_HEIGHT,
@@ -542,7 +555,7 @@ class PlannerDashboard(ctk.CTkFrame):
                         lbl.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
                         self._attach_tooltip_if_truncated(lbl, emp, shown_name)
                 else:
-                    empty_frame = ctk.CTkFrame(content_frame, fg_color="transparent", height=CELL_MIN_HEIGHT - 8)
+                    empty_frame = ctk.CTkFrame(content_frame, fg_color="transparent", height=canvas_height)
                     empty_frame.pack(fill="both", expand=True)
                     empty_frame.pack_propagate(False)
                     add_lbl = ctk.CTkLabel(
