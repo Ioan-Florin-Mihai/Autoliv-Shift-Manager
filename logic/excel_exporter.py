@@ -67,7 +67,7 @@ def _cell_text_and_color(employees: list[str], colors: dict) -> tuple[str, str]:
     """
     Returneaza (text_celula, culoare_ARGB) pentru o celula din grid.
 
-    Textul: fiecare angajat pe linie noua, prefixat cu '● '.
+    Textul: fiecare angajat pe linie noua, prefixat cu '8h ' sau '12h '.
     Culoarea: daca toti angajatii au aceeasi culoare → acea culoare;
               altfel → negru inchis (DEFAULT_TEXT_COLOR).
     Fara CellRichText — compatibil 100% Excel (fara avertismente de reparare).
@@ -75,17 +75,25 @@ def _cell_text_and_color(employees: list[str], colors: dict) -> tuple[str, str]:
     if not employees:
         return "", "FF" + DEFAULT_TEXT_COLOR
 
-    text = "\n".join(f"\u25cf {emp}" for emp in employees)
+    def _raw_color_for_employee(emp: str):
+        raw = colors.get(emp) if colors else None
+        if raw:
+            return raw
+        return next(
+            (v for k, v in (colors or {}).items() if k.casefold() == emp.casefold()),
+            None,
+        )
+
+    def _hours_label(emp: str) -> str:
+        raw = (_raw_color_for_employee(emp) or "").strip().upper().lstrip("#")
+        return "12h" if raw == "7B3FC4" else "8h"
+
+    text = "\n".join(f"{_hours_label(emp)} {emp}" for emp in employees)
 
     # Colecteaza culorile unice ale angajatilor (case-insensitive lookup)
     unique_colors: set[str] = set()
     for emp in employees:
-        raw = colors.get(emp) if colors else None
-        if not raw:
-            raw = next(
-                (v for k, v in (colors or {}).items() if k.casefold() == emp.casefold()),
-                None,
-            )
+        raw = _raw_color_for_employee(emp)
         unique_colors.add(_to_argb(raw))
 
     # O singura culoare → aplica pe toata celula; mai multe → negru

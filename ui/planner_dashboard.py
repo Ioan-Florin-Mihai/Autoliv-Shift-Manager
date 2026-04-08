@@ -28,6 +28,56 @@ SELECTED_BG = ("#B9D8FF", "#1A3A5C")
 GRID_CELL_BG = ("#FFFFFF", "#2A2A2A")
 SUGGESTION_BG = ("#D9E6F5", "#1E3A5F")
 HOVER_BLUE = "#2E7FD2"
+CELL_MIN_HEIGHT = 104
+GRID_BORDER_LIGHT = "#D0D7E2"
+GRID_BORDER_DARK = "#4A5C70"
+GRID_HOVER_LIGHT = "#9EB6CF"
+GRID_HOVER_DARK = "#6A7F97"
+HOURS_COLOR_MAP = {"8h": "#1A1A1A", "12h": "#7B3FC4"}
+BADGE_WIDTH = 30
+BADGE_HEIGHT = 22
+GRID_NAME_MAX_CHARS = 15
+PANEL_NAME_MAX_CHARS = 28
+VISIBLE_EMPLOYEE_ROWS = 4
+EMPLOYEE_ROW_HEIGHT = 24
+EMPLOYEE_ROW_PADY = 2
+EMPLOYEE_NAME_TEXT = ("#15304B", "#F4F7FB")
+
+
+class HoverTooltip:
+    def __init__(self, widget, text: str):
+        self.widget = widget
+        self.text = text
+        self.tip = None
+        self.widget.bind("<Enter>", self._show, add="+")
+        self.widget.bind("<Leave>", self._hide, add="+")
+
+    def _show(self, _event=None):
+        if self.tip or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 12
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+        self.tip = tk.Toplevel(self.widget)
+        self.tip.wm_overrideredirect(True)
+        self.tip.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(
+            self.tip,
+            text=self.text,
+            justify="left",
+            bg="#111827",
+            fg="white",
+            padx=8,
+            pady=4,
+            relief="solid",
+            borderwidth=1,
+            font=("Segoe UI", 9, "normal"),
+        )
+        label.pack()
+
+    def _hide(self, _event=None):
+        if self.tip:
+            self.tip.destroy()
+            self.tip = None
 
 # Paleta de culori disponibile pentru marcare manuala angajati
 # Format: (eticheta, culoare_hex, culoare_text_pe_fundal_alb)
@@ -67,6 +117,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self._closing = False
         self._dirty = False                        # modificari nesalvate
         self._grid_cell_frames: dict = {}          # cache {(day, shift): CTkFrame}
+        self._grid_cell_canvases: dict = {}        # cache {(day, shift): tk.Canvas}
         self.ui_state_store.save_last_selected_date(self.selected_date)
 
         self._build_ui()
@@ -79,6 +130,82 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def current_cell(self):
         return self.current_mode_record()["schedule"][self.selected_department][self.selected_day][self.selected_shift]
+
+    def _resolve_theme_color(self, color_value):
+        if isinstance(color_value, (tuple, list)):
+            return color_value[1] if ctk.get_appearance_mode() == "Dark" else color_value[0]
+        return color_value
+
+    def _hours_for_employee(self, colors: dict, employee: str) -> str:
+        color = self._lookup_color(colors or {}, employee)
+        return "12h" if (color or "").strip().upper() == HOURS_COLOR_MAP["12h"].upper() else "8h"
+
+    def _hours_badge_value(self, colors: dict, employee: str) -> str:
+        return "12" if self._hours_for_employee(colors, employee) == "12h" else "8"
+
+    def _display_employee_name(self, employee: str, max_chars: int) -> str:
+        clean = " ".join(employee.split()).strip()
+        if len(clean) <= max_chars:
+            return clean
+        cutoff = max(12, max_chars - 3)
+        return clean[:cutoff].rstrip() + "..."
+
+    def _attach_tooltip_if_truncated(self, widget, full_text: str, shown_text: str):
+        if full_text != shown_text:
+            HoverTooltip(widget, full_text)
+
+    def _visible_cell_content_height(self) -> int:
+        row_height = EMPLOYEE_ROW_HEIGHT + EMPLOYEE_ROW_PADY * 2
+        return min(CELL_MIN_HEIGHT - 8, VISIBLE_EMPLOYEE_ROWS * row_height + 6)
+
+    def _create_hours_badge(self, parent, colors: dict, employee: str):
+        hours_label = self._hours_for_employee(colors, employee)
+        badge_color = self._lookup_color(colors or {}, employee) or HOURS_COLOR_MAP[hours_label]
+        badge = ctk.CTkLabel(
+            parent,
+            text=self._hours_badge_value(colors, employee),
+            width=BADGE_WIDTH,
+            height=BADGE_HEIGHT,
+            corner_radius=11,
+            fg_color=badge_color,
+            text_color="white",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            anchor="center",
+        )
+        return badge
+
+    def _set_employee_hours(self, employee: str, hours_label: str):
+        if hours_label not in HOURS_COLOR_MAP:
+            return
+        self.set_employee_color(employee, HOURS_COLOR_MAP[hours_label])
+
+    def _grid_border_theme(self) -> tuple[str, str, str]:
+        is_dark = ctk.get_appearance_mode() == "Dark"
+        normal = GRID_BORDER_DARK if is_dark else GRID_BORDER_LIGHT
+        hover = GRID_HOVER_DARK if is_dark else GRID_HOVER_LIGHT
+        selected = "#8EB8E5" if is_dark else PRIMARY_BLUE
+        return normal, hover, selected
+
+    def _apply_cell_frame_style(self, day_name: str, shift: str, hover: bool = False):
+        frame = self._grid_cell_frames.get((day_name, shift))
+        if not frame or not frame.winfo_exists():
+            return
+        normal_border, hover_border, selected_border = self._grid_border_theme()
+        is_selected = self.selected_day == day_name and self.selected_shift == shift
+        is_weekend = day_name in WEEKEND_DAYS
+        if is_selected:
+            fg_color = SELECTED_BG
+            border_color = selected_border
+        elif is_weekend:
+            fg_color = WEEKEND_BG
+            border_color = hover_border if hover else normal_border
+        else:
+            fg_color = GRID_CELL_BG
+            border_color = hover_border if hover else normal_border
+        frame.configure(fg_color=fg_color, border_width=2, border_color=border_color)
+        canvas = self._grid_cell_canvases.get((day_name, shift))
+        if canvas:
+            canvas.configure(bg=self._resolve_theme_color(fg_color))
 
     def _build_ui(self):
         self.pack(fill="both", expand=True)
@@ -315,8 +442,10 @@ class PlannerDashboard(ctk.CTkFrame):
         for widget in self.grid_frame.winfo_children():
             widget.destroy()
         self._grid_cell_frames = {}   # reseteaza cache-ul la rebuild complet
+        self._grid_cell_canvases = {}
         start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
         self.grid_frame.grid_columnconfigure(0, weight=0)
+        self.grid_frame.grid_rowconfigure(0, weight=0, minsize=42)
         for idx in range(1, len(DAYS) + 1):
             self.grid_frame.grid_columnconfigure(idx, weight=1)
         ctk.CTkLabel(self.grid_frame, text="Schimb", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, padx=6, pady=6, sticky="w")
@@ -327,79 +456,104 @@ class PlannerDashboard(ctk.CTkFrame):
             ctk.CTkLabel(cell, text=format_day_label(start, day_idx - 1), text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=13, weight="bold")).pack(padx=5, pady=5)
 
         for row_idx, shift in enumerate(SHIFTS, start=1):
+            self.grid_frame.grid_rowconfigure(row_idx, weight=0, minsize=CELL_MIN_HEIGHT + 10)
             ctk.CTkLabel(self.grid_frame, text=shift, text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=row_idx, column=0, padx=6, pady=6, sticky="nw")
             for day_idx, (day_name, _) in enumerate(DAYS, start=1):
                 cell_data  = self.current_mode_record()["schedule"][self.selected_department][day_name][shift]
                 employees  = cell_data.get("employees", [])
                 cell_colors = cell_data.get("colors", {})
+                normal_border, _hover_border, selected_border = self._grid_border_theme()
                 is_selected = self.selected_day == day_name and self.selected_shift == shift
-                is_weekend  = day_name in WEEKEND_DAYS
-
-                if is_selected:
-                    cell_bg = SELECTED_BG
-                    border_color_active = PRIMARY_BLUE
-                    border_w = 2
-                elif is_weekend:
-                    cell_bg = WEEKEND_BG
-                    border_color_active = LINE_BLUE
-                    border_w = 1
-                else:
-                    cell_bg = GRID_CELL_BG
-                    border_color_active = LINE_BLUE
-                    border_w = 1
+                is_weekend = day_name in WEEKEND_DAYS
+                cell_bg = SELECTED_BG if is_selected else (WEEKEND_BG if is_weekend else GRID_CELL_BG)
+                border_color_active = selected_border if is_selected else normal_border
 
                 # Celula — frame clickabil
                 cell_frame = ctk.CTkFrame(
                     self.grid_frame,
                     fg_color=cell_bg,
                     corner_radius=14,
-                    border_width=border_w,
+                    border_width=2,
                     border_color=border_color_active,
                     width=150,
-                    height=130,
+                    height=CELL_MIN_HEIGHT,
                 )
                 cell_frame.grid(row=row_idx, column=day_idx, padx=5, pady=5, sticky="nsew")
                 cell_frame.grid_propagate(False)
                 cell_frame.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
+                cell_frame.bind("<Enter>", lambda _e, d=day_name, s=shift: self._apply_cell_frame_style(d, s, hover=True))
+                cell_frame.bind("<Leave>", lambda _e, d=day_name, s=shift: self._apply_cell_frame_style(d, s, hover=False))
                 # Stocam referinta pentru update rapid la selectie
                 self._grid_cell_frames[(day_name, shift)] = cell_frame
 
+                canvas_height = self._visible_cell_content_height()
+                content_canvas = tk.Canvas(
+                    cell_frame,
+                    highlightthickness=0,
+                    bd=0,
+                    relief="flat",
+                    bg=self._resolve_theme_color(cell_bg),
+                )
+                content_canvas.place(x=4, y=4, relwidth=1, width=-8, height=canvas_height)
+                self._grid_cell_canvases[(day_name, shift)] = content_canvas
+
+                if len(employees) > VISIBLE_EMPLOYEE_ROWS:
+                    scrollbar = ctk.CTkScrollbar(cell_frame, orientation="vertical", command=content_canvas.yview, width=8)
+                    scrollbar.place(relx=1.0, x=-4, y=6, anchor="ne", height=canvas_height - 4)
+                    content_canvas.configure(yscrollcommand=scrollbar.set)
+                    content_canvas.place_configure(width=-16)
+
+                content_frame = ctk.CTkFrame(content_canvas, fg_color="transparent")
+                content_window = content_canvas.create_window((0, 0), window=content_frame, anchor="nw")
+                content_canvas.bind(
+                    "<Configure>",
+                    lambda event, canvas=content_canvas, window_id=content_window: canvas.itemconfigure(window_id, width=event.width),
+                )
+                content_frame.bind(
+                    "<Configure>",
+                    lambda _event, canvas=content_canvas: canvas.configure(scrollregion=canvas.bbox("all")),
+                )
+                content_canvas.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
+                content_frame.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
+
                 if employees:
                     for emp in employees:
-                        color = self._lookup_color(cell_colors, emp)
-                        emp_row = ctk.CTkFrame(cell_frame, fg_color="transparent")
-                        emp_row.pack(fill="x", padx=4, pady=1)
+                        emp_row = ctk.CTkFrame(content_frame, fg_color="transparent")
+                        emp_row.pack(fill="x", padx=4, pady=EMPLOYEE_ROW_PADY)
                         emp_row.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
-                        if color:
-                            # Patrat colorat — indicator vizual
-                            dot = ctk.CTkLabel(emp_row, text="  ", width=12, height=14,
-                                               fg_color=color, corner_radius=3)
-                            dot.pack(side="left", padx=(2, 3))
-                            dot.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
-                            name_color = color
-                        else:
-                            name_color = ("#15304B", "#E8E8E8")
+                        badge = self._create_hours_badge(emp_row, cell_colors, emp)
+                        badge.pack(side="left", padx=(0, 8))
+                        badge.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
+
+                        shown_name = self._display_employee_name(emp, GRID_NAME_MAX_CHARS)
 
                         lbl = ctk.CTkLabel(
                             emp_row,
-                            text=emp,
-                            text_color=name_color,
+                            text=shown_name,
+                            text_color=EMPLOYEE_NAME_TEXT,
                             font=ctk.CTkFont(size=12, weight="bold"),
                             anchor="w",
                             justify="left",
+                            height=EMPLOYEE_ROW_HEIGHT,
                         )
-                        lbl.pack(side="left", fill="x")
+                        lbl.pack(side="left", fill="x", expand=True)
                         lbl.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
+                        self._attach_tooltip_if_truncated(lbl, emp, shown_name)
                 else:
+                    empty_frame = ctk.CTkFrame(content_frame, fg_color="transparent", height=CELL_MIN_HEIGHT - 8)
+                    empty_frame.pack(fill="both", expand=True)
+                    empty_frame.pack_propagate(False)
                     add_lbl = ctk.CTkLabel(
-                        cell_frame,
+                        empty_frame,
                         text="+ adaugare",
                         text_color=("#6B8EAE", "#5A7A9A"),
                         font=ctk.CTkFont(size=12),
                     )
-                    add_lbl.place(relx=0.5, rely=0.5, anchor="center")
+                    add_lbl.pack(expand=True)
                     add_lbl.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
+
+                self._apply_cell_frame_style(day_name, shift, hover=False)
 
     def _select_week(self, selected_date: date):
         if self._dirty:
@@ -472,6 +626,8 @@ class PlannerDashboard(ctk.CTkFrame):
 
         for employee in employees:
             current_color = self._lookup_color(cell_colors, employee)
+            hours_label = self._hours_for_employee(cell_colors, employee)
+            shown_name = self._display_employee_name(employee, PANEL_NAME_MAX_CHARS)
 
             # Card angajat
             card = ctk.CTkFrame(
@@ -487,50 +643,44 @@ class PlannerDashboard(ctk.CTkFrame):
             top_row = ctk.CTkFrame(card, fg_color="transparent")
             top_row.pack(fill="x", padx=6, pady=(6, 2))
 
-            # Indicator culoare curenta
-            if current_color:
-                ctk.CTkLabel(
-                    top_row, text="  ",
-                    width=14, height=14,
-                    fg_color=current_color,
-                    corner_radius=4,
-                ).pack(side="left", padx=(0, 6))
+            badge = self._create_hours_badge(top_row, cell_colors, employee)
+            badge.pack(side="left", padx=(0, 8))
 
-            ctk.CTkLabel(
+            name_label = ctk.CTkLabel(
                 top_row,
-                text=employee,
-                text_color=current_color if current_color else BODY_TEXT,
+                text=shown_name,
+                text_color=EMPLOYEE_NAME_TEXT,
                 font=ctk.CTkFont(size=14, weight="bold"),
                 anchor="w",
-            ).pack(side="left", fill="x", expand=True)
+            )
+            name_label.pack(side="left", fill="x", expand=True)
+            self._attach_tooltip_if_truncated(name_label, employee, shown_name)
 
             ctk.CTkButton(top_row, text="Sus",    width=40, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.reorder_employee(e, -1)).pack(side="right", padx=(3, 0))
             ctk.CTkButton(top_row, text="Jos",    width=40, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.reorder_employee(e,  1)).pack(side="right", padx=3)
             ctk.CTkButton(top_row, text="Mut",    width=40, height=26, fg_color=PRIMARY_BLUE, hover_color=HOVER_BLUE, font=ctk.CTkFont(size=11), command=lambda e=employee: self.move_employee_to_shift(e)).pack(side="right", padx=3)
             ctk.CTkButton(top_row, text="✕",      width=28, height=26, fg_color=ACCENT_BLUE,  hover_color=HOVER_BLUE, font=ctk.CTkFont(size=12), command=lambda e=employee: self.remove_employee(e)).pack(side="right", padx=(3, 0))
 
-            # Randul de jos: paleta de culori
+            # Randul de jos: selector ore (comportament radio)
             palette_row = ctk.CTkFrame(card, fg_color="transparent")
             palette_row.pack(fill="x", padx=6, pady=(2, 6))
-            ctk.CTkLabel(palette_row, text="Culoare:", text_color=MUTED_TEXT, font=ctk.CTkFont(size=11)).pack(side="left", padx=(0, 4))
-
-            for label, color_hex, _ in EMPLOYEE_COLOR_PALETTE:
-                is_active  = (current_color == color_hex) if color_hex else (current_color is None)
-                btn_border = 2 if is_active else 0
-                btn_bg     = color_hex if color_hex else "#AAAAAA"
+            ctk.CTkLabel(palette_row, text="Program:", text_color=MUTED_TEXT, font=ctk.CTkFont(size=11)).pack(side="left", padx=(0, 6))
+            for label in ("8h", "12h"):
+                is_active = hours_label == label
+                bg = HOURS_COLOR_MAP[label]
                 ctk.CTkButton(
                     palette_row,
                     text=label,
-                    width=32,
-                    height=22,
+                    width=46,
+                    height=24,
                     corner_radius=6,
-                    fg_color=btn_bg,
-                    hover_color=btn_bg,
-                    border_width=btn_border,
+                    fg_color=bg,
+                    hover_color=bg,
+                    border_width=2 if is_active else 0,
                     border_color="white",
                     text_color="white",
                     font=ctk.CTkFont(size=10, weight="bold"),
-                    command=lambda e=employee, c=color_hex: self.set_employee_color(e, c),
+                    command=lambda e=employee, h=label: self._set_employee_hours(e, h),
                 ).pack(side="left", padx=2)
 
     def refresh_suggestions(self):
@@ -571,15 +721,8 @@ class PlannerDashboard(ctk.CTkFrame):
         if not self._grid_cell_frames:
             self.render_grid()
             return
-        # Restaureaza celula anterioara
-        old_frame = self._grid_cell_frames.get((old_day, old_shift))
-        if old_frame and old_frame.winfo_exists():
-            old_bg = WEEKEND_BG if old_day in WEEKEND_DAYS else GRID_CELL_BG
-            old_frame.configure(fg_color=old_bg, border_width=1, border_color=LINE_BLUE)
-        # Marcheaza celula noua
-        new_frame = self._grid_cell_frames.get((self.selected_day, self.selected_shift))
-        if new_frame and new_frame.winfo_exists():
-            new_frame.configure(fg_color=SELECTED_BG, border_width=2, border_color=PRIMARY_BLUE)
+        self._apply_cell_frame_style(old_day, old_shift, hover=False)
+        self._apply_cell_frame_style(self.selected_day, self.selected_shift, hover=False)
 
     def change_mode(self, selected_mode):
         self.current_mode = selected_mode
@@ -635,7 +778,9 @@ class PlannerDashboard(ctk.CTkFrame):
         except ValueError as exc:
             self.show_inline_message(str(exc), is_error=True)
             return
-        self.current_cell()["employees"].append(employee)
+        cell = self.current_cell()
+        cell["employees"].append(employee)
+        cell.setdefault("colors", {})[employee] = HOURS_COLOR_MAP["8h"]
         self._dirty = True
         self.employee_search_var.set("")
         self.show_inline_message(f"{employee} adăugat.")

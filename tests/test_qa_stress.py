@@ -1022,12 +1022,13 @@ class TestExcelExportPopulated:
                     found = True
         assert found
 
-    def test_ep002_bullet_prefix(self):
-        """EP-002: Employee names prefixed with bullet."""
+    def test_ep002_hours_prefix(self):
+        """EP-002: Employee names prefixed with hours fallback text."""
         for row in self.ws.iter_rows(min_row=4, max_row=self.ws.max_row):
             for cell in row:
                 if cell.value and "Ion Popescu" in str(cell.value):
-                    assert "\u25cf" in str(cell.value)
+                    assert "8h Ion Popescu" in str(cell.value)
+                    assert "\u25cf" not in str(cell.value)
 
     def test_ep003_font_color_is_argb(self):
         """EP-003: Font colors are 8-char ARGB."""
@@ -1238,11 +1239,11 @@ class TestEdgeCases:
         assert text == ""
 
     def test_ec009_cell_text_single_employee(self):
-        """EC-009: Single employee returns bullet-prefixed text."""
+        """EC-009: Single employee returns hours-prefixed text."""
         from logic.excel_exporter import _cell_text_and_color
         text, color = _cell_text_and_color(["Ion"], {"Ion": "#C0392B"})
         assert "Ion" in text
-        assert "\u25cf" in text
+        assert text == "8h Ion"
 
     def test_ec010_cell_text_mixed_colors_uses_default(self):
         """EC-010: Mixed colors → default dark color."""
