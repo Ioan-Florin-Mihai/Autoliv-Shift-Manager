@@ -5,34 +5,27 @@ __pycache__/
 *.pyd
 *.egg-info/
 
-# Aider LLM
+# Tooling
 .aider*
-
-# Continue IDE
 .continue/
 *.continueconfig.json
+.pytest_cache/
 
-# PyInstaller
+# Build outputs
 build/
 dist/
+Livrare/
 
-# Data files (local only - nu se comite)
+# Local app data
+backups/
+Exports/
 data/app.log
 data/cache.json
 data/schedule_data.json
 data/ui_state.json
 
-# Credentiale sensibile - NICIODATA in git!
+# Sensitive files
 data/firebase_service_account.json
-
-# Backups locale
-backups/
-
-# Exports
-Exports/
-
-# Livrare (build outputs)
-Livrare/
 
 # Windows
 desktop.ini
