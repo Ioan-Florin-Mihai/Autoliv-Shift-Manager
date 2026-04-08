@@ -42,6 +42,10 @@ VISIBLE_EMPLOYEE_ROWS = 5
 EMPLOYEE_ROW_HEIGHT = 30
 EMPLOYEE_ROW_PADY = 3
 EMPLOYEE_NAME_TEXT = ("#15304B", "#F4F7FB")
+DAY_VIEW_LABELS = {
+    "weekdays": "Zilele saptamanii",
+    "weekend": "Weekend",
+}
 
 
 class HoverTooltip:
@@ -112,6 +116,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self.status_var = ctk.StringVar(value="Planner pregatit.")
         self.week_var = ctk.StringVar()
         self.mode_var = ctk.StringVar(value=self.current_mode)
+        self.day_view_mode = ctk.StringVar(value="weekdays")
         self.employee_search_var = ctk.StringVar()
         self.history_var = ctk.StringVar(value="")
         self._closing = False
@@ -130,6 +135,23 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def current_cell(self):
         return self.current_mode_record()["schedule"][self.selected_department][self.selected_day][self.selected_shift]
+
+    def _visible_days(self):
+        if self.day_view_mode.get() == "weekend":
+            return [day for day in DAYS if day[0] in WEEKEND_DAYS]
+        return [day for day in DAYS if day[0] not in WEEKEND_DAYS]
+
+    def _ensure_selected_day_is_visible(self):
+        visible_day_names = [day_name for day_name, _ in self._visible_days()]
+        if self.selected_day not in visible_day_names and visible_day_names:
+            self.selected_day = visible_day_names[0]
+
+    def set_day_view_mode(self, mode: str):
+        if mode not in DAY_VIEW_LABELS:
+            return
+        self.day_view_mode.set(mode)
+        self._ensure_selected_day_is_visible()
+        self.refresh_all()
 
     def _resolve_theme_color(self, color_value):
         if isinstance(color_value, (tuple, list)):
@@ -338,6 +360,21 @@ class PlannerDashboard(ctk.CTkFrame):
         ctk.CTkLabel(legend, text=" ", fg_color=WEEKEND_BG, width=28, height=18, corner_radius=8).pack(side="left", padx=(6, 16))
         ctk.CTkLabel(legend, text="Selectat", text_color=MUTED_TEXT).pack(side="left")
         ctk.CTkLabel(legend, text=" ", fg_color=SELECTED_BG, width=28, height=18, corner_radius=8).pack(side="left", padx=(6, 0))
+
+        self.day_toggle_frame = ctk.CTkFrame(legend, fg_color="transparent")
+        self.day_toggle_frame.pack(side="left", padx=(18, 0))
+        self.day_toggle_buttons = {}
+        for idx, mode in enumerate(("weekdays", "weekend")):
+            button = ctk.CTkButton(
+                self.day_toggle_frame,
+                text=DAY_VIEW_LABELS[mode],
+                command=lambda value=mode: self.set_day_view_mode(value),
+                height=28,
+                corner_radius=8,
+                font=ctk.CTkFont(size=12, weight="bold"),
+            )
+            button.pack(side="left", padx=(0, 6) if idx == 0 else (0, 0))
+            self.day_toggle_buttons[mode] = button
         self.grid_frame = ctk.CTkFrame(frame, fg_color=PANEL_BG, corner_radius=14, border_width=1, border_color=LINE_BLUE)
         self.grid_frame.grid(row=4, column=0, sticky="nsew", padx=16, pady=(0, 16))
 
@@ -387,9 +424,11 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def refresh_all(self):
         self._refresh_current_week_if_needed()
+        self._ensure_selected_day_is_visible()
         self.refresh_week_display()
         self.refresh_history()
         self.render_mode_buttons()
+        self.render_day_toggle_buttons()
         self.render_department_buttons()
         self.render_grid()
         self.render_assignment_panel()
@@ -427,6 +466,19 @@ class PlannerDashboard(ctk.CTkFrame):
                 text_color="white",
             )
 
+    def render_day_toggle_buttons(self):
+        if not hasattr(self, "day_toggle_buttons"):
+            return
+        active_mode = self.day_view_mode.get()
+        for mode_name, button in self.day_toggle_buttons.items():
+            selected = mode_name == active_mode
+            button.configure(
+                fg_color=PRIMARY_BLUE if selected else SUGGESTION_BG,
+                hover_color=ACCENT_BLUE if selected else "#C7D7E8",
+                text_color="white" if selected else ("#15304B", "#E8E8E8"),
+                width=150 if mode_name == "weekdays" else 92,
+            )
+
     def _get_cell_colors(self, day_name: str, shift: str) -> dict:
         """Returneaza dict-ul de culori al celulei curente {nume: hex_color}."""
         cell = self.current_mode_record()["schedule"][self.selected_department][day_name][shift]
@@ -446,21 +498,22 @@ class PlannerDashboard(ctk.CTkFrame):
         self._grid_cell_frames = {}   # reseteaza cache-ul la rebuild complet
         self._grid_cell_canvases = {}
         start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
+        visible_days = self._visible_days()
         self.grid_frame.grid_columnconfigure(0, weight=0)
         self.grid_frame.grid_rowconfigure(0, weight=0, minsize=42)
-        for idx in range(1, len(DAYS) + 1):
+        for idx in range(1, len(visible_days) + 1):
             self.grid_frame.grid_columnconfigure(idx, weight=1)
         ctk.CTkLabel(self.grid_frame, text="Schimb", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, padx=6, pady=6, sticky="w")
-        for day_idx, (day_name, _) in enumerate(DAYS, start=1):
+        for day_idx, (day_name, day_offset) in enumerate(visible_days, start=1):
             header_fg = WEEKEND_BG if day_name in WEEKEND_DAYS else SOFT_BLUE
             cell = ctk.CTkFrame(self.grid_frame, fg_color=header_fg, corner_radius=10, border_width=1, border_color=LINE_BLUE)
             cell.grid(row=0, column=day_idx, padx=4, pady=4, sticky="ew")
-            ctk.CTkLabel(cell, text=format_day_label(start, day_idx - 1), text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=13, weight="bold")).pack(padx=5, pady=5)
+            ctk.CTkLabel(cell, text=format_day_label(start, day_offset), text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=13, weight="bold")).pack(padx=5, pady=5)
 
         for row_idx, shift in enumerate(SHIFTS, start=1):
             self.grid_frame.grid_rowconfigure(row_idx, weight=0, minsize=CELL_MIN_HEIGHT + 10)
             ctk.CTkLabel(self.grid_frame, text=shift, text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=row_idx, column=0, padx=6, pady=6, sticky="nw")
-            for day_idx, (day_name, _) in enumerate(DAYS, start=1):
+            for day_idx, (day_name, _) in enumerate(visible_days, start=1):
                 cell_data  = self.current_mode_record()["schedule"][self.selected_department][day_name][shift]
                 employees  = cell_data.get("employees", [])
                 cell_colors = cell_data.get("colors", {})
