@@ -6,6 +6,6 @@
 # Importata de dashboard, About dialog si build script.
 # ============================================================
 
-VERSION    = "1.1.0"
-BUILD_DATE = "2026-04-04"
+VERSION    = "1.1.1"
+BUILD_DATE = "2026-04-09"
 APP_NAME   = "Autoliv Shift Manager"

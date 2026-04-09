@@ -5,6 +5,17 @@ import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.win32.versioninfo import (
+    VSVersionInfo,
+    FixedFileInfo,
+    StringFileInfo,
+    StringTable,
+    StringStruct,
+    VarFileInfo,
+    VarStruct,
+)
+
+from logic.version import APP_NAME, VERSION
 
 try:
     hiddenimports = collect_submodules("tkcalendar")
@@ -38,6 +49,43 @@ hiddenimports += [
     "ui.employee_form",
     "ui.planner_dashboard",
 ]
+
+version_parts = [int(part) for part in VERSION.split(".")]
+while len(version_parts) < 3:
+    version_parts.append(0)
+file_version = tuple(version_parts + [0])
+
+version_info = VSVersionInfo(
+    ffi=FixedFileInfo(
+        filevers=file_version,
+        prodvers=file_version,
+        mask=0x3F,
+        flags=0x0,
+        OS=0x40004,
+        fileType=0x1,
+        subtype=0x0,
+        date=(0, 0),
+    ),
+    kids=[
+        StringFileInfo(
+            [
+                StringTable(
+                    "040904B0",
+                    [
+                        StringStruct("CompanyName", "Autoliv"),
+                        StringStruct("FileDescription", APP_NAME),
+                        StringStruct("FileVersion", VERSION),
+                        StringStruct("InternalName", "Autoliv Shift Manager"),
+                        StringStruct("OriginalFilename", "Autoliv Shift Manager.exe"),
+                        StringStruct("ProductName", APP_NAME),
+                        StringStruct("ProductVersion", VERSION),
+                    ],
+                )
+            ]
+        ),
+        VarFileInfo([VarStruct("Translation", [1033, 1200])]),
+    ],
+)
 
 datas = [
     ("assets/autoliv_logo.png",       "assets"),
@@ -118,5 +166,6 @@ exe = EXE(
     console=False,
     disable_windowed_traceback=False,
     icon="assets/autoliv_app.ico",
+    version=version_info,
     onefile=True,
 )
