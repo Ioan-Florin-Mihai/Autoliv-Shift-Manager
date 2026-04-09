@@ -43,7 +43,6 @@ class RemoteControlService:
         self._db  = None
         self._app = None
 
-        self._offline_started_at = None
         self._lock = threading.Lock()
 
         self.config = self._load_config()
@@ -191,23 +190,11 @@ class RemoteControlService:
             allowed_devices = self._get_reference_value(self.config["allowed_devices_path"])
         except Exception as exc:
             # ── FAIL-SAFE: Firebase indisponibil → app continuă normal ──
-            now = time.time()
-            if self._offline_started_at is None:
-                self._offline_started_at = now
-                log_warning("firebase: conexiune pierdută — se continuă în mod local.")
-
-            offline_seconds = now - self._offline_started_at
-
-            # Doar log + warn, NICIODATĂ block
+            log_warning("firebase: conexiune pierdută — se continuă în mod local.")
             return {
                 "action":  "warn",
-                "message": f"Mod offline ({int(offline_seconds)}s). Control remote indisponibil.",
+                "message": "Mod local activ",
             }
-
-        # Conexiune reușită — resetăm contorul offline
-        if self._offline_started_at is not None:
-            log_info("firebase: conexiune restabilită după offline.")
-        self._offline_started_at = None
 
         # Status „blocked" setat ACTIV de administrator — singura blocare reală
         if str(status).lower() == "blocked":

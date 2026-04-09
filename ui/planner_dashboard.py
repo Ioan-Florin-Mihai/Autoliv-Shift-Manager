@@ -28,18 +28,18 @@ SELECTED_BG = ("#B9D8FF", "#1A3A5C")
 GRID_CELL_BG = ("#FFFFFF", "#2A2A2A")
 SUGGESTION_BG = ("#D9E6F5", "#1E3A5F")
 HOVER_BLUE = "#2E7FD2"
-CELL_MIN_HEIGHT = 208
+CELL_MIN_HEIGHT = 192
 GRID_BORDER_LIGHT = "#D0D7E2"
 GRID_BORDER_DARK = "#4A5C70"
 GRID_HOVER_LIGHT = "#9EB6CF"
 GRID_HOVER_DARK = "#6A7F97"
 HOURS_COLOR_MAP = {"8h": "#1A1A1A", "12h": "#C0392B"}
-BADGE_WIDTH = 25
-BADGE_HEIGHT = 25
+BADGE_WIDTH = 24
+BADGE_HEIGHT = 24
 GRID_NAME_MAX_CHARS = 16
 PANEL_NAME_MAX_CHARS = 28
 VISIBLE_EMPLOYEE_ROWS = 5
-EMPLOYEE_ROW_HEIGHT = 30
+EMPLOYEE_ROW_HEIGHT = 28
 EMPLOYEE_ROW_PADY = 3
 EMPLOYEE_NAME_TEXT = ("#15304B", "#F4F7FB")
 DAY_VIEW_LABELS = {
@@ -104,7 +104,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self.store = ScheduleStore()
         self.ui_state_store = UIStateStore()
         self.employee_store = EmployeeStore()
-        self.events = Queue()
+        self.events: Queue[dict[str, str]] = Queue()
         self.remote_checker = RemoteChecker(remote_service, self.events)
 
         self.selected_date = self.ui_state_store.resolve_startup_date()
@@ -176,11 +176,26 @@ class PlannerDashboard(ctk.CTkFrame):
         if full_text != shown_text:
             HoverTooltip(widget, full_text)
 
-    def _visible_cell_content_height(self) -> int:
-        row_height = EMPLOYEE_ROW_HEIGHT + EMPLOYEE_ROW_PADY * 2
-        available_height = CELL_MIN_HEIGHT - 20
-        preferred_height = VISIBLE_EMPLOYEE_ROWS * row_height + 8
-        return min(available_height, preferred_height)
+    def _on_cell_mousewheel(self, event, canvas: tk.Canvas):
+        if not canvas or not canvas.winfo_exists():
+            return "break"
+        delta = 0
+        if getattr(event, "num", None) == 4:
+            delta = -1
+        elif getattr(event, "num", None) == 5:
+            delta = 1
+        elif getattr(event, "delta", 0):
+            delta = -1 if event.delta > 0 else 1
+        if delta:
+            canvas.yview_scroll(delta, "units")
+        return "break"
+
+    def _bind_cell_mousewheel(self, widget, canvas: tk.Canvas):
+        if not widget:
+            return
+        widget.bind("<MouseWheel>", lambda event, target=canvas: self._on_cell_mousewheel(event, target), add="+")
+        widget.bind("<Button-4>", lambda event, target=canvas: self._on_cell_mousewheel(event, target), add="+")
+        widget.bind("<Button-5>", lambda event, target=canvas: self._on_cell_mousewheel(event, target), add="+")
 
     def _create_hours_badge(self, parent, colors: dict, employee: str):
         hours_label = self._hours_for_employee(colors, employee)
@@ -207,7 +222,7 @@ class PlannerDashboard(ctk.CTkFrame):
         is_dark = ctk.get_appearance_mode() == "Dark"
         normal = GRID_BORDER_DARK if is_dark else GRID_BORDER_LIGHT
         hover = GRID_HOVER_DARK if is_dark else GRID_HOVER_LIGHT
-        selected = "#8EB8E5" if is_dark else PRIMARY_BLUE
+        selected = "#8EB8E5" if is_dark else PRIMARY_BLUE[0]
         return normal, hover, selected
 
     def _apply_cell_frame_style(self, day_name: str, shift: str, hover: bool = False):
@@ -229,7 +244,11 @@ class PlannerDashboard(ctk.CTkFrame):
         frame.configure(fg_color=fg_color, border_width=2, border_color=border_color)
         canvas = self._grid_cell_canvases.get((day_name, shift))
         if canvas:
-            canvas.configure(bg=self._resolve_theme_color(fg_color))
+            resolved = self._resolve_theme_color(fg_color)
+            canvas.configure(bg=resolved)
+            host = canvas.master
+            if host and isinstance(host, tk.Frame):
+                host.configure(bg=resolved)
 
     def _build_ui(self):
         self.pack(fill="both", expand=True)
@@ -356,13 +375,8 @@ class PlannerDashboard(ctk.CTkFrame):
         self.editor_hint.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 8))
         legend = ctk.CTkFrame(frame, fg_color="transparent")
         legend.grid(row=3, column=0, sticky="w", padx=16, pady=(0, 6))
-        ctk.CTkLabel(legend, text="Weekend", text_color=MUTED_TEXT).pack(side="left")
-        ctk.CTkLabel(legend, text=" ", fg_color=WEEKEND_BG, width=28, height=18, corner_radius=8).pack(side="left", padx=(6, 16))
-        ctk.CTkLabel(legend, text="Selectat", text_color=MUTED_TEXT).pack(side="left")
-        ctk.CTkLabel(legend, text=" ", fg_color=SELECTED_BG, width=28, height=18, corner_radius=8).pack(side="left", padx=(6, 0))
-
         self.day_toggle_frame = ctk.CTkFrame(legend, fg_color="transparent")
-        self.day_toggle_frame.pack(side="left", padx=(18, 0))
+        self.day_toggle_frame.pack(side="left")
         self.day_toggle_buttons = {}
         for idx, mode in enumerate(("weekdays", "weekend")):
             button = ctk.CTkButton(
@@ -375,8 +389,19 @@ class PlannerDashboard(ctk.CTkFrame):
             )
             button.pack(side="left", padx=(0, 6) if idx == 0 else (0, 0))
             self.day_toggle_buttons[mode] = button
-        self.grid_frame = ctk.CTkFrame(frame, fg_color=PANEL_BG, corner_radius=14, border_width=1, border_color=LINE_BLUE)
-        self.grid_frame.grid(row=4, column=0, sticky="nsew", padx=16, pady=(0, 16))
+        self.grid_shell = ctk.CTkFrame(frame, fg_color=PANEL_BG, corner_radius=14, border_width=1, border_color=LINE_BLUE)
+        self.grid_shell.grid(row=4, column=0, sticky="nsew", padx=16, pady=(0, 16))
+        self.grid_shell.grid_columnconfigure(0, weight=1)
+        self.grid_shell.grid_rowconfigure(0, weight=1)
+        self.grid_frame = ctk.CTkScrollableFrame(
+            self.grid_shell,
+            fg_color="transparent",
+            corner_radius=0,
+            border_width=0,
+            scrollbar_button_color="#9EB6CF",
+            scrollbar_button_hover_color="#7F9AB8",
+        )
+        self.grid_frame.grid(row=0, column=0, sticky="nsew")
 
     def _build_right(self):
         frame = ctk.CTkFrame(self, fg_color=CARD_WHITE, corner_radius=18, border_width=1, border_color=LINE_BLUE)
@@ -535,89 +560,82 @@ class PlannerDashboard(ctk.CTkFrame):
                 )
                 cell_frame.grid(row=row_idx, column=day_idx, padx=5, pady=5, sticky="nsew")
                 cell_frame.grid_propagate(False)
+                cell_frame.pack_propagate(False)
                 cell_frame.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
                 cell_frame.bind("<Enter>", lambda _e, d=day_name, s=shift: self._apply_cell_frame_style(d, s, hover=True))
                 cell_frame.bind("<Leave>", lambda _e, d=day_name, s=shift: self._apply_cell_frame_style(d, s, hover=False))
-                # Stocam referinta pentru update rapid la selectie
                 self._grid_cell_frames[(day_name, shift)] = cell_frame
 
-                canvas_height = self._visible_cell_content_height()
+                # ── Scroll container: tk.Frame → Canvas + Scrollbar → inner_frame ──
+                resolved_bg = self._resolve_theme_color(cell_bg)
+                scroll_host = tk.Frame(cell_frame, bg=resolved_bg, highlightthickness=0)
+                scroll_host.pack(fill="both", expand=True, padx=4, pady=4)
+
                 content_canvas = tk.Canvas(
-                    cell_frame,
-                    highlightthickness=0,
-                    bd=0,
-                    relief="flat",
-                    bg=self._resolve_theme_color(cell_bg),
+                    scroll_host, highlightthickness=0, bd=0, bg=resolved_bg,
                 )
-                content_canvas.place(x=6, y=6, relwidth=1, width=-12, height=canvas_height)
-                self._grid_cell_canvases[(day_name, shift)] = content_canvas
-
-                if len(employees) > VISIBLE_EMPLOYEE_ROWS:
-                    scrollbar = ctk.CTkScrollbar(cell_frame, orientation="vertical", command=content_canvas.yview, width=8)
-                    scrollbar.place(relx=1.0, x=-6, y=8, anchor="ne", height=canvas_height - 8)
-                    content_canvas.configure(yscrollcommand=scrollbar.set)
-                    content_canvas.place_configure(width=-18)
-
-                    overflow_count = len(employees) - VISIBLE_EMPLOYEE_ROWS
-                    overflow_label = ctk.CTkLabel(
-                        cell_frame,
-                        text=f"+{overflow_count}",
-                        text_color=("#5B7691", "#AFC3D8"),
-                        fg_color="transparent",
-                        font=ctk.CTkFont(size=11, weight="bold"),
-                    )
-                    overflow_label.place(relx=1.0, rely=1.0, x=-18, y=-8, anchor="se")
-                    overflow_label.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
-
-                content_frame = ctk.CTkFrame(content_canvas, fg_color="transparent")
-                content_window = content_canvas.create_window((0, 0), window=content_frame, anchor="nw")
-                content_canvas.bind(
-                    "<Configure>",
-                    lambda event, canvas=content_canvas, window_id=content_window: canvas.itemconfigure(window_id, width=event.width),
+                scrollbar = tk.Scrollbar(
+                    scroll_host, orient="vertical", command=content_canvas.yview, width=8,
                 )
+                content_canvas.configure(yscrollcommand=scrollbar.set)
+
+                content_frame = tk.Frame(content_canvas, bg=resolved_bg)
+                canvas_window = content_canvas.create_window((0, 0), window=content_frame, anchor="nw")
+
                 content_frame.bind(
                     "<Configure>",
-                    lambda _event, canvas=content_canvas: canvas.configure(scrollregion=canvas.bbox("all")),
+                    lambda _e, c=content_canvas: c.configure(scrollregion=c.bbox("all")),
                 )
+                content_canvas.bind(
+                    "<Configure>",
+                    lambda e, c=content_canvas, wid=canvas_window: c.itemconfigure(wid, width=e.width),
+                )
+
+                content_canvas.pack(side="left", fill="both", expand=True)
+                if len(employees) > VISIBLE_EMPLOYEE_ROWS:
+                    scrollbar.pack(side="right", fill="y")
+
+                self._grid_cell_canvases[(day_name, shift)] = content_canvas
+                self._bind_cell_mousewheel(content_canvas, content_canvas)
+                self._bind_cell_mousewheel(content_frame, content_canvas)
                 content_canvas.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
                 content_frame.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
                 if employees:
                     for emp in employees:
-                        emp_row = ctk.CTkFrame(content_frame, fg_color="transparent")
+                        emp_row = tk.Frame(content_frame, bg=resolved_bg)
                         emp_row.pack(fill="x", padx=4, pady=EMPLOYEE_ROW_PADY)
-                        emp_row.grid_columnconfigure(1, weight=1)
+                        self._bind_cell_mousewheel(emp_row, content_canvas)
                         emp_row.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
                         badge = self._create_hours_badge(emp_row, cell_colors, emp)
-                        badge.grid(row=0, column=0, sticky="w", padx=(0, 8))
+                        badge.pack(side="left", padx=(0, 6))
+                        self._bind_cell_mousewheel(badge, content_canvas)
                         badge.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
                         shown_name = self._display_employee_name(emp, GRID_NAME_MAX_CHARS)
-
-                        lbl = ctk.CTkLabel(
+                        lbl = tk.Label(
                             emp_row,
                             text=shown_name,
-                            text_color=EMPLOYEE_NAME_TEXT,
-                            font=ctk.CTkFont(size=14, weight="bold"),
+                            bg=resolved_bg,
+                            fg=self._resolve_theme_color(EMPLOYEE_NAME_TEXT),
+                            font=("Segoe UI", 10, "bold"),
                             anchor="w",
-                            justify="left",
-                            height=EMPLOYEE_ROW_HEIGHT,
                         )
-                        lbl.grid(row=0, column=1, sticky="ew")
+                        lbl.pack(side="left", fill="x", expand=True)
+                        self._bind_cell_mousewheel(lbl, content_canvas)
                         lbl.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
                         self._attach_tooltip_if_truncated(lbl, emp, shown_name)
                 else:
-                    empty_frame = ctk.CTkFrame(content_frame, fg_color="transparent", height=canvas_height)
-                    empty_frame.pack(fill="both", expand=True)
-                    empty_frame.pack_propagate(False)
-                    add_lbl = ctk.CTkLabel(
-                        empty_frame,
+                    add_lbl = tk.Label(
+                        content_frame,
                         text="+ adaugare",
-                        text_color=("#6B8EAE", "#5A7A9A"),
-                        font=ctk.CTkFont(size=12),
+                        bg=resolved_bg,
+                        fg=self._resolve_theme_color(("#6B8EAE", "#5A7A9A")),
+                        font=("Segoe UI", 10),
                     )
-                    add_lbl.pack(expand=True)
+                    add_lbl.pack(expand=True, pady=20)
+                    self._bind_cell_mousewheel(add_lbl, content_canvas)
                     add_lbl.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
                 self._apply_cell_frame_style(day_name, shift, hover=False)
@@ -1223,8 +1241,8 @@ class PlannerDashboard(ctk.CTkFrame):
                 self.winfo_toplevel().destroy()
                 return
             elif latest["action"] == "warn":
-                # Probleme de conexiune — doar status bar, app continuă normal
-                self.status_var.set(latest["message"])
+                # Mod local — nu afisam nimic in status bar
+                pass
 
         try:
             self.after(1000, self.process_remote_events)

@@ -2,6 +2,7 @@ from datetime import date, datetime
 from pathlib import Path
 import tkinter as tk
 import tkinter.messagebox as messagebox
+from typing import cast
 
 import customtkinter as ctk
 from PIL import Image
@@ -60,13 +61,12 @@ class AutolivLogo(ctk.CTkFrame):
         image = Image.open(path).convert("RGBA")
         width, height = image.size
         search_height = max(1, int(height * 0.8))
-        pixels = image.load()
         min_x, min_y = width, search_height
         max_x, max_y = -1, -1
 
         for y in range(search_height):
             for x in range(width):
-                red, green, blue, alpha = pixels[x, y]
+                red, green, blue, alpha = cast(tuple[int, int, int, int], image.getpixel((x, y)))
                 if alpha and blue > 90 and blue > red + 25 and blue > green + 10:
                     min_x = min(min_x, x)
                     min_y = min(min_y, y)

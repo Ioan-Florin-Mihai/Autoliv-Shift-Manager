@@ -255,7 +255,7 @@ class ScheduleStore:
                 mode_record["schedule"][department][day_name][shift] = _empty_cell()
 
     def build_assignment_map(self, week_record, mode_name: str):
-        result = {}
+        result: dict[str, list[dict[str, str]]] = {}
         mode_record = week_record["modes"][mode_name]
         for department in mode_record["departments"]:
             for day_name in DAY_NAMES:

@@ -441,14 +441,14 @@ class TestOfflineFirebase:
             result = svc.check_access()
         assert result["action"] == "warn"
 
-    def test_of009_offline_message_contains_seconds(self):
-        """OF-009: Offline warn message includes offline duration."""
+    def test_of009_offline_message_is_static_local(self):
+        """OF-009: Offline warn message is static 'Mod local activ' without timer."""
         from logic.remote_control import RemoteControlService
         svc = RemoteControlService()
         svc.config["firebase_enabled"] = True
         with patch.object(svc, "_get_reference_value", side_effect=ConnectionError):
             result = svc.check_access()
-        assert "offline" in result["message"].lower() or "indisponibil" in result["message"].lower()
+        assert result["message"] == "Mod local activ"
 
     def test_of010_backoff_schedule_exists(self):
         """OF-010: Backoff schedule defined for RemoteChecker."""
