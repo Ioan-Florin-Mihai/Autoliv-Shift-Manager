@@ -17,7 +17,6 @@ import shutil
 import sys
 from pathlib import Path
 
-
 # ── Funcții de rezolvare cale ──────────────────────────────────
 
 def get_base_path() -> Path:

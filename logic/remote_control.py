@@ -19,9 +19,8 @@ import time
 import uuid
 from queue import Queue
 
-from logic.app_logger import log_exception, log_warning, log_info
+from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import APP_DIR, ensure_runtime_file, get_sensitive_path
-
 
 # Căile fișierelor de configurare Firebase
 REMOTE_CONFIG_PATH    = ensure_runtime_file("data/remote_config.json")
@@ -103,7 +102,6 @@ class RemoteControlService:
             return
 
         try:
-            import firebase_admin
             from firebase_admin import credentials, db
         except ImportError:
             self._firebase_failed = True
@@ -188,7 +186,7 @@ class RemoteControlService:
         try:
             status          = self._get_reference_value(self.config["status_path"])
             allowed_devices = self._get_reference_value(self.config["allowed_devices_path"])
-        except Exception as exc:
+        except Exception:
             # ── FAIL-SAFE: Firebase indisponibil → app continuă normal ──
             log_warning("firebase: conexiune pierdută — se continuă în mod local.")
             return {

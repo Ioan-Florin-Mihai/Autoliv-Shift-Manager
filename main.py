@@ -16,7 +16,6 @@
 
 from logic.runtime_bootstrap import configure_tk_runtime
 
-
 if __name__ == "__main__":
     # Seteaza variabilele de mediu Tcl/Tk necesare pentru GUI
     configure_tk_runtime()
@@ -25,7 +24,7 @@ if __name__ == "__main__":
     from ui.dashboard import run_app
     try:
         run_app()
-    except Exception as e:
+    except Exception:
         import traceback
         traceback.print_exc()
         input("EROARE - Apasa Enter pentru a inchide...")

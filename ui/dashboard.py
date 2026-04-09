@@ -1,5 +1,5 @@
-import tkinter.messagebox as messagebox
 import tkinter as tk
+import tkinter.messagebox as messagebox
 
 import customtkinter as ctk
 
@@ -7,9 +7,17 @@ from logic.app_logger import log_exception
 from logic.auth import change_password, verify_login_detailed
 from logic.remote_control import RemoteControlService
 from logic.version import APP_NAME, VERSION
-from ui.common_ui import AutolivLogo, BG_WHITE, BODY_TEXT, CARD_WHITE, ENTRY_BG, LINE_BLUE, MUTED_TEXT, PANEL_BG, PRIMARY_BLUE, apply_window_icon
+from ui.common_ui import (
+    BG_WHITE,
+    BODY_TEXT,
+    ENTRY_BG,
+    LINE_BLUE,
+    MUTED_TEXT,
+    PRIMARY_BLUE,
+    AutolivLogo,
+    apply_window_icon,
+)
 from ui.planner_dashboard import PlannerDashboard
-
 
 ACCENT_BLUE = "#0067C8"
 

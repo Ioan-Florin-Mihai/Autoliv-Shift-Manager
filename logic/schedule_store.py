@@ -5,9 +5,8 @@ import tempfile
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
-from logic.app_logger import log_exception, log_warning, log_info
+from logic.app_logger import log_exception, log_warning
 from logic.app_paths import BACKUP_DIR, ensure_runtime_file
-
 
 SCHEDULE_PATH = ensure_runtime_file("data/schedule_data.json")
 

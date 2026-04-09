@@ -1,7 +1,7 @@
-from datetime import date, datetime
-from pathlib import Path
 import tkinter as tk
 import tkinter.messagebox as messagebox
+from datetime import date, datetime
+from pathlib import Path
 from typing import cast
 
 import customtkinter as ctk

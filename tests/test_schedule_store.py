@@ -4,14 +4,12 @@ Acopera: get_or_create_week, validate_assignment, backup recovery.
 """
 
 import json
-from datetime import date, timedelta
-from pathlib import Path
+from datetime import date
 
 import pytest
 
 import logic.schedule_store as store_module
-from logic.schedule_store import ScheduleStore, TEMPLATES, SHIFTS, DAY_NAMES
-
+from logic.schedule_store import DAY_NAMES, SHIFTS, TEMPLATES, ScheduleStore
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

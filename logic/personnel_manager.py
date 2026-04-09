@@ -8,7 +8,6 @@
 
 import json
 from datetime import datetime
-from pathlib import Path
 
 from logic.app_logger import log_exception
 from logic.app_paths import ensure_runtime_file
@@ -45,7 +44,8 @@ class PersonnelManager:
 
     def save_cache(self):
         """Scrie lista curenta de inregistrari in cache.json (scriere atomica)."""
-        import os, tempfile
+        import os
+        import tempfile
         CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         try:
             tmp_fd, tmp_path = tempfile.mkstemp(

@@ -1,4 +1,3 @@
-import tkinter as tk
 import tkinter.messagebox as messagebox
 from datetime import datetime
 
@@ -6,7 +5,17 @@ import customtkinter as ctk
 
 from logic.personnel_manager import PersonnelManager
 from logic.schedule_store import TEMPLATES
-from ui.common_ui import PRIMARY_BLUE, CARD_WHITE, BG_WHITE, LINE_BLUE, ENTRY_BG, BODY_TEXT, MUTED_TEXT, PANEL_BG, ACCENT_BLUE, HOVER_BLUE
+from ui.common_ui import (
+    ACCENT_BLUE,
+    BG_WHITE,
+    BODY_TEXT,
+    CARD_WHITE,
+    ENTRY_BG,
+    LINE_BLUE,
+    MUTED_TEXT,
+    PANEL_BG,
+    PRIMARY_BLUE,
+)
 
 # Departamente disponibile — derivate din TEMPLATES pentru consistenta cu gridulu
 _DEPT_LIST = sorted({dept for depts in TEMPLATES.values() for dept in depts}) or ["Buclă", "Finite", "Asamblare"]

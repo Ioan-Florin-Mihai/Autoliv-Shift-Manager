@@ -12,7 +12,6 @@ from logic.app_logger import log_exception
 from logic.app_paths import ensure_runtime_file
 from logic.schedule_store import get_week_start
 
-
 # Calea fisierului JSON cu starea UI — creat automat la primul rulaj
 UI_STATE_PATH = ensure_runtime_file("data/ui_state.json")
 
@@ -71,7 +70,8 @@ class UIStateStore:
 
     def save_last_selected_date(self, selected_date: date):
         """Salveaza data selectata curenta in fisierul de stare — scriere atomica."""
-        import os, tempfile
+        import os
+        import tempfile
         payload = {"last_selected_date": selected_date.isoformat()}
         try:
             UI_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -5,13 +5,11 @@ Fara acces real la disc: EMPLOYEES_PATH este redirectata la tmp_path.
 """
 
 import json
-from pathlib import Path
 
 import pytest
 
 import logic.employee_store as emp_module
 from logic.employee_store import EmployeeStore
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

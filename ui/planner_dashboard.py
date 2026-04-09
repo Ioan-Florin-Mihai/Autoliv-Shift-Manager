@@ -1,25 +1,38 @@
+import threading
+import tkinter as tk
+import tkinter.messagebox as messagebox
 from copy import deepcopy
 from datetime import date, datetime, timedelta
-import tkinter.messagebox as messagebox
-import tkinter as tk
-import threading
 from queue import Empty, Queue
 
 import customtkinter as ctk
-from openpyxl import Workbook
-from openpyxl.drawing.image import Image as XLImage
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.utils import get_column_letter
 
 from logic.app_logger import log_exception
-from logic.app_paths import EXPORT_DIR
-from logic.excel_exporter import ExcelExporter
 from logic.employee_store import EmployeeStore
+from logic.excel_exporter import ExcelExporter
 from logic.remote_control import RemoteChecker, RemoteControlService
-from logic.schedule_store import DAYS, DAY_NAMES, SHIFTS, TEMPLATES, WEEKEND_DAYS, DEPARTMENT_COLORS, ScheduleStore, format_day_label
+from logic.schedule_store import (
+    DAY_NAMES,
+    DAYS,
+    SHIFTS,
+    TEMPLATES,
+    WEEKEND_DAYS,
+    ScheduleStore,
+    format_day_label,
+)
 from logic.ui_state_store import UIStateStore
-from ui.common_ui import BG_WHITE, BODY_TEXT, CARD_WHITE, DatePickerDialog, ENTRY_BG, LINE_BLUE, LOGO_PATH, MUTED_TEXT, PANEL_BG, PRIMARY_BLUE
-
+from ui.common_ui import (
+    BG_WHITE,
+    BODY_TEXT,
+    CARD_WHITE,
+    ENTRY_BG,
+    LINE_BLUE,
+    LOGO_PATH,
+    MUTED_TEXT,
+    PANEL_BG,
+    PRIMARY_BLUE,
+    DatePickerDialog,
+)
 
 ACCENT_BLUE = "#0067C8"
 SOFT_BLUE = "#DCEBFA"
@@ -1076,7 +1089,7 @@ class PlannerDashboard(ctk.CTkFrame):
             self.store.update_week(self.week_record)
             self._dirty = False
             self.refresh_history()
-            self.show_inline_message(f"Săptămâna salvată.")
+            self.show_inline_message("Săptămâna salvată.")
         except Exception as exc:
             log_exception("save_week", exc)
             self.show_inline_message("A apărut o eroare la salvare.", is_error=True)

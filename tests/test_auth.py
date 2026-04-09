@@ -5,24 +5,20 @@ Acopera: verify_login_detailed, brute-force lockout, change_password,
 """
 
 import json
-import time
-import pytest
 
 import bcrypt
+import pytest
 
 import logic.auth as auth_module
 from logic.auth import (
-    _clear_failures,
     _failed_attempts,
     _load_users,
-    _save_users,
     add_user,
     change_password,
     delete_user,
     verify_login,
     verify_login_detailed,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

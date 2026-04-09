@@ -30,7 +30,7 @@ from pathlib import Path
 
 import bcrypt
 
-from logic.app_logger import log_exception, log_warning, log_info
+from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import get_sensitive_path
 
 # Calea fisierului cu credentiale â€” NU este copiat din bundle
@@ -185,7 +185,7 @@ def verify_login_detailed(username: str, password: str) -> tuple[bool, str]:
     # Incarcare utilizatori
     try:
         users = _load_users()
-    except Exception as exc:
+    except Exception:
         raise   # Propagam â€” dashboard.py afiseaza eroarea de configurare
 
     user = _find_user(users, username)

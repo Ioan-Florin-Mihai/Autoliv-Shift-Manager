@@ -7,7 +7,6 @@ import pytest
 
 from logic.validation import _parse_hours, validate_employee_data
 
-
 # ── _parse_hours ─────────────────────────────────────────────────────────────
 
 class TestParseHours:

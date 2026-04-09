@@ -16,16 +16,11 @@
 # ============================================================
 
 import json
-import os
-import shutil
-import tempfile
-from copy import deepcopy
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-
 
 # ── Fixtures ─────────────────────────────────────────────────
 
@@ -68,7 +63,7 @@ def users_path(tmp_path, monkeypatch):
 @pytest.fixture
 def week_record():
     """A populated week record for export testing."""
-    from logic.schedule_store import ScheduleStore, SCHEDULE_PATH
+    from logic.schedule_store import ScheduleStore
     store = ScheduleStore()
     return store.get_or_create_week(date.today())
 
@@ -76,9 +71,7 @@ def week_record():
 @pytest.fixture
 def populated_week():
     """Week record with employees assigned."""
-    from logic.schedule_store import (
-        _empty_week_record, get_week_start, DAYS, SHIFTS
-    )
+    from logic.schedule_store import DAYS, SHIFTS, _empty_week_record, get_week_start
     w = _empty_week_record(get_week_start(date.today()))
     dept = w["modes"]["Magazie"]["departments"][0]
     day_name = DAYS[0][0]
@@ -102,7 +95,6 @@ class TestFileSystem:
 
     def test_fs001_data_dir_auto_create(self, tmp_path, monkeypatch):
         """FS-001: Missing data dir is auto-created."""
-        from logic import app_paths
         new_data = tmp_path / "nonexistent" / "data"
         assert not new_data.exists()
         new_data.mkdir(parents=True, exist_ok=True)
@@ -176,7 +168,6 @@ class TestFileSystem:
     def test_fs010_schedule_save_creates_file(self, schedule_store):
         """FS-010: ScheduleStore.save() creates the file."""
         schedule_store.get_or_create_week(date.today())
-        from logic.schedule_store import SCHEDULE_PATH
         # Data was saved by get_or_create_week — check via fresh load
         assert "weeks" in schedule_store.data
 
@@ -221,7 +212,7 @@ class TestFileSystem:
         cell["employees"].append("Ștefan Pîrvu-Dăescu")
         schedule_store.update_week(week)
         # Reload
-        from logic.schedule_store import ScheduleStore, SCHEDULE_PATH
+        from logic.schedule_store import ScheduleStore
         store2 = ScheduleStore()
         w2 = store2.get_or_create_week(date.today())
         cell2 = w2["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
@@ -347,12 +338,12 @@ class TestPortability:
 
     def test_pt012_backward_compat_backups_dir(self):
         """PT-012: BACKUPS_DIR alias equals BACKUP_DIR."""
-        from logic.app_paths import BACKUPS_DIR, BACKUP_DIR
+        from logic.app_paths import BACKUP_DIR, BACKUPS_DIR
         assert BACKUPS_DIR == BACKUP_DIR
 
     def test_pt013_version_constants_exist(self):
         """PT-013: Version module has required constants."""
-        from logic.version import VERSION, BUILD_DATE, APP_NAME
+        from logic.version import APP_NAME, BUILD_DATE, VERSION
         assert VERSION
         assert BUILD_DATE
         assert APP_NAME
@@ -1155,8 +1146,8 @@ class TestEdgeCases:
 
     def test_ec002_many_employees_one_cell(self, tmp_path):
         """EC-002: Cell with 20 employees does not crash."""
-        from logic.schedule_store import _empty_week_record, get_week_start
         from logic.excel_exporter import ExcelExporter
+        from logic.schedule_store import _empty_week_record, get_week_start
         w = _empty_week_record(get_week_start(date.today()))
         dept = w["modes"]["Magazie"]["departments"][0]
         cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
@@ -1169,8 +1160,8 @@ class TestEdgeCases:
 
     def test_ec003_long_employee_name(self, tmp_path):
         """EC-003: Employee with very long name does not crash."""
-        from logic.schedule_store import _empty_week_record, get_week_start
         from logic.excel_exporter import ExcelExporter
+        from logic.schedule_store import _empty_week_record, get_week_start
         w = _empty_week_record(get_week_start(date.today()))
         dept = w["modes"]["Magazie"]["departments"][0]
         cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
@@ -1183,8 +1174,8 @@ class TestEdgeCases:
 
     def test_ec004_special_chars_in_name(self, tmp_path):
         """EC-004: Special characters in name handled correctly."""
-        from logic.schedule_store import _empty_week_record, get_week_start
         from logic.excel_exporter import ExcelExporter
+        from logic.schedule_store import _empty_week_record, get_week_start
         w = _empty_week_record(get_week_start(date.today()))
         dept = w["modes"]["Magazie"]["departments"][0]
         cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
@@ -1205,8 +1196,8 @@ class TestEdgeCases:
 
     def test_ec005_export_bucle_mode(self, tmp_path):
         """EC-005: Exporting Bucle mode works correctly."""
-        from logic.schedule_store import _empty_week_record, get_week_start
         from logic.excel_exporter import ExcelExporter
+        from logic.schedule_store import _empty_week_record, get_week_start
         w = _empty_week_record(get_week_start(date.today()))
         d = tmp_path / "Exports"
         d.mkdir(parents=True, exist_ok=True)
@@ -1247,7 +1238,7 @@ class TestEdgeCases:
 
     def test_ec010_cell_text_mixed_colors_uses_default(self):
         """EC-010: Mixed colors → default dark color."""
-        from logic.excel_exporter import _cell_text_and_color, DEFAULT_TEXT_COLOR
+        from logic.excel_exporter import DEFAULT_TEXT_COLOR, _cell_text_and_color
         text, color = _cell_text_and_color(
             ["A", "B"], {"A": "#C0392B", "B": "#27AE60"}
         )
@@ -1268,12 +1259,12 @@ class TestEdgeCases:
 
     def test_ec013_to_argb_none_returns_default(self):
         """EC-013: _to_argb(None) returns default."""
-        from logic.excel_exporter import _to_argb, DEFAULT_TEXT_COLOR
+        from logic.excel_exporter import DEFAULT_TEXT_COLOR, _to_argb
         assert _to_argb(None) == "FF" + DEFAULT_TEXT_COLOR
 
     def test_ec014_to_argb_invalid_hex_returns_default(self):
         """EC-014: _to_argb('XYZ') returns default."""
-        from logic.excel_exporter import _to_argb, DEFAULT_TEXT_COLOR
+        from logic.excel_exporter import DEFAULT_TEXT_COLOR, _to_argb
         assert _to_argb("XYZ") == "FF" + DEFAULT_TEXT_COLOR
 
     def test_ec015_fill_helper_ff_prefix(self):
@@ -1349,8 +1340,8 @@ class TestErrorHandling:
 
     def test_eh005_export_with_none_colors(self, tmp_path):
         """EH-005: Export handles None in colors dict."""
-        from logic.schedule_store import _empty_week_record, get_week_start
         from logic.excel_exporter import ExcelExporter
+        from logic.schedule_store import _empty_week_record, get_week_start
         w = _empty_week_record(get_week_start(date.today()))
         dept = w["modes"]["Magazie"]["departments"][0]
         cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
@@ -1364,8 +1355,8 @@ class TestErrorHandling:
 
     def test_eh006_export_missing_color_key(self, tmp_path):
         """EH-006: Export handles employee without color entry."""
-        from logic.schedule_store import _empty_week_record, get_week_start
         from logic.excel_exporter import ExcelExporter
+        from logic.schedule_store import _empty_week_record, get_week_start
         w = _empty_week_record(get_week_start(date.today()))
         dept = w["modes"]["Magazie"]["departments"][0]
         cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
@@ -1428,8 +1419,9 @@ class TestMultiRunConsistency:
 
     def test_mr001_double_export_same_structure(self, week_record, tmp_path):
         """MR-001: Two exports of same data have same column count."""
-        from logic.excel_exporter import ExcelExporter
         from openpyxl import load_workbook
+
+        from logic.excel_exporter import ExcelExporter
         d = tmp_path / "Exports"
         d.mkdir(parents=True, exist_ok=True)
         with patch("logic.excel_exporter.EXPORT_DIR", d):
@@ -1468,8 +1460,8 @@ class TestMultiRunConsistency:
 
     def test_mr005_export_both_modes(self, tmp_path):
         """MR-005: Exporting both modes produces 2 valid files."""
-        from logic.schedule_store import _empty_week_record, get_week_start
         from logic.excel_exporter import ExcelExporter
+        from logic.schedule_store import _empty_week_record, get_week_start
         w = _empty_week_record(get_week_start(date.today()))
         d = tmp_path / "Exports"
         d.mkdir(parents=True, exist_ok=True)
@@ -1508,15 +1500,16 @@ class TestMultiRunConsistency:
 
     def test_mr008_color_helpers_idempotent(self):
         """MR-008: Color helpers give same result on repeated calls."""
-        from logic.excel_exporter import _to_argb, _fill
+        from logic.excel_exporter import _fill, _to_argb
         for _ in range(10):
             assert _to_argb("#C0392B") == "FFC0392B"
             assert str(_fill("FFFFFF").fgColor.rgb) == "FFFFFFFF"
 
     def test_mr009_export_dimensions_stable(self, week_record, tmp_path):
         """MR-009: Same data → same dimensions across exports."""
-        from logic.excel_exporter import ExcelExporter
         from openpyxl import load_workbook
+
+        from logic.excel_exporter import ExcelExporter
         d = tmp_path / "Exports"
         d.mkdir(parents=True, exist_ok=True)
         dims = []
@@ -1529,7 +1522,7 @@ class TestMultiRunConsistency:
 
     def test_mr010_schedule_constants_immutable(self):
         """MR-010: Module-level constants are consistent."""
-        from logic.schedule_store import DAYS, SHIFTS, DAY_NAMES, TEMPLATES
+        from logic.schedule_store import DAY_NAMES, DAYS, SHIFTS, TEMPLATES
         assert len(DAYS) == 7
         assert len(SHIFTS) == 3
         assert len(DAY_NAMES) == 7

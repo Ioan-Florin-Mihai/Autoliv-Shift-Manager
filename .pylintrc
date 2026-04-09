@@ -1,0 +1,52 @@
+[MASTER]
+ignore=build,dist,backups,.venv
+
+[MESSAGES CONTROL]
+disable=
+    line-too-long,
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    too-many-public-methods,
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-return-statements,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    too-many-nested-blocks,
+    duplicate-code,
+    protected-access,
+    redefined-outer-name,
+    import-outside-toplevel,
+    cyclic-import,
+    too-many-lines,
+    attribute-defined-outside-init,
+    broad-exception-caught,
+    unused-import,
+    unused-variable,
+    invalid-name,
+    global-statement,
+    keyword-arg-before-vararg,
+    multiple-imports,
+    consider-using-from-import,
+    consider-using-dict-items,
+    try-except-raise,
+    unused-argument,
+    too-many-instance-attributes,
+    missing-final-newline,
+    f-string-without-interpolation,
+    subprocess-run-check,
+    consider-using-with,
+    no-else-return,
+    access-member-before-definition,
+    trailing-whitespace,
+    trailing-newlines,
+    reimported
+
+[FORMAT]
+max-line-length=100
+
+[TYPECHECK]
+ignored-modules=customtkinter,tkcalendar,PIL,bcrypt,firebase_admin,pytest,openpyxl,win32api,win32print

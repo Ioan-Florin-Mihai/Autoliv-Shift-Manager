@@ -15,20 +15,24 @@
 
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 from openpyxl import Workbook
+from openpyxl.cell.cell import Cell
 from openpyxl.cell.rich_text import CellRichText, TextBlock
 from openpyxl.cell.text import InlineFont
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles.colors import Color
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.page import PageMargins
+from openpyxl.worksheet.properties import PageSetupProperties
+from openpyxl.worksheet.worksheet import Worksheet
 
 from logic.app_logger import log_exception
 from logic.app_paths import BUNDLE_DIR, EXPORT_DIR
 from logic.schedule_store import DAYS, DEPARTMENT_COLORS, SHIFTS, WEEKEND_DAYS
 from logic.version import VERSION
-
 
 # ── COLOR_MAP — replica exacta a EMPLOYEE_COLOR_PALETTE din UI ──────────────
 # cheie → culoare hex fara "#" (format openpyxl)
@@ -49,6 +53,14 @@ DEFAULT_TEXT_COLOR = "1A1A1A"
 FONT_NAME = "Calibri"
 COLOR_8H = "1A1A1A"
 COLOR_12H = "C0392B"
+
+
+def _sheet_cell(sheet: Worksheet, row: int, column: int) -> Cell:
+    return cast(Cell, sheet.cell(row, column))
+
+
+def _sheet_anchor(sheet: Worksheet, coordinate: str) -> Cell:
+    return cast(Cell, sheet[coordinate])
 
 
 def _to_argb(hex_color: str | None) -> str:
@@ -118,7 +130,7 @@ def _build_employee_rich_text(employees: list[str], colors: dict) -> CellRichTex
         line_color = "FF" + (COLOR_12H if hours_label == "12" else COLOR_8H)
         rich_text.append(
             TextBlock(
-                InlineFont(rFont=FONT_NAME, b=True, sz=11, color=line_color),
+                InlineFont(rFont=FONT_NAME, b=True, sz=11, color=Color(rgb=line_color)),
                 line_text,
             )
         )
@@ -159,7 +171,7 @@ class ExcelExporter:
         export_path = EXPORT_DIR / filename
 
         workbook = Workbook()
-        sheet    = workbook.active
+        sheet = cast(Worksheet, workbook.active)
         sheet.title = current_mode
         sheet.sheet_view.showGridLines = False
 
@@ -169,7 +181,10 @@ class ExcelExporter:
         sheet.page_setup.fitToWidth  = 1
         sheet.page_setup.fitToHeight = 1      # 1 = forteaza o singura pagina A3
         sheet.page_setup.scale       = None   # elimina conflictul cu fitToWidth/Height
-        sheet.sheet_properties.pageSetUpPr.fitToPage = True
+        if sheet.sheet_properties.pageSetUpPr is None:
+            sheet.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+        else:
+            sheet.sheet_properties.pageSetUpPr.fitToPage = True
 
         # Margini minime A3 (in inch: ~0.5 cm)
         sheet.page_margins = PageMargins(
@@ -203,7 +218,7 @@ class ExcelExporter:
 
         # ── Header principal (rand 1-2) — full width A–I ─────────────
         sheet.merge_cells("A1:I2")
-        hdr = sheet["A1"]
+        hdr = _sheet_anchor(sheet, "A1")
         hdr.value     = f"Planificare {current_mode.lower()} — {week_record['week_label']}"
         hdr.fill      = _fill("0067C8")
         hdr.font      = Font(name=FONT_NAME, color="FFFFFFFF", bold=True, size=20)
@@ -222,7 +237,7 @@ class ExcelExporter:
         # ── Rand 3: subtitlu raport (generat, mod, versiune) ───────────
         sheet.row_dimensions[3].height = 18
         sheet.merge_cells("A3:I3")
-        sub = sheet["A3"]
+        sub = _sheet_anchor(sheet, "A3")
         sub.value     = (
             f"Generat: {datetime.now().strftime('%d-%m-%Y %H:%M')}  │  "
             f"Mod: {current_mode}  │  "
@@ -259,7 +274,7 @@ class ExcelExporter:
                 start_row=current_row,    start_column=1,
                 end_row=current_row + total_rows - 1, end_column=1,
             )
-            dep_cell           = sheet.cell(current_row, 1)
+            dep_cell = _sheet_cell(sheet, current_row, 1)
             dep_cell.value     = department
             dep_cell.fill      = _fill(dep_color)
             dep_cell.font      = Font(name=FONT_NAME, bold=True, size=10)
@@ -269,7 +284,7 @@ class ExcelExporter:
             # ── Rand header departament (cu zile) ──
             sheet.row_dimensions[current_row].height = 34
 
-            h_shift = sheet.cell(current_row, 2)
+            h_shift = _sheet_cell(sheet, current_row, 2)
             h_shift.value     = "Schimb"
             h_shift.font      = Font(name=FONT_NAME, bold=True, size=10)
             h_shift.fill      = _fill("EAF1FB")
@@ -278,7 +293,7 @@ class ExcelExporter:
 
             for col_offset, (day_name, day_idx) in enumerate(DAYS, start=3):
                 current_day = start + timedelta(days=day_idx)
-                cell_obj    = sheet.cell(current_row, col_offset)
+                cell_obj = _sheet_cell(sheet, current_row, col_offset)
                 cell_obj.value = f"{day_name}\n{current_day.strftime('%d-%b-%y')}"
                 cell_obj.font  = Font(name=FONT_NAME, bold=True, size=10)
                 cell_obj.fill  = _fill("FCE4D6" if day_name in WEEKEND_DAYS else "EAF1FB")
@@ -291,7 +306,7 @@ class ExcelExporter:
                 sheet.row_dimensions[row].height = row_heights[shift_index]
 
                 # Celula schimb
-                shift_cell           = sheet.cell(row, 2)
+                shift_cell = _sheet_cell(sheet, row, 2)
                 shift_cell.value     = shift
                 shift_cell.font      = Font(name=FONT_NAME, bold=True, size=10)
                 shift_cell.alignment = centered
@@ -306,7 +321,7 @@ class ExcelExporter:
 
                     text, _ = _cell_text_and_color(employees, colors)
 
-                    value_cell            = sheet.cell(row, col_offset)
+                    value_cell = _sheet_cell(sheet, row, col_offset)
                     value_cell.value      = text
                     value_cell.font       = Font(name=FONT_NAME, bold=True, size=11, color="FF" + DEFAULT_TEXT_COLOR)
                     value_cell.alignment  = cell_text_aln
@@ -339,15 +354,16 @@ class ExcelExporter:
         sheet.print_area = f"A1:{last_col}{sheet.max_row}"
 
         # ── Footer profesional ───────────────────────────────────────
-        sheet.oddFooter.left.text  = "Generated by Autoliv Shift Manager"
-        sheet.oddFooter.left.size  = 9
-        sheet.oddFooter.right.text = (
+        footer = cast(Any, sheet.oddFooter)
+        footer.left.text  = "Generated by Autoliv Shift Manager"
+        footer.left.size  = 9
+        footer.right.text = (
             f"Data: {datetime.now().strftime('%Y-%m-%d')}  |  "
             f"Versiune: {VERSION}"
         )
-        sheet.oddFooter.right.size = 9
-        sheet.oddFooter.center.text = "Pagina &P din &N"
-        sheet.oddFooter.center.size = 9
+        footer.right.size = 9
+        footer.center.text = "Pagina &P din &N"
+        footer.center.size = 9
 
         workbook.save(export_path)
         return export_path

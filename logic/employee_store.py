@@ -12,11 +12,9 @@
 import json
 import os
 import tempfile
-from pathlib import Path
 
 from logic.app_logger import log_exception
 from logic.app_paths import ensure_runtime_file
-
 
 # Fisierul principal cu lista de angajati
 EMPLOYEES_PATH = ensure_runtime_file("data/employees.json")
