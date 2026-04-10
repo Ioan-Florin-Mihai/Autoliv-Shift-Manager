@@ -201,7 +201,7 @@ class PlannerDashboard(ctk.CTkFrame):
 
         self._build_ui()
         self.bind_all("<Control-z>", lambda _e: self.undo())
-        self.after(50, self.refresh_all)
+        self.refresh_all()
         self.remote_checker.start()
         self.after(1000, self.process_remote_events)
 
