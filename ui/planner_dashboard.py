@@ -706,15 +706,15 @@ class PlannerDashboard(ctk.CTkFrame):
         frame.grid_propagate(False)
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure(0, weight=0)
-        frame.grid_rowconfigure(1, weight=1)
-        frame.grid_rowconfigure(2, weight=0, minsize=250)
+        frame.grid_rowconfigure(1, weight=2, minsize=250)
+        frame.grid_rowconfigure(2, weight=1, minsize=170)
 
         header_section = ctk.CTkFrame(frame, fg_color="transparent")
-        header_section.grid(row=0, column=0, sticky="ew", padx=20, pady=(OUTER_PAD, 6))
+        header_section.grid(row=0, column=0, sticky="ew", padx=20, pady=(OUTER_PAD, 8))
         header_section.grid_columnconfigure(0, weight=1)
-        self._create_section_label(header_section, "CONTEXT").grid(row=0, column=0, sticky="w", pady=(0, 6))
+        self._create_section_label(header_section, "CONTEXT").grid(row=0, column=0, sticky="w", pady=(0, 4))
         department_nav = ctk.CTkFrame(header_section, fg_color="transparent")
-        department_nav.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        department_nav.grid(row=1, column=0, sticky="ew", pady=(0, 4))
         department_nav.grid_columnconfigure(1, weight=1)
         self.department_prev_button = self._create_utility_button(
             department_nav,
@@ -747,26 +747,10 @@ class PlannerDashboard(ctk.CTkFrame):
         self.cell_meta = ctk.CTkLabel(header_section, text="", text_color=MUTED_TEXT, justify="left")
         self.cell_meta.grid(row=3, column=0, sticky="w", pady=(2, 4))
 
-        employees_section = ctk.CTkFrame(frame, fg_color="transparent")
-        employees_section.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 8))
-        employees_section.grid_columnconfigure(0, weight=1)
-        employees_section.grid_rowconfigure(1, weight=1)
-        ctk.CTkLabel(employees_section, text="Angajati in celula", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, sticky="w", pady=(0, 4))
-        self.assignment_frame = ctk.CTkScrollableFrame(employees_section, width=370, height=360, fg_color=PANEL_BG)
-        self.assignment_frame.grid(row=1, column=0, sticky="nsew")
-
-        bottom_section = ctk.CTkFrame(frame, fg_color="transparent", height=250)
-        bottom_section.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, OUTER_PAD))
-        bottom_section.grid_propagate(False)
-        bottom_section.grid_columnconfigure(0, weight=1)
-        bottom_section.grid_rowconfigure(0, weight=0)
-        bottom_section.grid_rowconfigure(1, weight=0)
-        bottom_section.grid_rowconfigure(2, weight=0)
-
-        quick_add_section = ctk.CTkFrame(bottom_section, fg_color="transparent")
-        quick_add_section.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        quick_add_section = ctk.CTkFrame(header_section, fg_color="transparent")
+        quick_add_section.grid(row=4, column=0, sticky="ew", pady=(4, 4))
         quick_add_section.grid_columnconfigure(0, weight=1)
-        self._create_section_label(quick_add_section, "QUICK ADD").grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self._create_section_label(quick_add_section, "QUICK ADD").grid(row=0, column=0, sticky="w", pady=(0, 3))
         entry = ctk.CTkEntry(
             quick_add_section,
             textvariable=self.employee_search_var,
@@ -777,7 +761,7 @@ class PlannerDashboard(ctk.CTkFrame):
             border_color=LINE_BLUE,
             text_color=BODY_TEXT,
         )
-        entry.grid(row=1, column=0, sticky="ew", pady=(0, 4))
+        entry.grid(row=1, column=0, sticky="ew", pady=(0, 3))
         entry.bind("<KeyRelease>", self._on_search_change)
         entry.bind("<Return>", lambda _e: self.add_employee_from_search())
         self._search_entry = entry
@@ -795,12 +779,12 @@ class PlannerDashboard(ctk.CTkFrame):
         )
         self._add_button.grid(row=2, column=0, sticky="ew")
 
-        more_actions_section = ctk.CTkFrame(bottom_section, fg_color="transparent")
-        more_actions_section.grid(row=1, column=0, sticky="ew", pady=(6, 6))
+        more_actions_section = ctk.CTkFrame(header_section, fg_color="transparent")
+        more_actions_section.grid(row=5, column=0, sticky="ew", pady=(4, 2))
         more_actions_section.grid_columnconfigure(0, weight=1)
-        self._create_section_label(more_actions_section, "MORE ACTIONS").grid(row=0, column=0, sticky="w", pady=(0, 4))
-        self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=24).grid(row=1, column=0, sticky="ew", pady=(0, 3))
-        self._create_secondary_button(more_actions_section, "Redenumește", self.rename_employee_global, height=24).grid(row=2, column=0, sticky="ew", pady=(0, 3))
+        self._create_section_label(more_actions_section, "MORE ACTIONS").grid(row=0, column=0, sticky="w", pady=(0, 3))
+        self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=24).grid(row=1, column=0, sticky="ew", pady=(0, 2))
+        self._create_secondary_button(more_actions_section, "Redenumește", self.rename_employee_global, height=24).grid(row=2, column=0, sticky="ew", pady=(0, 2))
         self._delete_global_button = ctk.CTkButton(
             more_actions_section,
             text="Șterge global",
@@ -814,13 +798,21 @@ class PlannerDashboard(ctk.CTkFrame):
         )
         self._delete_global_button.grid(row=3, column=0, sticky="ew")
 
-        suggestions_section = ctk.CTkFrame(bottom_section, fg_color="transparent")
-        suggestions_section.grid(row=2, column=0, sticky="ew")
+        employees_section = ctk.CTkFrame(frame, fg_color="transparent")
+        employees_section.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 8))
+        employees_section.grid_columnconfigure(0, weight=1)
+        employees_section.grid_rowconfigure(1, weight=1)
+        ctk.CTkLabel(employees_section, text="Angajati in celula", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self.assignment_frame = ctk.CTkScrollableFrame(employees_section, width=370, height=250, fg_color=PANEL_BG)
+        self.assignment_frame.grid(row=1, column=0, sticky="nsew")
+
+        suggestions_section = ctk.CTkFrame(frame, fg_color="transparent")
+        suggestions_section.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, OUTER_PAD))
         suggestions_section.grid_columnconfigure(0, weight=1)
-        suggestions_section.grid_rowconfigure(1, weight=0)
+        suggestions_section.grid_rowconfigure(1, weight=1, minsize=88)
         self._create_section_label(suggestions_section, "SUGESTII").grid(row=0, column=0, sticky="w", pady=(0, 4))
-        self.suggestion_frame = ctk.CTkScrollableFrame(suggestions_section, width=370, height=86, fg_color=PANEL_BG)
-        self.suggestion_frame.grid(row=1, column=0, sticky="ew")
+        self.suggestion_frame = ctk.CTkScrollableFrame(suggestions_section, width=370, height=100, fg_color=PANEL_BG)
+        self.suggestion_frame.grid(row=1, column=0, sticky="nsew")
 
     def show_inline_message(self, message: str, is_error=False):
         self.status_var.set(message)
