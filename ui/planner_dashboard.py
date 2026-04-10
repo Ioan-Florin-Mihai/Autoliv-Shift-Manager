@@ -10,7 +10,7 @@ import customtkinter as ctk
 
 from logic.app_config import get_config
 from logic.app_logger import log_exception
-from logic.audit_logger import log_event, read_recent_events
+from logic.audit_logger import log_event
 from logic.employee_store import EmployeeStore
 from logic.remote_control import RemoteChecker, RemoteControlService
 from logic.schedule_store import (
@@ -196,7 +196,6 @@ class PlannerDashboard(ctk.CTkFrame):
         self.department_name_var = ctk.StringVar(value=self.selected_department)
         self._closing = False
         self._dirty = False                        # modificari nesalvate
-        self._undo_stack: list = []                # stiva undo (max 10 stari)
         self._search_entry: ctk.CTkEntry | None = None   # referinta la entry search
         self._last_saved_var = ctk.StringVar(value="")
         self._lock_state_var = ctk.StringVar(value="")
@@ -211,7 +210,6 @@ class PlannerDashboard(ctk.CTkFrame):
         self._sync_department_state()
 
         self._build_ui()
-        self.bind_all("<Control-z>", lambda _e: self.undo())
         self.refresh_all()
         self.remote_checker.start()
         self.after(1000, self.process_remote_events)
@@ -261,52 +259,6 @@ class PlannerDashboard(ctk.CTkFrame):
             pass
         return status
 
-    def open_audit_log(self):
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("Audit Log")
-        dialog.geometry("940x620")
-        dialog.grab_set()
-        dialog.grid_columnconfigure(0, weight=1)
-        dialog.grid_rowconfigure(2, weight=1)
-
-        user_var = ctk.StringVar(value="")
-        action_var = ctk.StringVar(value="")
-
-        ctk.CTkLabel(dialog, text="Audit Log", font=ctk.CTkFont(size=22, weight="bold"), text_color=PRIMARY_BLUE).grid(row=0, column=0, sticky="w", padx=20, pady=(20, 8))
-        filter_row = ctk.CTkFrame(dialog, fg_color="transparent")
-        filter_row.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
-        filter_row.grid_columnconfigure((1, 3), weight=1)
-        ctk.CTkLabel(filter_row, text="Utilizator", text_color=MUTED_TEXT).grid(row=0, column=0, sticky="w")
-        user_entry = ctk.CTkEntry(filter_row, textvariable=user_var)
-        user_entry.grid(row=0, column=1, sticky="ew", padx=(8, 16))
-        ctk.CTkLabel(filter_row, text="Actiune", text_color=MUTED_TEXT).grid(row=0, column=2, sticky="w")
-        action_entry = ctk.CTkEntry(filter_row, textvariable=action_var)
-        action_entry.grid(row=0, column=3, sticky="ew", padx=(8, 0))
-
-        table = ctk.CTkScrollableFrame(dialog, fg_color=PANEL_BG)
-        table.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 20))
-
-        def render_table():
-            for widget in table.winfo_children():
-                widget.destroy()
-            events = read_recent_events(limit=100, user=user_var.get().strip() or None, action=action_var.get().strip() or None)
-            if not events:
-                ctk.CTkLabel(table, text="Nu exista intrari pentru filtrul selectat.", text_color=MUTED_TEXT).pack(anchor="w", padx=8, pady=8)
-                return
-            for event in events:
-                details = event.get("details", {})
-                detail_text = ", ".join(f"{key}: {value}" for key, value in details.items()) if isinstance(details, dict) else ""
-                row = ctk.CTkFrame(table, fg_color=CARD_WHITE, corner_radius=10, border_width=1, border_color=LINE_BLUE)
-                row.pack(fill="x", padx=4, pady=4)
-                ctk.CTkLabel(row, text=f"{event.get('timestamp', '-')}", width=170, anchor="w", text_color=BODY_TEXT).pack(side="left", padx=(10, 6), pady=8)
-                ctk.CTkLabel(row, text=f"{event.get('user', '-')}", width=120, anchor="w", text_color=PRIMARY_BLUE).pack(side="left", padx=6)
-                ctk.CTkLabel(row, text=f"{event.get('action', '-')}", width=130, anchor="w", text_color=BODY_TEXT).pack(side="left", padx=6)
-                ctk.CTkLabel(row, text=f"{event.get('week', '-')}", width=100, anchor="w", text_color=BODY_TEXT).pack(side="left", padx=6)
-                ctk.CTkLabel(row, text=detail_text or "-", anchor="w", justify="left", text_color=MUTED_TEXT).pack(side="left", fill="x", expand=True, padx=(6, 10))
-
-        ctk.CTkButton(filter_row, text="Aplică", command=render_table, width=90).grid(row=0, column=4, padx=(12, 0))
-        render_table()
-
     def open_system_status(self):
         dialog = ctk.CTkToplevel(self)
         dialog.title("Status Sistem")
@@ -318,8 +270,7 @@ class PlannerDashboard(ctk.CTkFrame):
         content.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
         content.grid_columnconfigure(1, weight=1)
 
-        audit_events = read_recent_events(limit=20, action="publish")
-        last_publish = audit_events[0].get("timestamp", "Niciodata") if audit_events else "Niciodata"
+        last_publish = self.week_record.get("published_at", "Niciodata") or "Niciodata"
         tv_status = self._tv_status_snapshot()
         rows = [
             ("Utilizator activ", f"{self._username or '-'} ({self._user_role})"),
@@ -355,7 +306,6 @@ class PlannerDashboard(ctk.CTkFrame):
             self.store.restore_backup(selected.strip())
             self.week_record = self.store.get_or_create_week(self.selected_date)
             self._dirty = False
-            self._undo_stack.clear()
             self.refresh_all()
             self.show_inline_message("Backup restaurat cu succes.")
         except ValueError as exc:
@@ -609,7 +559,7 @@ class PlannerDashboard(ctk.CTkFrame):
             corner_radius=12,
             font=ctk.CTkFont(size=14, weight="bold"),
         ).grid(row=4, column=0, sticky="ew")
-        # Indicator "*" modificari nesalvate + buton Undo
+        # Indicator pentru modificari nesalvate
         action_row = ctk.CTkFrame(plan_section, fg_color="transparent")
         action_row.grid(row=5, column=0, sticky="ew", pady=(6, 0))
         action_row.grid_columnconfigure(0, weight=1)
@@ -618,10 +568,6 @@ class PlannerDashboard(ctk.CTkFrame):
             font=ctk.CTkFont(size=11, weight="bold"),
         )
         self._dirty_indicator.grid(row=0, column=0, sticky="w")
-        self._create_utility_button(
-            action_row, "Undo  (Ctrl+Z)", self.undo,
-            height=24, font=ctk.CTkFont(size=11, weight="bold"),
-        ).grid(row=0, column=1, sticky="e")
         ctk.CTkLabel(
             plan_section, textvariable=self._last_saved_var,
             text_color=MUTED_TEXT, font=ctk.CTkFont(size=10),
@@ -687,9 +633,8 @@ class PlannerDashboard(ctk.CTkFrame):
         self.theme_switch.grid(row=1, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         if ctk.get_appearance_mode() == "Dark":
             self.theme_switch.select()
-        self._create_secondary_button(settings_section, "Audit Log", self.open_audit_log, height=SECONDARY_BUTTON_HEIGHT).grid(row=2, column=0, sticky="ew", pady=(0, 8))
-        self._create_secondary_button(settings_section, "Status Sistem", self.open_system_status, height=SECONDARY_BUTTON_HEIGHT).grid(row=3, column=0, sticky="ew", pady=(0, 8))
-        self._create_secondary_button(settings_section, "Restore backup", self.restore_backup_dialog, height=SECONDARY_BUTTON_HEIGHT).grid(row=4, column=0, sticky="ew")
+        self._create_secondary_button(settings_section, "Status Sistem", self.open_system_status, height=SECONDARY_BUTTON_HEIGHT).grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        self._create_secondary_button(settings_section, "Restore backup", self.restore_backup_dialog, height=SECONDARY_BUTTON_HEIGHT).grid(row=3, column=0, sticky="ew")
 
     def _build_center(self):
         frame = ctk.CTkFrame(self, fg_color=CARD_WHITE, corner_radius=18, border_width=1, border_color=LINE_BLUE)
@@ -1130,7 +1075,6 @@ class PlannerDashboard(ctk.CTkFrame):
         """
         if not self._ensure_week_editable():
             return
-        self._push_undo()
         self.store.set_employee_color(
             self.week_record,
             self.current_mode,
@@ -1349,7 +1293,6 @@ class PlannerDashboard(ctk.CTkFrame):
     def add_employee_to_selected_cell(self, employee: str):
         if not self._ensure_week_editable():
             return
-        self._push_undo()
         try:
             default_color = ABSENCE_COLORS.get(employee.strip().upper(), HOURS_COLOR_MAP["8h"])
             self.store.add_employee_assignment(
@@ -1454,7 +1397,6 @@ class PlannerDashboard(ctk.CTkFrame):
     def remove_employee(self, employee: str):
         if not self._ensure_week_editable():
             return
-        self._push_undo()
         self.store.remove_employee_assignment(
             self.week_record,
             self.current_mode,
@@ -1481,7 +1423,6 @@ class PlannerDashboard(ctk.CTkFrame):
     def reorder_employee(self, employee: str, direction: int):
         if not self._ensure_week_editable():
             return
-        self._push_undo()
         self.store.reorder_employee_assignment(
             self.week_record,
             self.current_mode,
@@ -1504,7 +1445,6 @@ class PlannerDashboard(ctk.CTkFrame):
         target_shift = dlg.selected
         if target_shift is None:
             return
-        self._push_undo()
         try:
             self.store.move_employee_assignment(
                 self.week_record,
@@ -1620,7 +1560,6 @@ class PlannerDashboard(ctk.CTkFrame):
             self.store.publish_week(self.week_record.get("week_start", ""), self._username or "")
             self.week_record = self.store.get_or_create_week(self.selected_date)
             self._dirty = False
-            self._undo_stack.clear()
             self._update_dirty_indicator()
             self._refresh_lock_button()
             self.show_inline_message("Planificarea a fost publicata pe ecrane.")
@@ -1633,7 +1572,6 @@ class PlannerDashboard(ctk.CTkFrame):
         try:
             self.store.update_week(self.week_record)
             self._dirty = False
-            self._undo_stack.clear()
             from datetime import datetime as _dt
             self._last_saved_var.set(f"Salvat la {_dt.now().strftime('%H:%M:%S')}")
             self._update_dirty_indicator()
@@ -1699,25 +1637,6 @@ class PlannerDashboard(ctk.CTkFrame):
         if answer:           # Yes
             self.save_week()
         return True
-
-    # ── Undo ──────────────────────────────────────────────────────────────────
-
-    def _push_undo(self):
-        """Salvează o copie profundă a săptămânii curente pe stiva undo (max 10)."""
-        import copy
-        self._undo_stack.append(copy.deepcopy(self.week_record))
-        if len(self._undo_stack) > 10:
-            self._undo_stack.pop(0)
-
-    def undo(self):
-        """Restaurează ultima stare salvată și reîmprospătează UI-ul."""
-        if not self._undo_stack:
-            self.show_inline_message("Nu există operații de anulat.", is_error=True)
-            return
-        self.week_record = self._undo_stack.pop()
-        self._dirty = True
-        self.refresh_all()
-        self.show_inline_message("Operație anulată (Undo).")
 
     # ── Dirty indicator ───────────────────────────────────────────────────────
 
@@ -1794,7 +1713,6 @@ class PlannerDashboard(ctk.CTkFrame):
             if self._dirty:
                 self.store.update_week(self.week_record)
                 self._dirty = False
-                self._undo_stack.clear()
                 self._last_saved_var.set(f"Salvat automat la {datetime.now().strftime('%H:%M')}")
                 self._update_dirty_indicator()
                 self.refresh_history()
