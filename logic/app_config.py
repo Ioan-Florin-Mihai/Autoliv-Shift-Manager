@@ -2,6 +2,7 @@ import json
 import socket
 from copy import deepcopy
 from pathlib import Path
+from typing import cast
 
 from logic.app_paths import BASE_DIR
 
@@ -75,19 +76,19 @@ def _merge_config(raw: dict | None) -> dict:
             if key in merged:
                 merged[key] = value
     merged["server_host"] = str(merged.get("server_host") or DEFAULT_CONFIG["server_host"])
-    merged["server_ip"] = _as_ip(merged.get("server_ip"), DEFAULT_CONFIG["server_ip"])
-    merged["server_port"] = _as_int(merged.get("server_port"), DEFAULT_CONFIG["server_port"], 1, 65535)
-    merged["rotation_interval"] = _as_int(merged.get("rotation_interval"), DEFAULT_CONFIG["rotation_interval"], 1, 3600)
-    merged["refresh_interval"] = _as_int(merged.get("refresh_interval"), DEFAULT_CONFIG["refresh_interval"], 1, 3600)
-    merged["max_backups"] = _as_int(merged.get("max_backups"), DEFAULT_CONFIG["max_backups"], 1, 500)
-    merged["auto_lock_on_publish"] = _as_bool(merged.get("auto_lock_on_publish"), DEFAULT_CONFIG["auto_lock_on_publish"])
-    merged["max_users"] = _as_int(merged.get("max_users"), DEFAULT_CONFIG["max_users"], 1, 100)
-    merged["tv_stale_seconds"] = _as_int(merged.get("tv_stale_seconds"), DEFAULT_CONFIG["tv_stale_seconds"], 5, 600)
+    merged["server_ip"] = _as_ip(merged.get("server_ip"), cast(str, DEFAULT_CONFIG["server_ip"]))
+    merged["server_port"] = _as_int(merged.get("server_port"), cast(int, DEFAULT_CONFIG["server_port"]), 1, 65535)
+    merged["rotation_interval"] = _as_int(merged.get("rotation_interval"), cast(int, DEFAULT_CONFIG["rotation_interval"]), 1, 3600)
+    merged["refresh_interval"] = _as_int(merged.get("refresh_interval"), cast(int, DEFAULT_CONFIG["refresh_interval"]), 1, 3600)
+    merged["max_backups"] = _as_int(merged.get("max_backups"), cast(int, DEFAULT_CONFIG["max_backups"]), 1, 500)
+    merged["auto_lock_on_publish"] = _as_bool(merged.get("auto_lock_on_publish"), cast(bool, DEFAULT_CONFIG["auto_lock_on_publish"]))
+    merged["max_users"] = _as_int(merged.get("max_users"), cast(int, DEFAULT_CONFIG["max_users"]), 1, 100)
+    merged["tv_stale_seconds"] = _as_int(merged.get("tv_stale_seconds"), cast(int, DEFAULT_CONFIG["tv_stale_seconds"]), 5, 600)
     merged["tv_browser"] = str(merged.get("tv_browser") or DEFAULT_CONFIG["tv_browser"])
-    merged["browser_restart_delay"] = _as_int(merged.get("browser_restart_delay"), DEFAULT_CONFIG["browser_restart_delay"], 1, 300)
-    merged["server_restart_delay"] = _as_int(merged.get("server_restart_delay"), DEFAULT_CONFIG["server_restart_delay"], 1, 300)
-    merged["log_max_bytes"] = _as_int(merged.get("log_max_bytes"), DEFAULT_CONFIG["log_max_bytes"], 1024, 100 * 1024 * 1024)
-    merged["log_backup_count"] = _as_int(merged.get("log_backup_count"), DEFAULT_CONFIG["log_backup_count"], 1, 50)
+    merged["browser_restart_delay"] = _as_int(merged.get("browser_restart_delay"), cast(int, DEFAULT_CONFIG["browser_restart_delay"]), 1, 300)
+    merged["server_restart_delay"] = _as_int(merged.get("server_restart_delay"), cast(int, DEFAULT_CONFIG["server_restart_delay"]), 1, 300)
+    merged["log_max_bytes"] = _as_int(merged.get("log_max_bytes"), cast(int, DEFAULT_CONFIG["log_max_bytes"]), 1024, 100 * 1024 * 1024)
+    merged["log_backup_count"] = _as_int(merged.get("log_backup_count"), cast(int, DEFAULT_CONFIG["log_backup_count"]), 1, 50)
     merged["app_password_hash"] = str(merged.get("app_password_hash") or DEFAULT_CONFIG["app_password_hash"])
     return merged
 
