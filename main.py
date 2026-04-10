@@ -14,7 +14,35 @@
 #       Doar în dev mode (Python direct) e nevoie de setup suplimentar.
 # ============================================================
 
+import sys
+import threading
+import traceback
+
 from logic.runtime_bootstrap import configure_tk_runtime
+
+
+def _global_crash_handler(exc_type, exc_value, exc_tb):
+    """Handler global pentru excepții necapturate pe main thread."""
+    err_text = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+    try:
+        import tkinter.messagebox as _mb
+        _mb.showerror(
+            "Eroare neașteptată",
+            f"A apărut o eroare neașteptată:\n\n{err_text[:600]}\n\nReporniți aplicația.",
+        )
+    except Exception:
+        pass
+    traceback.print_exception(exc_type, exc_value, exc_tb)
+
+
+def _thread_crash_handler(args):
+    """Handler global pentru excepții necapturate în thread-uri background."""
+    _global_crash_handler(args.exc_type, args.exc_value, args.exc_traceback)
+
+
+sys.excepthook = _global_crash_handler
+threading.excepthook = _thread_crash_handler
+
 
 if __name__ == "__main__":
     # Seteaza variabilele de mediu Tcl/Tk necesare pentru GUI
@@ -25,6 +53,5 @@ if __name__ == "__main__":
     try:
         run_app()
     except Exception:
-        import traceback
         traceback.print_exc()
         input("EROARE - Apasa Enter pentru a inchide...")

@@ -67,6 +67,7 @@ def _load_users() -> list[dict]:
                 "username": "admin",
                 "password_hash": default_hash.decode("utf-8"),
                 "role": "admin",
+                "must_change_password": True,
             }
         ]
         _save_users(default_users)
@@ -336,4 +337,28 @@ def list_users() -> list[dict]:
     except Exception:
         return []
     return [{"username": u.get("username", ""), "role": u.get("role", "user")} for u in users]
+
+
+def must_change_password(username: str) -> bool:
+    """Returneaza True dacă utilizatorul trebuie să schimbe parola (flag setat la creare cont)."""
+    try:
+        users = _load_users()
+        user = _find_user(users, username)
+        if user:
+            return bool(user.get("must_change_password", False))
+    except Exception:
+        pass
+    return False
+
+
+def must_change_password(username: str) -> bool:
+    """Returneaza True dacă utilizatorul trebuie să schimbe parola (flag setat la creare cont)."""
+    try:
+        users = _load_users()
+        user = _find_user(users, username)
+        if user:
+            return bool(user.get("must_change_password", False))
+    except Exception:
+        pass
+    return False
 

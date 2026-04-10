@@ -9,7 +9,7 @@ from datetime import date
 import pytest
 
 import logic.schedule_store as store_module
-from logic.schedule_store import DAY_NAMES, SHIFTS, TEMPLATES, ScheduleStore
+from logic.schedule_store import BUCLE_DEPARTMENTS, CORE_DEPARTMENTS, DAY_NAMES, SHIFTS, TEMPLATES, ScheduleStore
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +59,60 @@ class TestGetOrCreateWeek:
                 sched = mode["schedule"][dept]
                 for day in DAY_NAMES:
                     assert day in sched
+
+    def test_requested_departments_exist_in_templates(self, store):
+        week = store.get_or_create_week(date(2026, 4, 7))
+        assert week["modes"]["Magazie"]["departments"][:len(CORE_DEPARTMENTS)] == CORE_DEPARTMENTS
+        assert week["modes"]["Bucle"]["departments"][:len(BUCLE_DEPARTMENTS)] == BUCLE_DEPARTMENTS
+
+    def test_each_department_has_full_schedule_structure(self, store):
+        week = store.get_or_create_week(date(2026, 4, 7))
+        for mode in week["modes"].values():
+            for department in mode["departments"]:
+                for day in DAY_NAMES:
+                    for shift in SHIFTS:
+                        cell = mode["schedule"][department][day][shift]
+                        assert cell == {"employees": [], "colors": {}}
+
+    def test_missing_departments_are_restored_for_existing_week(self, store):
+        week = store.get_or_create_week(date(2026, 4, 7))
+        week["modes"]["Bucle"]["departments"] = ["BUCLA 02"]
+        week["modes"]["Bucle"]["schedule"] = {
+            "BUCLA 02": week["modes"]["Bucle"]["schedule"]["BUCLA 02"]
+        }
+
+        store._normalize_week_record(week)
+
+        for department in BUCLE_DEPARTMENTS:
+            assert department in week["modes"]["Bucle"]["departments"]
+            assert department in week["modes"]["Bucle"]["schedule"]
+            for day in DAY_NAMES:
+                for shift in SHIFTS:
+                    assert "employees" in week["modes"]["Bucle"]["schedule"][department][day][shift]
+                    assert "colors" in week["modes"]["Bucle"]["schedule"][department][day][shift]
+
+    def test_legacy_department_names_are_mapped_to_requested_names(self, store):
+        legacy_week = {
+            "week_start": "2026-04-06",
+            "week_end": "2026-04-12",
+            "week_label": "Saptamana 15",
+            "departments": ["Sef Schimb", "BUCLA RA + RB"],
+            "schedule": {
+                "Sef Schimb": {
+                    day: {shift: {"employees": [], "colors": {}} for shift in SHIFTS}
+                    for day in DAY_NAMES
+                },
+                "BUCLA RA + RB": {
+                    day: {shift: {"employees": [], "colors": {}} for shift in SHIFTS}
+                    for day in DAY_NAMES
+                },
+            },
+        }
+
+        store._normalize_week_record(legacy_week)
+
+        assert "Sef schimb" in legacy_week["modes"]["Magazie"]["departments"]
+        assert "BUCLA RA+RB" in legacy_week["modes"]["Bucle"]["departments"]
 
 
 # ── validate_assignment ───────────────────────────────────────────────────────

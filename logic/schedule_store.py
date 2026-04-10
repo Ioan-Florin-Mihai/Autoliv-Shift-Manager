@@ -25,41 +25,59 @@ WEEKEND_DAYS = {"Sambata", "Duminica"}
 SHIFTS = ["Sch1", "Sch2", "Sch3"]
 HOURS_12_COLOR = "C0392B"
 
+CORE_DEPARTMENTS = [
+    "Sef schimb",
+    "Retragere finite",
+    "Balotare ambalare",
+    "Etichetare scanare",
+    "Livrari",
+    "Receptii",
+]
+
+BUCLE_DEPARTMENTS = [
+    "BUCLA 01",
+    "BUCLA 02",
+    "BUCLA 03",
+    "BUCLA 04",
+    "BUCLA 05",
+    "BUCLA TA+TB",
+    "BUCLA RA+RB",
+    "Ambalaje",
+]
+
 TEMPLATES = {
-    "Magazie": [
-        "Sef Schimb",
-        "Receptii",
-        "Livrari",
-        "Etichetare Scanare",
-        "Retragere finite",
-        "Balotare Ambalare",
-    ],
-    "Bucle": [
-        "BUCLA RA + RB",
-        "BUCLA TA + TB",
-        "BUCLA 02",
-        "BUCLA 03",
-        "BUCLA 04",
-        "BUCLA 05 + 07",
-        "Ambalaje",
-    ],
+    "Magazie": CORE_DEPARTMENTS,
+    "Bucle": BUCLE_DEPARTMENTS,
 }
 
 DEPARTMENT_COLORS = {
-    "Sef Schimb": "5B9BD5",
-    "Receptii": "4472C4",
-    "Livrari": "A9D18E",
-    "Etichetare Scanare": "C9B0D9",
+    "Sef schimb": "5B9BD5",
     "Retragere finite": "D9A35F",
-    "Balotare Ambalare": "D9E2F3",
-    "BUCLA RA + RB": "D9A35F",
-    "BUCLA TA + TB": "D9A35F",
+    "Balotare ambalare": "D9E2F3",
+    "Etichetare scanare": "C9B0D9",
+    "Livrari": "A9D18E",
+    "Receptii": "4472C4",
+    "BUCLA 01": "D9A35F",
     "BUCLA 02": "D9A35F",
     "BUCLA 03": "D9A35F",
     "BUCLA 04": "D9A35F",
-    "BUCLA 05 + 07": "D9A35F",
+    "BUCLA 05": "D9A35F",
+    "BUCLA TA+TB": "D9A35F",
+    "BUCLA RA+RB": "D9A35F",
     "Ambalaje": "D99694",
 }
+
+DEPARTMENT_ALIASES = {
+    "Sef Schimb": "Sef schimb",
+    "Etichetare Scanare": "Etichetare scanare",
+    "Balotare Ambalare": "Balotare ambalare",
+    "BUCLA TA + TB": "BUCLA TA+TB",
+    "BUCLA RA + RB": "BUCLA RA+RB",
+    "BUCLA 05 + 07": "BUCLA 05",
+}
+
+# Tipuri de absență — nu se validează pentru double-booking
+ABSENCE_TYPE_NAMES: frozenset[str] = frozenset({"CO", "CM", "ABSENT"})
 
 
 def get_week_start(selected_date: date):
@@ -87,6 +105,86 @@ def _empty_schedule_for_departments(departments):
     }
 
 
+def _canonical_department_name(department: str) -> str:
+    normalized = " ".join(department.split()).strip()
+    if not normalized:
+        return ""
+    return DEPARTMENT_ALIASES.get(normalized, normalized)
+
+
+def _merge_department_order(mode_name: str, departments: list[str]) -> list[str]:
+    ordered_departments: list[str] = []
+    for department in list(TEMPLATES[mode_name]) + list(departments):
+        canonical_department = _canonical_department_name(department) if isinstance(department, str) else ""
+        if canonical_department and canonical_department not in ordered_departments:
+            ordered_departments.append(canonical_department)
+    return ordered_departments
+
+
+def _ensure_mode_schedule_structure(mode_name: str, mode_record: dict):
+    departments = mode_record.get("departments", [])
+    if not isinstance(departments, list):
+        departments = list(TEMPLATES[mode_name])
+
+    ordered_departments = _merge_department_order(mode_name, departments)
+    mode_record["departments"] = ordered_departments
+
+    schedule = mode_record.setdefault("schedule", {})
+    if not isinstance(schedule, dict):
+        schedule = {}
+        mode_record["schedule"] = schedule
+
+    aliased_schedule = {}
+    for department, department_schedule in list(schedule.items()):
+        if not isinstance(department, str):
+            continue
+        canonical_department = _canonical_department_name(department)
+        if not canonical_department:
+            continue
+        if canonical_department in aliased_schedule and isinstance(aliased_schedule[canonical_department], dict) and not aliased_schedule[canonical_department]:
+            aliased_schedule[canonical_department] = department_schedule
+        elif canonical_department not in aliased_schedule:
+            aliased_schedule[canonical_department] = department_schedule
+    schedule.clear()
+    schedule.update(aliased_schedule)
+
+    for department in ordered_departments:
+        department_schedule = schedule.setdefault(department, {})
+        if not isinstance(department_schedule, dict):
+            department_schedule = {}
+            schedule[department] = department_schedule
+        for day_name in DAY_NAMES:
+            day_schedule = department_schedule.setdefault(day_name, {})
+            if not isinstance(day_schedule, dict):
+                day_schedule = {}
+                department_schedule[day_name] = day_schedule
+            for shift in SHIFTS:
+                cell = day_schedule.get(shift, _empty_cell())
+                if isinstance(cell, str):
+                    employees = [line.strip() for line in cell.splitlines() if line.strip()]
+                    cell = {"employees": employees, "colors": {}}
+                elif not isinstance(cell, dict):
+                    cell = _empty_cell()
+                cell.setdefault("employees", [])
+                existing_colors = cell.get("colors", {})
+                if not isinstance(existing_colors, dict):
+                    existing_colors = {}
+                unique = []
+                seen = set()
+                for employee in cell["employees"]:
+                    if not isinstance(employee, str):
+                        continue
+                    value = " ".join(employee.split()).strip()
+                    if value and value.casefold() not in seen:
+                        unique.append(value)
+                        seen.add(value.casefold())
+                cell["employees"] = unique
+                cell["colors"] = {k: v for k, v in existing_colors.items() if any(k.casefold() == e.casefold() for e in unique)}
+                day_schedule[shift] = cell
+
+    return ordered_departments
+
+
 def _empty_mode_record(mode_name: str):
     departments = list(TEMPLATES[mode_name])
     return {
@@ -108,7 +206,8 @@ def _empty_week_record(week_start: date):
 
 
 def _guess_mode_for_department(department: str):
-    if department in TEMPLATES["Bucle"] or department.upper().startswith("BUCLA"):
+    canonical_department = _canonical_department_name(department)
+    if canonical_department in TEMPLATES["Bucle"] or canonical_department.upper().startswith("BUCLA"):
         return "Bucle"
     return "Magazie"
 
@@ -253,6 +352,19 @@ class ScheduleStore:
             for shift in SHIFTS:
                 mode_record["schedule"][department][day_name][shift] = _empty_cell()
 
+    def lock_week(self, week_record: dict) -> None:
+        """Marcă săptămâna ca publicată (read-only)."""
+        week_record["locked"] = True
+        self.update_week(week_record)
+
+    def unlock_week(self, week_record: dict) -> None:
+        """Deblocă săptămâna pentru editare."""
+        week_record["locked"] = False
+        self.update_week(week_record)
+
+    def is_week_locked(self, week_record: dict) -> bool:
+        return bool(week_record.get("locked", False))
+
     def build_assignment_map(self, week_record, mode_name: str):
         result: dict[str, list[dict[str, str]]] = {}
         mode_record = week_record["modes"][mode_name]
@@ -308,10 +420,17 @@ class ScheduleStore:
         employee: str,
         ignore_assignment: tuple[str, str] | None = None,
     ):
+        if week_record.get("locked"):
+            raise ValueError("Săptămâna este publicată (read-only). Deblocă înainte de a edita.")
+
         mode_record = week_record["modes"][mode_name]
         target_cell = mode_record["schedule"][department][day_name][shift]["employees"]
         if any(existing.casefold() == employee.casefold() for existing in target_cell):
             raise ValueError("Angajatul exista deja in aceasta celula.")
+
+        # Absențele (CO/CM/ABSENT) nu sunt validate pentru double-booking
+        if employee.strip().upper() in ABSENCE_TYPE_NAMES:
+            return
 
         assignments = self._employee_shift_assignments_for_day(
             week_record,
@@ -349,46 +468,7 @@ class ScheduleStore:
 
         for mode_name in TEMPLATES:
             mode_record = modes.setdefault(mode_name, _empty_mode_record(mode_name))
-            departments = mode_record.get("departments", [])
-            if not isinstance(departments, list):
-                departments = list(TEMPLATES[mode_name])
-
-            ordered_departments = []
-            for department in TEMPLATES[mode_name] + departments:
-                if department and department not in ordered_departments:
-                    ordered_departments.append(department)
-            mode_record["departments"] = ordered_departments
-
-            schedule = mode_record.setdefault("schedule", {})
-            for department in ordered_departments:
-                department_schedule = schedule.setdefault(department, {})
-                for day_name in DAY_NAMES:
-                    day_schedule = department_schedule.setdefault(day_name, {})
-                    for shift in SHIFTS:
-                        cell = day_schedule.get(shift, _empty_cell())
-                        if isinstance(cell, str):
-                            employees = [line.strip() for line in cell.splitlines() if line.strip()]
-                            cell = {"employees": employees, "colors": {}}
-                        elif not isinstance(cell, dict):
-                            cell = _empty_cell()
-                        cell.setdefault("employees", [])
-                        # Pastreaza culorile existente si elimina culorile pentru angajati stearsi
-                        existing_colors = cell.get("colors", {})
-                        if not isinstance(existing_colors, dict):
-                            existing_colors = {}
-                        unique = []
-                        seen = set()
-                        for employee in cell["employees"]:
-                            if not isinstance(employee, str):
-                                continue
-                            value = " ".join(employee.split()).strip()
-                            if value and value.casefold() not in seen:
-                                unique.append(value)
-                                seen.add(value.casefold())
-                        cell["employees"] = unique
-                        # Pastram doar culorile angajatilor ramasi
-                        cell["colors"] = {k: v for k, v in existing_colors.items() if any(k.casefold() == e.casefold() for e in unique)}
-                        day_schedule[shift] = cell
+            _ensure_mode_schedule_structure(mode_name, mode_record)
 
         week_record.pop("departments", None)
         week_record.pop("schedule", None)
@@ -406,19 +486,20 @@ class ScheduleStore:
         for department in legacy_departments:
             if not isinstance(department, str):
                 continue
-            name = " ".join(department.split()).strip()
+            name = _canonical_department_name(department)
             if not name:
                 continue
             mode_name = _guess_mode_for_department(name)
             mode_record = migrated_modes[mode_name]
             if name not in mode_record["departments"]:
                 mode_record["departments"].append(name)
-            mode_record["schedule"][name] = legacy_schedule.get(name, _empty_schedule_for_departments([name])[name])
+            source_schedule = legacy_schedule.get(department, legacy_schedule.get(name, _empty_schedule_for_departments([name])[name]))
+            mode_record["schedule"][name] = source_schedule
 
         for department, department_schedule in legacy_schedule.items():
             if not isinstance(department, str):
                 continue
-            name = " ".join(department.split()).strip()
+            name = _canonical_department_name(department)
             if not name:
                 continue
             mode_name = _guess_mode_for_department(name)

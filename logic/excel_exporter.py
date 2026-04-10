@@ -367,3 +367,19 @@ class ExcelExporter:
 
         workbook.save(export_path)
         return export_path
+
+    @staticmethod
+    def export_all_modes(
+        week_record: dict,
+        logo_path: Path | None = None,
+    ) -> list[Path]:
+        """Exportă toate modurile dintr-o săptămână — returnează lista de căi generate."""
+        paths = []
+        for mode_name in week_record.get("modes", {}):
+            path = ExcelExporter.export(
+                week_record=week_record,
+                current_mode=mode_name,
+                logo_path=logo_path,
+            )
+            paths.append(path)
+        return paths

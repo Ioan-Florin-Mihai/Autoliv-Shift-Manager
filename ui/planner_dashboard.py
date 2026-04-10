@@ -120,17 +120,49 @@ class HoverTooltip:
             self.tip.destroy()
             self.tip = None
 
-# Paleta de culori disponibile pentru marcare manuala angajati
-# Format: (eticheta, culoare_hex, culoare_text_pe_fundal_alb)
-EMPLOYEE_COLOR_PALETTE = [
-    ("8h",  "#1A1A1A", "#1A1A1A"),   # Negru — 8 ore
-    ("12h", "#7B3FC4", "#7B3FC4"),   # Violet — 12 ore
-    ("R",   "#C0392B", "#C0392B"),   # Rosu
-    ("V",   "#27AE60", "#27AE60"),   # Verde
-    ("P",   "#E67E22", "#E67E22"),   # Portocaliu
-    ("AL",  "#2471A3", "#2471A3"),   # Albastru inchis
-    ("-",   None,      None),         # Reset culoare
-]
+# Culori tipuri absență (CO=portocaliu, CM=violet, ABSENT=roșu intens)
+ABSENCE_COLORS: dict[str, str] = {
+    "CO":     "#F39C12",
+    "CM":     "#8E44AD",
+    "ABSENT": "#E74C3C",
+}
+ABSENCE_TYPES: list[str] = list(ABSENCE_COLORS.keys())
+
+
+class MoveShiftDialog(ctk.CTkToplevel):
+    """Dialog cu butoane pentru selectarea shift-ului destinație."""
+
+    def __init__(self, master, candidate_shifts: list[str]):
+        super().__init__(master)
+        self.selected: str | None = None
+        self.title("Mută în shift")
+        self.geometry("300x160")
+        self.resizable(False, False)
+        self.grab_set()
+        self.lift()
+        self.focus_force()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        ctk.CTkLabel(
+            self, text="Selectează shift-ul destinație:",
+            font=ctk.CTkFont(size=13),
+        ).pack(pady=(20, 12))
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack()
+        for shift in candidate_shifts:
+            ctk.CTkButton(
+                btn_frame, text=shift, width=80, height=34,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                command=lambda s=shift: self._select(s),
+            ).pack(side="left", padx=6)
+        ctk.CTkButton(
+            self, text="Anulează", width=100, height=30,
+            fg_color="#B8C2CC", hover_color="#9EAAB6", text_color="white",
+            command=self.destroy,
+        ).pack(pady=10)
+
+    def _select(self, shift: str):
+        self.selected = shift
+        self.destroy()
 
 
 class PlannerDashboard(ctk.CTkFrame):
@@ -148,6 +180,8 @@ class PlannerDashboard(ctk.CTkFrame):
         self.week_record = self.store.get_or_create_week(self.selected_date)
         self.current_mode = "Magazie"
         self.selected_department = self.current_mode_record()["departments"][0]
+        self.department_list: list[str] = []
+        self.department_index = 0
         self.selected_day = DAY_NAMES[0]
         self.selected_shift = SHIFTS[0]
         self.status_var = ctk.StringVar(value="Planner pregatit.")
@@ -156,19 +190,43 @@ class PlannerDashboard(ctk.CTkFrame):
         self.day_view_mode = ctk.StringVar(value="weekdays")
         self.employee_search_var = ctk.StringVar()
         self.history_var = ctk.StringVar(value="")
+        self.department_name_var = ctk.StringVar(value=self.selected_department)
         self._closing = False
         self._dirty = False                        # modificari nesalvate
+        self._undo_stack: list = []                # stiva undo (max 10 stari)
+        self._search_entry: ctk.CTkEntry | None = None   # referinta la entry search
+        self._last_saved_var = ctk.StringVar(value="")
+        self._lock_button: ctk.CTkButton | None = None
+        self._dirty_indicator: ctk.CTkLabel | None = None
         self._grid_cell_frames: dict = {}          # cache {(day, shift): CTkFrame}
         self._grid_cell_canvases: dict = {}        # cache {(day, shift): tk.Canvas}
         self.ui_state_store.save_last_selected_date(self.selected_date)
+        self._sync_department_state()
 
         self._build_ui()
+        self.bind_all("<Control-z>", lambda _e: self.undo())
         self.refresh_all()
         self.remote_checker.start()
         self.after(1000, self.process_remote_events)
 
     def current_mode_record(self):
         return self.week_record["modes"][self.current_mode]
+
+    def _all_departments(self) -> list[str]:
+        ordered_departments: list[str] = []
+        for mode_name in TEMPLATES:
+            mode_record = self.week_record["modes"].get(mode_name, {})
+            for department in mode_record.get("departments", []):
+                if department and department not in ordered_departments:
+                    ordered_departments.append(department)
+        return ordered_departments
+
+    def _mode_for_department(self, department: str) -> str:
+        for mode_name in TEMPLATES:
+            mode_record = self.week_record["modes"].get(mode_name, {})
+            if department in mode_record.get("departments", []):
+                return mode_name
+        return self.current_mode
 
     def current_cell(self):
         return self.current_mode_record()["schedule"][self.selected_department][self.selected_day][self.selected_shift]
@@ -331,6 +389,20 @@ class PlannerDashboard(ctk.CTkFrame):
         entry.bind("<FocusIn>", lambda _event, widget=entry: widget.configure(border_color=ACCENT_BLUE), add="+")
         entry.bind("<FocusOut>", lambda _event, widget=entry: widget.configure(border_color=LINE_BLUE), add="+")
 
+    def _sync_department_state(self):
+        departments = self._all_departments()
+        self.department_list = departments
+        if not departments:
+            self.selected_department = ""
+            self.department_index = -1
+            self.department_name_var.set("-")
+            return
+        if self.selected_department not in departments:
+            self.selected_department = departments[0]
+        self.current_mode = self._mode_for_department(self.selected_department)
+        self.department_index = departments.index(self.selected_department)
+        self.department_name_var.set(self.selected_department)
+
     def _build_ui(self):
         self.pack(fill="both", expand=True)
         self.configure(fg_color=BG_WHITE)
@@ -380,6 +452,23 @@ class PlannerDashboard(ctk.CTkFrame):
             corner_radius=12,
             font=ctk.CTkFont(size=14, weight="bold"),
         ).grid(row=4, column=0, sticky="ew")
+        # Indicator "*" modificari nesalvate + buton Undo
+        action_row = ctk.CTkFrame(plan_section, fg_color="transparent")
+        action_row.grid(row=5, column=0, sticky="ew", pady=(6, 0))
+        action_row.grid_columnconfigure(0, weight=1)
+        self._dirty_indicator = ctk.CTkLabel(
+            action_row, text="", text_color="#E74C3C",
+            font=ctk.CTkFont(size=11, weight="bold"),
+        )
+        self._dirty_indicator.grid(row=0, column=0, sticky="w")
+        self._create_utility_button(
+            action_row, "Undo  (Ctrl+Z)", self.undo,
+            height=24, font=ctk.CTkFont(size=11, weight="bold"),
+        ).grid(row=0, column=1, sticky="e")
+        ctk.CTkLabel(
+            plan_section, textvariable=self._last_saved_var,
+            text_color=MUTED_TEXT, font=ctk.CTkFont(size=10),
+        ).grid(row=6, column=0, sticky="w", pady=(2, 0))
 
         nav_section = ctk.CTkFrame(frame, fg_color="transparent")
         nav_section.grid(row=1, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
@@ -400,8 +489,19 @@ class PlannerDashboard(ctk.CTkFrame):
             dropdown_text_color=BODY_TEXT,
         )
         self.history_menu.grid(row=3, column=0, sticky="ew")
-
-        export_section = ctk.CTkFrame(frame, fg_color="transparent")
+        # Buton publicare / deblocare saptamana
+        self._lock_button = ctk.CTkButton(
+            nav_section,
+            text="🔓 Saptamana deschisa",
+            command=self.lock_week_toggle,
+            height=UTILITY_BUTTON_HEIGHT,
+            corner_radius=10,
+            fg_color="#27AE60",
+            hover_color="#1E8449",
+            text_color="white",
+            font=ctk.CTkFont(size=11, weight="bold"),
+        )
+        self._lock_button.grid(row=4, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0)) = ctk.CTkFrame(frame, fg_color="transparent")
         export_section.grid(row=2, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
         export_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(export_section, "EXPORT").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
@@ -427,6 +527,9 @@ class PlannerDashboard(ctk.CTkFrame):
         )
         self.printer_menu.grid(row=3, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
         self._create_secondary_button(export_section, "Printează A3", self.print_excel).grid(row=4, column=0, sticky="ew")
+        self._create_secondary_button(
+            export_section, "Export ambele moduri", self.export_all_modes_ui,
+        ).grid(row=5, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
 
         self.after(200, self.load_printers)  # incarca imprimantele la pornire
 
@@ -540,16 +643,45 @@ class PlannerDashboard(ctk.CTkFrame):
         context_section = ctk.CTkFrame(frame, fg_color="transparent")
         context_section.grid(row=0, column=0, sticky="nsew", padx=OUTER_PAD, pady=(OUTER_PAD, SECTION_GAP))
         context_section.grid_columnconfigure(0, weight=1)
-        context_section.grid_rowconfigure(3, weight=1)
+        context_section.grid_rowconfigure(5, weight=1)
         self._create_section_label(context_section, "CONTEXT").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
+        department_nav = ctk.CTkFrame(context_section, fg_color="transparent")
+        department_nav.grid(row=1, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
+        department_nav.grid_columnconfigure(1, weight=1)
+        self.department_prev_button = self._create_utility_button(
+            department_nav,
+            "◀",
+            self.prev_department,
+            width=36,
+            height=28,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        self.department_prev_button.grid(row=0, column=0, sticky="w")
+        self.department_name_label = ctk.CTkLabel(
+            department_nav,
+            textvariable=self.department_name_var,
+            text_color=PRIMARY_BLUE,
+            font=ctk.CTkFont(size=15, weight="bold"),
+            anchor="center",
+        )
+        self.department_name_label.grid(row=0, column=1, sticky="ew", padx=8)
+        self.department_next_button = self._create_utility_button(
+            department_nav,
+            "▶",
+            self.next_department,
+            width=36,
+            height=28,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        self.department_next_button.grid(row=0, column=2, sticky="e")
         self.cell_title = ctk.CTkLabel(context_section, text="Celula selectata", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=20, weight="bold"))
-        self.cell_title.grid(row=1, column=0, sticky="w")
+        self.cell_title.grid(row=2, column=0, sticky="w")
         self.cell_meta = ctk.CTkLabel(context_section, text="", text_color=MUTED_TEXT, justify="left")
-        self.cell_meta.grid(row=2, column=0, sticky="w", pady=(2, SECTION_INNER_GAP))
-        ctk.CTkLabel(context_section, text="Angajati in celula", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=3, column=0, sticky="w", pady=(0, 4))
+        self.cell_meta.grid(row=3, column=0, sticky="w", pady=(2, SECTION_INNER_GAP))
+        ctk.CTkLabel(context_section, text="Angajati in celula", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=4, column=0, sticky="w", pady=(0, 4))
         self.assignment_frame = ctk.CTkScrollableFrame(context_section, width=330, fg_color=PANEL_BG)
-        self.assignment_frame.grid(row=4, column=0, sticky="nsew")
-        context_section.grid_rowconfigure(4, weight=1)
+        self.assignment_frame.grid(row=5, column=0, sticky="nsew")
+        context_section.grid_rowconfigure(5, weight=1)
 
         quick_add_section = ctk.CTkFrame(frame, fg_color="transparent")
         quick_add_section.grid(row=1, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
@@ -567,6 +699,8 @@ class PlannerDashboard(ctk.CTkFrame):
         )
         entry.grid(row=1, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
         entry.bind("<KeyRelease>", self._on_search_change)
+        entry.bind("<Return>", lambda _e: self.add_employee_from_search())
+        self._search_entry = entry
         self._bind_entry_focus_style(entry)
         ctk.CTkButton(
             quick_add_section,
@@ -579,6 +713,22 @@ class PlannerDashboard(ctk.CTkFrame):
             corner_radius=12,
             font=ctk.CTkFont(size=14, weight="bold"),
         ).grid(row=2, column=0, sticky="ew")
+        # ── Absențe rapide: CO / CM / ABSENT ──
+        absence_row = ctk.CTkFrame(quick_add_section, fg_color="transparent")
+        absence_row.grid(row=3, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
+        absence_row.grid_columnconfigure((0, 1, 2), weight=1)
+        ctk.CTkLabel(
+            absence_row, text="Absențe rapide:",
+            text_color=MUTED_TEXT, font=ctk.CTkFont(size=11),
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        for _idx, _abs_type in enumerate(ABSENCE_TYPES):
+            _color = ABSENCE_COLORS[_abs_type]
+            ctk.CTkButton(
+                absence_row, text=_abs_type, width=60, height=26,
+                corner_radius=8, fg_color=_color, hover_color=_color,
+                text_color="white", font=ctk.CTkFont(size=11, weight="bold"),
+                command=lambda at=_abs_type: self._quick_add_absence(at),
+            ).grid(row=1, column=_idx, sticky="ew", padx=2)
 
         more_actions_section = ctk.CTkFrame(frame, fg_color="transparent")
         more_actions_section.grid(row=2, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
@@ -624,15 +774,19 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def refresh_all(self):
         self._refresh_current_week_if_needed()
+        self._sync_department_state()
         self._ensure_selected_day_is_visible()
         self.refresh_week_display()
         self.refresh_history()
         self.render_mode_buttons()
         self.render_day_toggle_buttons()
+        self.render_department_navigation()
         self.render_department_buttons()
         self.render_grid()
         self.render_assignment_panel()
         self.refresh_suggestions()
+        self._update_dirty_indicator()
+        self._refresh_lock_button()
 
     def refresh_week_display(self):
         start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
@@ -649,10 +803,13 @@ class PlannerDashboard(ctk.CTkFrame):
         self.history_menu.configure(values=values)
         self.history_var.set(values[0])
 
+    def render_department_navigation(self):
+        self.department_name_var.set(self.selected_department or "-")
+
     def render_department_buttons(self):
         for widget in self.department_frame.winfo_children():
             widget.destroy()
-        for department in self.current_mode_record()["departments"]:
+        for department in self.department_list:
             selected = department == self.selected_department
             dep_text_color = "white" if selected else ("#15304B", "#E8E8E8")
             ctk.CTkButton(self.department_frame, text=department, anchor="w", height=32, fg_color=PRIMARY_BLUE if selected else SUGGESTION_BG, text_color=dep_text_color, hover_color=ACCENT_BLUE, border_width=1 if selected else 0, border_color=LINE_BLUE, font=ctk.CTkFont(size=14, weight="bold" if selected else "normal"), command=lambda dep=department: self.select_department(dep)).pack(fill="x", padx=4, pady=4)
@@ -777,6 +934,21 @@ class PlannerDashboard(ctk.CTkFrame):
                 content_frame.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
 
                 if employees:
+                    # ── Contor angajați în celulă ──────────────────────────────
+                    count_row = tk.Frame(content_frame, bg=resolved_bg)
+                    count_row.pack(fill="x", padx=6, pady=(2, 0))
+                    self._bind_cell_mousewheel(count_row, content_canvas)
+                    count_row.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
+                    count_lbl = tk.Label(
+                        count_row,
+                        text=f"\u2191 {len(employees)}",
+                        bg=resolved_bg,
+                        fg=self._resolve_theme_color(SUBTLE_HINT_TEXT),
+                        font=("Segoe UI", 7),
+                    )
+                    count_lbl.pack(anchor="e")
+                    self._bind_cell_mousewheel(count_lbl, content_canvas)
+                    count_lbl.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
                     for emp in employees:
                         emp_row = tk.Frame(content_frame, bg=resolved_bg)
                         emp_row.pack(fill="x", padx=6, pady=EMPLOYEE_ROW_PADY)
@@ -825,10 +997,13 @@ class PlannerDashboard(ctk.CTkFrame):
                 return
             if answer:           # Yes — salvăm înainte de navigare
                 self.save_week()
+        prev_dept = self.selected_department
         self.selected_date = selected_date
         self.ui_state_store.save_last_selected_date(self.selected_date)
         self.week_record = self.store.get_or_create_week(self.selected_date)
-        self.selected_department = self.current_mode_record()["departments"][0]
+        all_depts = self._all_departments()
+        if prev_dept not in all_depts:
+            self.selected_department = all_depts[0] if all_depts else ""
         self.selected_day = DAY_NAMES[0]
         self.selected_shift = SHIFTS[0]
         self._grid_cell_frames = {}   # forteaza rebuild complet la noua saptamana
@@ -851,6 +1026,7 @@ class PlannerDashboard(ctk.CTkFrame):
         Seteaza sau sterge culoarea unui angajat in celula curenta.
         `color` = hex string sau None (pentru reset).
         """
+        self._push_undo()
         cell = self.current_cell()
         colors = cell.setdefault("colors", {})
         # Gasim cheia exacta (case-insensitive)
@@ -971,7 +1147,28 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def select_department(self, department):
         self.selected_department = department
+        self.current_mode = self._mode_for_department(department)
         self._grid_cell_frames = {}   # departament nou = grid trebuie reconstruit
+        self.refresh_all()
+
+    def next_department(self):
+        self._sync_department_state()
+        if not self.department_list:
+            return
+        self.department_index = (self.department_index + 1) % len(self.department_list)
+        self.selected_department = self.department_list[self.department_index]
+        self.current_mode = self._mode_for_department(self.selected_department)
+        self._grid_cell_frames = {}
+        self.refresh_all()
+
+    def prev_department(self):
+        self._sync_department_state()
+        if not self.department_list:
+            return
+        self.department_index = (self.department_index - 1) % len(self.department_list)
+        self.selected_department = self.department_list[self.department_index]
+        self.current_mode = self._mode_for_department(self.selected_department)
+        self._grid_cell_frames = {}
         self.refresh_all()
 
     def select_cell(self, day_name: str, shift: str):
@@ -992,8 +1189,12 @@ class PlannerDashboard(ctk.CTkFrame):
         self._apply_cell_frame_style(self.selected_day, self.selected_shift, hover=False)
 
     def change_mode(self, selected_mode):
+        if self.current_mode == selected_mode:
+            return
         self.current_mode = selected_mode
-        self.selected_department = self.current_mode_record()["departments"][0]
+        new_mode_depts = self.current_mode_record()["departments"]
+        if self.selected_department not in new_mode_depts:
+            self.selected_department = new_mode_depts[0] if new_mode_depts else ""
         self.selected_day = DAY_NAMES[0]
         self.selected_shift = SHIFTS[0]
         self._grid_cell_frames = {}   # mod nou = grid trebuie reconstruit
@@ -1003,9 +1204,12 @@ class PlannerDashboard(ctk.CTkFrame):
         if not selected_value or "|" not in selected_value:
             return
         week_key = selected_value.split("|")[-1].strip()
+        prev_dept = self.selected_department
         self.selected_date = datetime.strptime(week_key, "%Y-%m-%d").date()
         self.week_record = self.store.get_or_create_week(self.selected_date)
-        self.selected_department = self.current_mode_record()["departments"][0]
+        all_depts = self._all_departments()
+        if prev_dept not in all_depts:
+            self.selected_department = all_depts[0] if all_depts else ""
         self.selected_day = DAY_NAMES[0]
         self.selected_shift = SHIFTS[0]
         self._grid_cell_frames = {}   # saptamana noua = grid trebuie reconstruit
@@ -1045,13 +1249,20 @@ class PlannerDashboard(ctk.CTkFrame):
         except ValueError as exc:
             self.show_inline_message(str(exc), is_error=True)
             return
+        self._push_undo()
         cell = self.current_cell()
         cell["employees"].append(employee)
-        cell.setdefault("colors", {})[employee] = HOURS_COLOR_MAP["8h"]
+        # Culoare automată pentru absență
+        if employee.strip().upper() in ABSENCE_COLORS:
+            cell.setdefault("colors", {})[employee] = ABSENCE_COLORS[employee.strip().upper()]
+        else:
+            cell.setdefault("colors", {})[employee] = HOURS_COLOR_MAP["8h"]
         self._dirty = True
         self.employee_search_var.set("")
         self.show_inline_message(f"{employee} adăugat.")
         self.refresh_all()
+        if self._search_entry:
+            self._search_entry.focus_set()
 
     def toggle_theme(self):
         mode = self.theme_switch.get()
@@ -1152,6 +1363,7 @@ class PlannerDashboard(ctk.CTkFrame):
         return count
             
     def remove_employee(self, employee: str):
+        self._push_undo()
         self.current_cell()["employees"] = [item for item in self.current_cell()["employees"] if item.casefold() != employee.casefold()]
         self._dirty = True
         self.refresh_all()
@@ -1164,19 +1376,17 @@ class PlannerDashboard(ctk.CTkFrame):
         target = index + direction
         if target < 0 or target >= len(employees):
             return
+        self._push_undo()
         employees[index], employees[target] = employees[target], employees[index]
         self._dirty = True
         self.refresh_all()
 
     def move_employee_to_shift(self, employee: str):
         candidates = [shift for shift in SHIFTS if shift != self.selected_shift]
-        dialog = ctk.CTkInputDialog(text=f"Mutare {employee} in: {', '.join(candidates)}", title="Mutare shift")
-        target_shift = dialog.get_input()
+        dlg = MoveShiftDialog(self.winfo_toplevel(), candidates)
+        self.wait_window(dlg)
+        target_shift = dlg.selected
         if target_shift is None:
-            return
-        target_shift = target_shift.strip()
-        if target_shift not in candidates:
-            messagebox.showwarning("Shift invalid", f"Foloseste: {', '.join(candidates)}")
             return
         source_colors = self.current_cell().get("colors", {})
         employee_color = self._lookup_color(source_colors if isinstance(source_colors, dict) else {}, employee)
@@ -1193,7 +1403,8 @@ class PlannerDashboard(ctk.CTkFrame):
         except ValueError as exc:
             messagebox.showwarning("Mutare invalida", str(exc))
             return
-        self.remove_employee(employee)
+        self._push_undo()
+        self.current_cell()["employees"] = [item for item in self.current_cell()["employees"] if item.casefold() != employee.casefold()]
         target_cell = self.current_mode_record()["schedule"][self.selected_department][self.selected_day][target_shift]
         target_cell["employees"].append(employee)
         if employee_color:
@@ -1254,6 +1465,10 @@ class PlannerDashboard(ctk.CTkFrame):
         try:
             self.store.update_week(self.week_record)
             self._dirty = False
+            self._undo_stack.clear()
+            from datetime import datetime as _dt
+            self._last_saved_var.set(f"Salvat la {_dt.now().strftime('%H:%M:%S')}")
+            self._update_dirty_indicator()
             self.refresh_history()
             self.show_inline_message("Săptămâna salvată.")
         except Exception as exc:
@@ -1448,3 +1663,95 @@ class PlannerDashboard(ctk.CTkFrame):
         if answer:           # Yes
             self.save_week()
         return True
+
+    # ── Undo ──────────────────────────────────────────────────────────────────
+
+    def _push_undo(self):
+        """Salvează o copie profundă a săptămânii curente pe stiva undo (max 10)."""
+        import copy
+        self._undo_stack.append(copy.deepcopy(self.week_record))
+        if len(self._undo_stack) > 10:
+            self._undo_stack.pop(0)
+
+    def undo(self):
+        """Restaurează ultima stare salvată și reîmprospătează UI-ul."""
+        if not self._undo_stack:
+            self.show_inline_message("Nu există operații de anulat.", is_error=True)
+            return
+        self.week_record = self._undo_stack.pop()
+        self._dirty = True
+        self.refresh_all()
+        self.show_inline_message("Operație anulată (Undo).")
+
+    # ── Dirty indicator ───────────────────────────────────────────────────────
+
+    def _update_dirty_indicator(self):
+        """Actualizează labelul cu '*' dacă există modificări nesalvate."""
+        if self._dirty_indicator is None:
+            return
+        if self._dirty:
+            self._dirty_indicator.configure(text="● Modificări nesalvate")
+        else:
+            self._dirty_indicator.configure(text="")
+
+    # ── Lock week ─────────────────────────────────────────────────────────────
+
+    def lock_week_toggle(self):
+        """Publicare / deblocare săptămână curentă."""
+        if self.store.is_week_locked(self.week_record):
+            self.store.unlock_week(self.week_record)
+            self.show_inline_message("Săptămâna a fost deblocată pentru editare.")
+        else:
+            if self._dirty:
+                self.save_week()
+            self.store.lock_week(self.week_record)
+            self.show_inline_message("Săptămâna a fost publicată (read-only).")
+        self._refresh_lock_button()
+
+    def _refresh_lock_button(self):
+        """Actualizează textul și culoarea butonului de lock în funcție de starea curentă."""
+        if self._lock_button is None:
+            return
+        if self.store.is_week_locked(self.week_record):
+            self._lock_button.configure(
+                text="🔒 Săptămână publicată",
+                fg_color="#C0392B", hover_color="#A93226",
+            )
+        else:
+            self._lock_button.configure(
+                text="🔓 Săptămâna deschisă",
+                fg_color="#27AE60", hover_color="#1E8449",
+            )
+
+    # ── Export ambele moduri ──────────────────────────────────────────────────
+
+    def export_all_modes_ui(self):
+        """Salvează și exportă Excel pentru ambele moduri în background."""
+        if self._dirty:
+            self.save_week()
+        self.show_inline_message("Export în curs...")
+        threading.Thread(target=self._export_all_thread, daemon=True).start()
+
+    def _export_all_thread(self):
+        """Rulat în thread — apelează ExcelExporter.export_all_modes()."""
+        try:
+            from logic.excel_exporter import ExcelExporter
+            from logic.app_paths import get_logo_path
+            logo = get_logo_path() if callable(get_logo_path) else None
+            paths = ExcelExporter.export_all_modes(self.week_record, logo_path=logo)
+            self.after(0, lambda: self._on_export_all_success(paths))
+        except Exception as exc:
+            log_exception("export_all_modes", exc)
+            self.after(0, lambda: self.show_inline_message("Eroare la export.", is_error=True))
+
+    def _on_export_all_success(self, paths: list):
+        """Apelat pe main thread după export reușit."""
+        names = "\n".join(str(p.name) for p in paths)
+        messagebox.showinfo("Export finalizat", f"Fișiere exportate:\n{names}")
+        self.show_inline_message(f"Export reușit: {len(paths)} fișiere.")
+
+    # ── Absențe rapide ────────────────────────────────────────────────────────
+
+    def _quick_add_absence(self, absence_type: str):
+        """Adaugă tipul de absență în celula selectată curentă."""
+        self.add_employee_to_selected_cell(absence_type)

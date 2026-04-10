@@ -218,6 +218,21 @@ class ShiftManagerApp(ctk.CTk):
             self.current_frame.destroy()
         self.unbind("<Return>")
         self.current_frame = PlannerDashboard(self, self.remote_service, username=username)
+        # Schimbare parolă obligatorie la primul login (parola implicită)
+        from logic.auth import must_change_password as _must_change
+        if _must_change(username):
+            self.after(700, lambda: self._prompt_mandatory_password_change(username))
+
+    def _prompt_mandatory_password_change(self, username: str):
+        """Afișează avertisment + dialog obligatoriu de schimbare parolă."""
+        import tkinter.messagebox as messagebox
+        messagebox.showwarning(
+            "Schimbare parolă obligatorie",
+            "Folosești parola implicită (admin123).\n"
+            "Din motive de securitate, trebuie să schimbi parola acum.",
+            parent=self,
+        )
+        ChangePasswordDialog(self, username)
 
     def open_change_password(self):
         if self._current_username:
