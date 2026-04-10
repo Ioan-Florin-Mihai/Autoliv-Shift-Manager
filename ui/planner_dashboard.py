@@ -23,6 +23,7 @@ from logic.schedule_store import (
     ScheduleStore,
     format_day_label,
 )
+from logic.suggestion_engine import get_smart_suggestions
 from logic.ui_state_store import UIStateStore
 from ui.common_ui import (
     BG_WHITE,
@@ -1189,6 +1190,19 @@ class PlannerDashboard(ctk.CTkFrame):
         if not suggestions:
             ctk.CTkLabel(self.suggestion_frame, text="Nicio sugestie.", text_color=MUTED_TEXT).pack(anchor="w", padx=8, pady=8)
             return
+        # Apply smart ranking – pure reorder, no filtering, zero regression risk
+        try:
+            context = {
+                "department": self.selected_department,
+                "shift":      self.selected_shift,
+                "day":        self.selected_day,
+                "mode":       self.current_mode,
+                "week_start": self.week_record.get("week_start", ""),
+            }
+            ranked = get_smart_suggestions(context, suggestions, self.store.data)
+            suggestions = [r.name for r in ranked]
+        except Exception:
+            pass  # fallback: keep original alphabetical order
         is_locked = self.store.is_week_locked(self.week_record)
         for employee in suggestions:
             btn = ctk.CTkButton(
