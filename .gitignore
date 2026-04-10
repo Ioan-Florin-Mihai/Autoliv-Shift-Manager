@@ -19,7 +19,9 @@ Livrare/
 # Local app data
 backups/
 Exports/
+logs/
 data/app.log
+data/users.json
 data/cache.json
 data/schedule_data.json
 data/schedule_draft.json

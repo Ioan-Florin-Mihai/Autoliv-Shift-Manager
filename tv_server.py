@@ -27,9 +27,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from logic.app_config import get_config
+from logic.app_paths import BACKUP_DIR
+
 # ─── Paths ────────────────────────────────────────────────────────────────────
 ROOT       = Path(__file__).parent
 DATA_FILE  = ROOT / "data" / "schedule_live.json"
+DRAFT_FILE = ROOT / "data" / "schedule_draft.json"
 STATIC_DIR = ROOT / "static"
 TPL_DIR    = ROOT / "templates"
 
@@ -60,19 +64,50 @@ def _load_schedule() -> dict:
     """Citeste schedule_live.json cu cache pe mtime pentru throughput stabil pe mai multe TV-uri."""
     global _LAST_MTIME, _CACHED_DATA
     if not DATA_FILE.exists():
-        _CACHED_DATA = {"weeks": {}}
-        _LAST_MTIME = 0.0
-        return _CACHED_DATA
+        restored = _restore_live_from_sources()
+        if not restored:
+            _CACHED_DATA = {"weeks": {}}
+            _LAST_MTIME = 0.0
+            return _CACHED_DATA
 
     mtime = DATA_FILE.stat().st_mtime
     if _CACHED_DATA is not None and mtime == _LAST_MTIME:
         return _CACHED_DATA
 
-    with open(DATA_FILE, encoding="utf-8") as f:
-        loaded = json.load(f)
+    try:
+        with open(DATA_FILE, encoding="utf-8") as f:
+            loaded = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        restored = _restore_live_from_sources()
+        if not restored:
+            _CACHED_DATA = {"weeks": {}}
+            _LAST_MTIME = 0.0
+            return _CACHED_DATA
+        with open(DATA_FILE, encoding="utf-8") as f:
+            loaded = json.load(f)
     _CACHED_DATA = loaded if isinstance(loaded, dict) else {"weeks": {}}
     _LAST_MTIME = mtime
     return _CACHED_DATA
+
+
+def _restore_live_from_sources() -> bool:
+    candidates = []
+    if DRAFT_FILE.exists():
+        candidates.append(DRAFT_FILE)
+    if BACKUP_DIR.exists():
+        candidates.extend(sorted(BACKUP_DIR.glob("schedule_backup_*.json"), reverse=True))
+        candidates.extend(sorted(BACKUP_DIR.glob("schedule_daily_*.json"), reverse=True))
+    for candidate in candidates:
+        try:
+            with candidate.open("r", encoding="utf-8") as file:
+                data = json.load(file)
+            if not isinstance(data, dict) or not isinstance(data.get("weeks", {}), dict):
+                continue
+            DATA_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            return True
+        except (OSError, json.JSONDecodeError):
+            continue
+    return False
 
 
 def _get_week(data: dict, d: date) -> dict:
@@ -119,6 +154,7 @@ def _get_display_days(current_week: dict, next_week: dict) -> list[str]:
 # ─── Main data builder ────────────────────────────────────────────────────────
 
 def _build_tv_data() -> dict:
+    config = get_config()
     raw          = _load_schedule()
     today        = date.today()
     current_week = _get_week(raw, today)
@@ -210,13 +246,27 @@ def _build_tv_data() -> dict:
         "day_dates_iso":  day_dates_iso,
         "today_iso":      today.isoformat(),
         "server_time_ms": int(time.time() * 1000),
-        "rotation_step_ms": 10_000,
+        "rotation_step_ms": int(config.get("rotation_interval", 10)) * 1000,
+        "refresh_interval_ms": int(config.get("refresh_interval", 5)) * 1000,
+        "tv_stale_ms": int(config.get("tv_stale_seconds", 15)) * 1000,
         "last_update_ms": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
         "week_label":     week_label,
         "week_range":     week_range,
         "departments":    departments,
         "schedule":       schedule,
     }
+
+
+def _extract_last_publish_time(raw: dict) -> str | None:
+    latest: str | None = None
+    for week_record in raw.get("weeks", {}).values():
+        if not isinstance(week_record, dict):
+            continue
+        published_at = week_record.get("published_at")
+        if isinstance(published_at, str) and published_at:
+            if latest is None or published_at > latest:
+                latest = published_at
+    return latest
 
 
 def _count_all_employees(payload: dict) -> int:
@@ -259,7 +309,15 @@ async def tv_page(_req: Request) -> HTMLResponse:
 @app.get("/api/tv-data")
 async def tv_data() -> JSONResponse:
     try:
-        return JSONResponse(content=_build_tv_data())
+        raw = _load_schedule()
+        payload = _build_tv_data()
+        return JSONResponse(
+            content={
+                "server_time": int(time.time() * 1000),
+                "last_publish_time": _extract_last_publish_time(raw),
+                "data": payload,
+            }
+        )
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 

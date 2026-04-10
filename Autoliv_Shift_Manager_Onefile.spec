@@ -34,6 +34,7 @@ hiddenimports += [
     "tkinter.constants",
     "logic.remote_control",
     "logic.app_logger",
+    "logic.app_config",
     "logic.app_paths",
     "logic.auth",
     "logic.employee_store",
@@ -87,6 +88,7 @@ version_info = VSVersionInfo(
 )
 
 datas = [
+    ("config.json",                    "."),
     ("assets/autoliv_logo.png",       "assets"),
     ("assets/autoliv_app.ico",         "assets"),
     ("assets/autoliv_app_icon.png",    "assets"),

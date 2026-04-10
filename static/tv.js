@@ -14,7 +14,7 @@
 const DATA_URL   = '/api/tv-data';
 const REFRESH_MS = 5_000;    // interval de baza pentru reincarcarea datelor
 const MAX_BACKOFF_MS = 30_000;
-const STALE_WARN_MS = 15_000;
+const DISCONNECT_WARN_MS = 10_000;
 const FADE_MS    = 180;      // tranzitie de estompare
 
 const SHIFT_LABELS  = { Sch1: 'Sch. 1', Sch2: 'Sch. 2', Sch3: 'Sch. 3' };
@@ -26,8 +26,11 @@ let _data    = null;   // ultimul raspuns API valid
 let _modeIdx = 0;      // indexul modului curent (Magazie / Bucle)
 let _deptIdx = 0;      // indexul departamentului curent in modul activ
 let _lastSuccessMs = 0;
-let _lastDataUpdateMs = 0;
+let _lastFailureSinceMs = 0;
+let _lastPublishTime = null;
 let _refreshDelayMs = REFRESH_MS;
+let _refreshBaseMs = REFRESH_MS;
+let _disconnectWarnMs = DISCONNECT_WARN_MS;
 let _refreshTimer = null;
 let _syncTimer = null;
 
@@ -55,33 +58,38 @@ function currentDepts() {
   return (_data.departments[currentMode()] || []);
 }
 
-function formatTimeMs(ms) {
-  if (!ms) return '—';
-  const d = new Date(ms);
+function formatPublishTime(value) {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
   const pad = n => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
 }
 
 function updateStaleWarning(nowMs = Date.now()) {
   const statusEl = document.getElementById('footer-status');
   const lastEl = document.getElementById('footer-last-update');
-  const referenceMs = _lastDataUpdateMs || _lastSuccessMs;
   if (lastEl) {
-    lastEl.textContent = `Ultima actualizare: ${formatTimeMs(referenceMs)}`;
+    lastEl.textContent = `Ultima actualizare: ${formatPublishTime(_lastPublishTime)}`;
   }
   if (!statusEl) return;
-  if (!referenceMs || (nowMs - referenceMs) <= STALE_WARN_MS) {
+  if (_lastSuccessMs && (nowMs - _lastSuccessMs) <= _disconnectWarnMs) {
     statusEl.textContent = '✔ Conectat';
     statusEl.classList.remove('warn');
     return;
   }
-  statusEl.textContent = '⚠ Datele nu se mai actualizează';
+  if (_lastFailureSinceMs && (nowMs - _lastFailureSinceMs) >= _disconnectWarnMs) {
+    statusEl.textContent = '⚠ Deconectat';
+    statusEl.classList.add('warn');
+    return;
+  }
+  statusEl.textContent = '… Conectare';
   statusEl.classList.add('warn');
 }
 
 function computeSyncedDeptIndex(nowMs, deptCount) {
   if (!_data || deptCount <= 0) return 0;
-  const serverTimeMs = Number(_data.server_time_ms || nowMs);
+  const serverTimeMs = Number(_data.server_time || nowMs);
   const rotationStepMs = Number(_data.rotation_step_ms || 10_000);
   const offsetMs = Math.max(0, nowMs - _lastSuccessMs);
   const syncedNow = serverTimeMs + offsetMs;
@@ -109,16 +117,23 @@ async function fetchData() {
     const res = await fetch(DATA_URL, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    if (json && !json.error) {
-      _data = json;
+    if (json && !json.error && json.data) {
+      _data = json.data;
       _lastSuccessMs = Date.now();
-      _lastDataUpdateMs = Number(json.last_update_ms || _lastSuccessMs);
-      _refreshDelayMs = REFRESH_MS;
+      _lastFailureSinceMs = 0;
+      _lastPublishTime = json.last_publish_time || _lastPublishTime;
+      _data.server_time = Number(json.server_time || _lastSuccessMs);
+      _refreshBaseMs = Number(_data.refresh_interval_ms || REFRESH_MS);
+      _disconnectWarnMs = DISCONNECT_WARN_MS;
+      _refreshDelayMs = _refreshBaseMs;
       updateStaleWarning(_lastSuccessMs);
       return true;
     }
   } catch (_e) {
     // Pastreaza afisarea ultimelor date valide; serverul poate fi temporar indisponibil.
+  }
+  if (!_lastFailureSinceMs) {
+    _lastFailureSinceMs = Date.now();
   }
   _refreshDelayMs = Math.min(MAX_BACKOFF_MS, Math.round(_refreshDelayMs * 1.8));
   updateStaleWarning(Date.now());

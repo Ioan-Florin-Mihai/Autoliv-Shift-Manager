@@ -1,12 +1,17 @@
+import json
 import threading
 import tkinter as tk
 import tkinter.messagebox as messagebox
+import urllib.error
+import urllib.request
 from datetime import date, datetime, timedelta
 from queue import Empty, Queue
 
 import customtkinter as ctk
 
+from logic.app_config import get_config
 from logic.audit_logger import log_event
+from logic.audit_logger import read_recent_events
 from logic.app_logger import log_exception
 from logic.employee_store import EmployeeStore
 from logic.remote_control import RemoteChecker, RemoteControlService
@@ -164,10 +169,12 @@ class MoveShiftDialog(ctk.CTkToplevel):
 
 
 class PlannerDashboard(ctk.CTkFrame):
-    def __init__(self, master, remote_service: RemoteControlService, username: str = ""):
+    def __init__(self, master, remote_service: RemoteControlService, username: str = "", user_role: str = "operator"):
         super().__init__(master, corner_radius=0)
         self.remote_service = remote_service
         self._username = username          # utilizatorul autentificat curent
+        self._user_role = user_role or "operator"
+        self._config = get_config()
         self.store = ScheduleStore()
         self.ui_state_store = UIStateStore()
         self.employee_store = EmployeeStore()
@@ -195,6 +202,8 @@ class PlannerDashboard(ctk.CTkFrame):
         self._last_saved_var = ctk.StringVar(value="")
         self._lock_state_var = ctk.StringVar(value="")
         self._lock_button: ctk.CTkButton | None = None
+        self._publish_button: ctk.CTkButton | None = None
+        self._delete_global_button: ctk.CTkButton | None = None
         self._add_button: ctk.CTkButton | None = None
         self._dirty_indicator: ctk.CTkLabel | None = None
         self._grid_cell_frames: dict = {}          # cache {(day, shift): CTkFrame}
@@ -216,6 +225,142 @@ class PlannerDashboard(ctk.CTkFrame):
             return f"{iso.year}-W{iso.week:02d}"
         except Exception:
             return "unknown"
+
+    def _is_admin(self) -> bool:
+        return self._user_role == "admin"
+
+    def _require_admin(self, action_name: str) -> bool:
+        if self._is_admin():
+            return True
+        self.show_inline_message(f"Doar admin poate executa acțiunea: {action_name}.", is_error=True)
+        return False
+
+    def _last_backup_text(self) -> str:
+        backups = self.store.get_backup_history()
+        if not backups:
+            return "Niciun backup"
+        name, modified = backups[0]
+        return f"{name} ({datetime.fromtimestamp(modified).strftime('%d.%m.%Y %H:%M')})"
+
+    def _tv_status_snapshot(self) -> dict:
+        port = int(self._config.get("server_port", 8000))
+        health_url = f"http://127.0.0.1:{port}/health"
+        status = {"server": "oprit", "tv": "necunoscut", "last_update": "-"}
+        try:
+            with urllib.request.urlopen(health_url, timeout=1.5) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            status["server"] = "activ" if payload.get("status") == "ok" else "eroare"
+            last_update_ms = int(payload.get("last_update", 0) or 0)
+            if last_update_ms:
+                status["last_update"] = datetime.fromtimestamp(last_update_ms / 1000).strftime("%d.%m.%Y %H:%M:%S")
+                stale_seconds = int(self._config.get("tv_stale_seconds", 15))
+                age_seconds = max(0, (datetime.now().timestamp() * 1000 - last_update_ms) / 1000)
+                status["tv"] = "stale" if age_seconds > stale_seconds else "connected"
+            elif payload.get("data_loaded"):
+                status["tv"] = "connected"
+        except (OSError, ValueError, urllib.error.URLError, TimeoutError):
+            pass
+        return status
+
+    def open_audit_log(self):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Audit Log")
+        dialog.geometry("940x620")
+        dialog.grab_set()
+        dialog.grid_columnconfigure(0, weight=1)
+        dialog.grid_rowconfigure(2, weight=1)
+
+        user_var = ctk.StringVar(value="")
+        action_var = ctk.StringVar(value="")
+
+        ctk.CTkLabel(dialog, text="Audit Log", font=ctk.CTkFont(size=22, weight="bold"), text_color=PRIMARY_BLUE).grid(row=0, column=0, sticky="w", padx=20, pady=(20, 8))
+        filter_row = ctk.CTkFrame(dialog, fg_color="transparent")
+        filter_row.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
+        filter_row.grid_columnconfigure((1, 3), weight=1)
+        ctk.CTkLabel(filter_row, text="Utilizator", text_color=MUTED_TEXT).grid(row=0, column=0, sticky="w")
+        user_entry = ctk.CTkEntry(filter_row, textvariable=user_var)
+        user_entry.grid(row=0, column=1, sticky="ew", padx=(8, 16))
+        ctk.CTkLabel(filter_row, text="Actiune", text_color=MUTED_TEXT).grid(row=0, column=2, sticky="w")
+        action_entry = ctk.CTkEntry(filter_row, textvariable=action_var)
+        action_entry.grid(row=0, column=3, sticky="ew", padx=(8, 0))
+
+        table = ctk.CTkScrollableFrame(dialog, fg_color=PANEL_BG)
+        table.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 20))
+
+        def render_table():
+            for widget in table.winfo_children():
+                widget.destroy()
+            events = read_recent_events(limit=100, user=user_var.get().strip() or None, action=action_var.get().strip() or None)
+            if not events:
+                ctk.CTkLabel(table, text="Nu exista intrari pentru filtrul selectat.", text_color=MUTED_TEXT).pack(anchor="w", padx=8, pady=8)
+                return
+            for event in events:
+                details = event.get("details", {})
+                detail_text = ", ".join(f"{key}: {value}" for key, value in details.items()) if isinstance(details, dict) else ""
+                row = ctk.CTkFrame(table, fg_color=CARD_WHITE, corner_radius=10, border_width=1, border_color=LINE_BLUE)
+                row.pack(fill="x", padx=4, pady=4)
+                ctk.CTkLabel(row, text=f"{event.get('timestamp', '-')}", width=170, anchor="w", text_color=BODY_TEXT).pack(side="left", padx=(10, 6), pady=8)
+                ctk.CTkLabel(row, text=f"{event.get('user', '-')}", width=120, anchor="w", text_color=PRIMARY_BLUE).pack(side="left", padx=6)
+                ctk.CTkLabel(row, text=f"{event.get('action', '-')}", width=130, anchor="w", text_color=BODY_TEXT).pack(side="left", padx=6)
+                ctk.CTkLabel(row, text=f"{event.get('week', '-')}", width=100, anchor="w", text_color=BODY_TEXT).pack(side="left", padx=6)
+                ctk.CTkLabel(row, text=detail_text or "-", anchor="w", justify="left", text_color=MUTED_TEXT).pack(side="left", fill="x", expand=True, padx=(6, 10))
+
+        ctk.CTkButton(filter_row, text="Aplică", command=render_table, width=90).grid(row=0, column=4, padx=(12, 0))
+        render_table()
+
+    def open_system_status(self):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Status Sistem")
+        dialog.geometry("640x420")
+        dialog.grab_set()
+        dialog.grid_columnconfigure(0, weight=1)
+
+        content = ctk.CTkFrame(dialog, fg_color="transparent")
+        content.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        content.grid_columnconfigure(1, weight=1)
+
+        audit_events = read_recent_events(limit=20, action="publish")
+        last_publish = audit_events[0].get("timestamp", "Niciodata") if audit_events else "Niciodata"
+        tv_status = self._tv_status_snapshot()
+        rows = [
+            ("Utilizator activ", f"{self._username or '-'} ({self._user_role})"),
+            ("Server TV", tv_status["server"]),
+            ("TV status", tv_status["tv"]),
+            ("Ultima actualizare TV", tv_status["last_update"]),
+            ("Ultima publicare", last_publish),
+            ("Ultimul backup", self._last_backup_text()),
+        ]
+        ctk.CTkLabel(content, text="Status Sistem", font=ctk.CTkFont(size=22, weight="bold"), text_color=PRIMARY_BLUE).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 16))
+        for idx, (label, value) in enumerate(rows, start=1):
+            ctk.CTkLabel(content, text=label, text_color=MUTED_TEXT, font=ctk.CTkFont(size=13, weight="bold")).grid(row=idx, column=0, sticky="w", pady=8)
+            ctk.CTkLabel(content, text=str(value), text_color=BODY_TEXT, justify="left", wraplength=360).grid(row=idx, column=1, sticky="w", pady=8)
+
+    def restore_backup_dialog(self):
+        if not self._require_admin("restore backup"):
+            return
+        backups = self.store.get_backup_history()
+        if not backups:
+            messagebox.showinfo("Backup", "Nu exista backup-uri disponibile.")
+            return
+        values = [name for name, _ in backups[:30]]
+        dialog = ctk.CTkInputDialog(
+            text="Introdu numele backup-ului de restaurat:\n\n" + "\n".join(values[:10]),
+            title="Restore backup",
+        )
+        selected = dialog.get_input()
+        if not selected:
+            return
+        if not messagebox.askyesno("Confirmare restore", f"Restaurăm backup-ul {selected}?\nDraft și live vor fi rescrise."):
+            return
+        try:
+            self.store.restore_backup(selected.strip())
+            self.week_record = self.store.get_or_create_week(self.selected_date)
+            self._dirty = False
+            self._undo_stack.clear()
+            self.refresh_all()
+            self.show_inline_message("Backup restaurat cu succes.")
+        except ValueError as exc:
+            self.show_inline_message(str(exc), is_error=True)
 
     def current_mode_record(self):
         return self.week_record["modes"][self.current_mode]
@@ -517,7 +662,7 @@ class PlannerDashboard(ctk.CTkFrame):
             font=ctk.CTkFont(size=11, weight="bold"),
             anchor="w",
         ).grid(row=5, column=0, sticky="ew", pady=(4, 0))
-        ctk.CTkButton(
+        self._publish_button = ctk.CTkButton(
             nav_section,
             text="PUBLICA PE ECRANE",
             command=self.publish_to_tv,
@@ -527,7 +672,8 @@ class PlannerDashboard(ctk.CTkFrame):
             hover_color=HOVER_BLUE,
             text_color="white",
             font=ctk.CTkFont(size=13, weight="bold"),
-        ).grid(row=6, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
+        )
+        self._publish_button.grid(row=6, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
 
         settings_section = ctk.CTkFrame(frame, fg_color="transparent")
         settings_section.grid(row=2, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
@@ -537,6 +683,9 @@ class PlannerDashboard(ctk.CTkFrame):
         self.theme_switch.grid(row=1, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         if ctk.get_appearance_mode() == "Dark":
             self.theme_switch.select()
+        self._create_secondary_button(settings_section, "Audit Log", self.open_audit_log, height=SECONDARY_BUTTON_HEIGHT).grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        self._create_secondary_button(settings_section, "Status Sistem", self.open_system_status, height=SECONDARY_BUTTON_HEIGHT).grid(row=3, column=0, sticky="ew", pady=(0, 8))
+        self._create_secondary_button(settings_section, "Restore backup", self.restore_backup_dialog, height=SECONDARY_BUTTON_HEIGHT).grid(row=4, column=0, sticky="ew")
 
     def _build_center(self):
         frame = ctk.CTkFrame(self, fg_color=CARD_WHITE, corner_radius=18, border_width=1, border_color=LINE_BLUE)
@@ -690,7 +839,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self._create_section_label(more_actions_section, "MORE ACTIONS").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=SECONDARY_BUTTON_HEIGHT).grid(row=1, column=0, sticky="ew", pady=(0, 8))
         self._create_secondary_button(more_actions_section, "Redenumește", self.rename_employee_global, height=SECONDARY_BUTTON_HEIGHT).grid(row=2, column=0, sticky="ew", pady=(0, 8))
-        ctk.CTkButton(
+        self._delete_global_button = ctk.CTkButton(
             more_actions_section,
             text="Șterge global",
             command=self.delete_employee_global,
@@ -700,7 +849,8 @@ class PlannerDashboard(ctk.CTkFrame):
             height=SECONDARY_BUTTON_HEIGHT,
             corner_radius=10,
             font=ctk.CTkFont(size=13, weight="bold"),
-        ).grid(row=3, column=0, sticky="ew")
+        )
+        self._delete_global_button.grid(row=3, column=0, sticky="ew")
 
         suggestions_section = ctk.CTkFrame(frame, fg_color="transparent")
         suggestions_section.grid(row=3, column=0, sticky="nsew", padx=20, pady=(0, OUTER_PAD))
@@ -1231,6 +1381,8 @@ class PlannerDashboard(ctk.CTkFrame):
         ctk.set_appearance_mode(mode)
 
     def delete_employee_global(self):
+        if not self._require_admin("ștergere globală angajat"):
+            return
         value = self.employee_search_var.get().strip()
         if not value:
             self.show_inline_message("Scrie angajatul în search înainte de a șterge.", is_error=True)
@@ -1415,7 +1567,11 @@ class PlannerDashboard(ctk.CTkFrame):
     def clear_weekend(self):
         if not self._ensure_week_editable():
             return
-        self.store.clear_weekend(self.week_record, self.current_mode)
+        try:
+            self.store.clear_weekend(self.week_record, self.current_mode, self._username or "")
+        except PermissionError:
+            self.show_inline_message("Unauthorized", is_error=True)
+            return
         self._dirty = True
         self.refresh_all()
         self.show_inline_message(f"Weekend curățat pentru {self.current_mode}.")
@@ -1425,17 +1581,17 @@ class PlannerDashboard(ctk.CTkFrame):
             return
         if not messagebox.askyesno("Confirmare", f"Sterg toate alocarile din {self.selected_department}?"):
             return
-        self.store.clear_department(self.week_record, self.current_mode, self.selected_department)
+        try:
+            self.store.clear_department(
+                self.week_record,
+                self.current_mode,
+                self.selected_department,
+                self._username or "",
+            )
+        except PermissionError:
+            self.show_inline_message("Unauthorized", is_error=True)
+            return
         self._dirty = True
-        log_event(
-            action="clear_department",
-            user=self._username or "unknown",
-            week=self._current_week_code(),
-            details={
-                "mode": self.current_mode,
-                "department": self.selected_department,
-            },
-        )
         self.refresh_all()
         self.show_inline_message(f"Departamentul {self.selected_department} a fost golit.")
 
@@ -1453,26 +1609,8 @@ class PlannerDashboard(ctk.CTkFrame):
         if not confirm:
             return
         try:
-            self.week_record["published_at"] = datetime.now().isoformat(timespec="seconds")
-            self.week_record["published_by"] = self._username or "unknown"
             self.store.update_week(self.week_record)
-            self.store.publish_to_live()
-            self.store.lock_week(self.week_record.get("week_start", ""))
-            log_event(
-                action="publish",
-                user=self._username or "unknown",
-                week=week_text,
-                details={
-                    "mode": self.current_mode,
-                    "department": self.selected_department,
-                },
-            )
-            log_event(
-                action="lock_week",
-                user=self._username or "unknown",
-                week=week_text,
-                details={"source": "publish"},
-            )
+            self.store.publish_week(self.week_record.get("week_start", ""), self._username or "")
             self.week_record = self.store.get_or_create_week(self.selected_date)
             self._dirty = False
             self._undo_stack.clear()
@@ -1589,26 +1727,30 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def lock_week_toggle(self):
         """Publicare / deblocare săptămână curentă."""
-        if self.store.is_week_locked(self.week_record):
-            self.store.unlock_week(self.week_record)
-            log_event(
-                action="unlock_week",
-                user=self._username or "unknown",
-                week=self._current_week_code(),
-                details={"source": "manual"},
-            )
-            self.show_inline_message("Săptămâna a fost deblocată pentru editare.")
-        else:
-            if self._dirty:
-                self.save_week()
-            self.store.lock_week(self.week_record)
-            log_event(
-                action="lock_week",
-                user=self._username or "unknown",
-                week=self._current_week_code(),
-                details={"source": "manual"},
-            )
-            self.show_inline_message("Săptămâna a fost publicată (read-only).")
+        try:
+            if self.store.is_week_locked(self.week_record):
+                self.store.unlock_week(self.week_record, self._username or "")
+                log_event(
+                    action="unlock_week",
+                    user=self._username or "unknown",
+                    week=self._current_week_code(),
+                    details={"source": "manual"},
+                )
+                self.show_inline_message("Săptămâna a fost deblocată pentru editare.")
+            else:
+                if self._dirty:
+                    self.save_week()
+                self.store.lock_week(self.week_record, self._username or "")
+                log_event(
+                    action="lock_week",
+                    user=self._username or "unknown",
+                    week=self._current_week_code(),
+                    details={"source": "manual"},
+                )
+                self.show_inline_message("Săptămâna a fost publicată (read-only).")
+        except PermissionError:
+            self.show_inline_message("Unauthorized", is_error=True)
+            return
         self._refresh_lock_button()
         self._sync_action_states()
 
@@ -1633,6 +1775,10 @@ class PlannerDashboard(ctk.CTkFrame):
         is_locked = self.store.is_week_locked(self.week_record)
         if self._add_button is not None:
             self._add_button.configure(state="disabled" if is_locked else "normal")
+        if self._publish_button is not None:
+            self._publish_button.configure(state="normal" if self._is_admin() else "disabled")
+        if self._delete_global_button is not None:
+            self._delete_global_button.configure(state="normal" if self._is_admin() else "disabled")
 
     def _auto_save(self):
         if self._closing or not self.winfo_exists():

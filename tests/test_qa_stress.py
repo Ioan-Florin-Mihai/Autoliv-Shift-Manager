@@ -659,7 +659,7 @@ class TestScheduleIntegrity:
         for day in WEEKEND_DAYS:
             week["modes"]["Magazie"]["schedule"][dept][day]["Sch1"]["employees"] = ["A"]
         week["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]["employees"] = ["B"]
-        schedule_store.clear_weekend(week, "Magazie")
+        schedule_store.clear_weekend(week, "Magazie", "admin")
         for day in WEEKEND_DAYS:
             assert week["modes"]["Magazie"]["schedule"][dept][day]["Sch1"]["employees"] == []
         assert "B" in week["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]["employees"]
@@ -670,7 +670,7 @@ class TestScheduleIntegrity:
         week = schedule_store.get_or_create_week(date.today())
         dept = week["modes"]["Magazie"]["departments"][0]
         week["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]["employees"] = ["X"]
-        schedule_store.clear_department(week, "Magazie", dept)
+        schedule_store.clear_department(week, "Magazie", dept, "admin")
         for day in DAY_NAMES:
             for shift in SHIFTS:
                 assert week["modes"]["Magazie"]["schedule"][dept][day][shift]["employees"] == []

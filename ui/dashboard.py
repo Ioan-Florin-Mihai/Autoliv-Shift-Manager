@@ -4,7 +4,7 @@ import tkinter.messagebox as messagebox
 import customtkinter as ctk
 
 from logic.app_logger import log_exception
-from logic.auth import verify_login_detailed
+from logic.auth import get_user_role, verify_login_detailed
 from logic.remote_control import RemoteControlService
 from logic.version import APP_NAME, VERSION
 from ui.common_ui import (
@@ -104,7 +104,7 @@ class LoginFrame(ctk.CTkFrame):
             self.status_var.set(msg or "Username sau parola invalida.")
             return
         self._logged_in_username = username
-        self.on_login_success(username)
+        self.on_login_success(username, get_user_role(username))
 
     def _handle_enter_key(self, _event):
         self.login()
@@ -115,6 +115,7 @@ class ShiftManagerApp(ctk.CTk):
         super().__init__()
         self.title(f"{APP_NAME} v{VERSION}")
         self._current_username: str | None = None
+        self._current_role: str = "operator"
         self.geometry("1620x900")
         self.state("zoomed")
         self.minsize(1320, 760)
@@ -132,12 +133,13 @@ class ShiftManagerApp(ctk.CTk):
             self.current_frame.destroy()
         self.current_frame = LoginFrame(self, self.show_dashboard)
 
-    def show_dashboard(self, username: str = ""):
+    def show_dashboard(self, username: str = "", role: str = "operator"):
         self._current_username = username
+        self._current_role = role
         if self.current_frame is not None:
             self.current_frame.destroy()
         self.unbind("<Return>")
-        self.current_frame = PlannerDashboard(self, self.remote_service, username=username)
+        self.current_frame = PlannerDashboard(self, self.remote_service, username=username, user_role=role)
 
     def close_app(self):
         # Verifica modificari nesalvate in PlannerDashboard

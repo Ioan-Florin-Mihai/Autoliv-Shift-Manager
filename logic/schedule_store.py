@@ -1,12 +1,14 @@
 import json
 import os
-import shutil
 import tempfile
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
+from logic.audit_logger import log_event
+from logic.app_config import get_config
 from logic.app_logger import log_exception, log_warning
 from logic.app_paths import BACKUP_DIR, BASE_DIR
+from logic.auth import is_admin as auth_is_admin
 
 DRAFT_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_draft.json"
 LIVE_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_live.json"
@@ -23,6 +25,22 @@ def _write_empty_schedule(path):
     path.write_text(json.dumps({"weeks": {}}, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _write_json_atomic(path, payload: dict):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+            json.dump(payload, tmp, ensure_ascii=False, indent=2)
+            tmp.write("\n")
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
 def _bootstrap_schedule_files():
     """
         Initializeaza stocarea draft/live la pornire.
@@ -35,13 +53,25 @@ def _bootstrap_schedule_files():
 
     if not DRAFT_SCHEDULE_PATH.exists():
         if LEGACY_SCHEDULE_PATH.exists():
-            shutil.copy2(LEGACY_SCHEDULE_PATH, DRAFT_SCHEDULE_PATH)
+            try:
+                legacy_data = json.loads(LEGACY_SCHEDULE_PATH.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                legacy_data = {"weeks": {}}
+            if not isinstance(legacy_data, dict) or not isinstance(legacy_data.get("weeks", {}), dict):
+                legacy_data = {"weeks": {}}
+            _write_json_atomic(DRAFT_SCHEDULE_PATH, legacy_data)
         else:
             _write_empty_schedule(DRAFT_SCHEDULE_PATH)
 
     if not LIVE_SCHEDULE_PATH.exists():
         if DRAFT_SCHEDULE_PATH.exists():
-            shutil.copy2(DRAFT_SCHEDULE_PATH, LIVE_SCHEDULE_PATH)
+            try:
+                draft_data = json.loads(DRAFT_SCHEDULE_PATH.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                draft_data = {"weeks": {}}
+            if not isinstance(draft_data, dict) or not isinstance(draft_data.get("weeks", {}), dict):
+                draft_data = {"weeks": {}}
+            _write_json_atomic(LIVE_SCHEDULE_PATH, draft_data)
         else:
             _write_empty_schedule(LIVE_SCHEDULE_PATH)
 
@@ -259,6 +289,13 @@ class ScheduleStore:
         if week_record.get("locked"):
             raise ValueError("Săptămâna este publicată (read-only). Deblocă înainte de a edita.")
 
+    def is_admin(self, user: str | None) -> bool:
+        return bool(user) and auth_is_admin(user)
+
+    def _require_admin(self, user: str | None) -> None:
+        if not self.is_admin(user):
+            raise PermissionError("Unauthorized")
+
     def _load(self):
         if not SCHEDULE_PATH.exists():
             return {"weeks": {}}
@@ -323,32 +360,26 @@ class ScheduleStore:
 
     def _save_live_snapshot(self):
         """Scrie snapshot-ul publicat (read-only pentru TV) in schedule_live.json."""
-        LIVE_SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
         try:
-            tmp_fd, tmp_path = tempfile.mkstemp(
-                dir=LIVE_SCHEDULE_PATH.parent, suffix=".tmp"
-            )
-            try:
-                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
-                    json.dump(self.data, tmp, ensure_ascii=False, indent=2)
-            except Exception:
-                os.unlink(tmp_path)
-                raise
-            os.replace(tmp_path, LIVE_SCHEDULE_PATH)
+            _write_json_atomic(LIVE_SCHEDULE_PATH, self.data)
         except OSError as exc:
             log_exception("schedule_store_save_live", exc)
             raise
 
     def backup(self):
         BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-        if not self.schedule_path.exists():
-            return
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        shutil.copy2(self.schedule_path, BACKUP_DIR / f"schedule_backup_{timestamp}.json")
+        _write_json_atomic(BACKUP_DIR / f"schedule_backup_{timestamp}.json", self.data)
+        daily_name = datetime.now().strftime("schedule_daily_%Y%m%d.json")
+        daily_path = BACKUP_DIR / daily_name
+        if not daily_path.exists():
+            _write_json_atomic(daily_path, self.data)
         self._rotate_backups()
 
-    def _rotate_backups(self, max_backups: int = 20):
-        """Pastreaza doar ultimele max_backups fisiere. Sterge restul."""
+    def _rotate_backups(self, max_backups: int | None = None):
+        """Pastreaza doar ultimele backup-uri rapide conform configuratiei. Snapshot-urile zilnice raman separate."""
+        if max_backups is None:
+            max_backups = int(get_config().get("max_backups", 20))
         backups = sorted(BACKUP_DIR.glob("schedule_backup_*.json"))
         for old in backups[:-max_backups]:
             try:
@@ -356,6 +387,30 @@ class ScheduleStore:
             except OSError as exc:
                 from logic.app_logger import log_warning
                 log_warning("schedule_store: nu s-a putut sterge backup vechi %s: %s", old.name, exc)
+
+    def get_backup_history(self):
+        if not BACKUP_DIR.exists():
+            return []
+        items = []
+        for backup_path in sorted(BACKUP_DIR.glob("schedule_*.json"), reverse=True):
+            items.append((backup_path.name, backup_path.stat().st_mtime))
+        return items
+
+    def restore_backup(self, backup_name: str):
+        backup_path = BACKUP_DIR / backup_name
+        if not backup_path.exists():
+            raise ValueError("Backup-ul selectat nu exista.")
+        try:
+            with backup_path.open("r", encoding="utf-8") as file:
+                data = json.load(file)
+            if not isinstance(data, dict) or not isinstance(data.get("weeks", {}), dict):
+                raise ValueError("Backup invalid.")
+            self.data = {"weeks": data.get("weeks", {})}
+            self.save()
+            self._save_live_snapshot()
+        except (OSError, json.JSONDecodeError) as exc:
+            log_exception("schedule_store_restore_backup", exc)
+            raise ValueError("Backup-ul nu a putut fi restaurat.") from exc
 
     def get_week_history(self):
         weeks = self.data.get("weeks", {})
@@ -401,7 +456,8 @@ class ScheduleStore:
         self.update_week(new_record)
         return deepcopy(self.data["weeks"][current_start.isoformat()])
 
-    def clear_weekend(self, week_record, mode_name: str):
+    def clear_weekend(self, week_record, mode_name: str, user: str):
+        self._require_admin(user)
         self._assert_not_locked(week_record)
         mode_record = week_record["modes"][mode_name]
         for department in mode_record["departments"]:
@@ -409,15 +465,17 @@ class ScheduleStore:
                 for shift in SHIFTS:
                     mode_record["schedule"][department][day_name][shift] = _empty_cell()
 
-    def clear_department(self, week_record, mode_name: str, department: str):
+    def clear_department(self, week_record, mode_name: str, department: str, user: str):
+        self._require_admin(user)
         self._assert_not_locked(week_record)
         mode_record = week_record["modes"][mode_name]
         for day_name in DAY_NAMES:
             for shift in SHIFTS:
                 mode_record["schedule"][department][day_name][shift] = _empty_cell()
 
-    def lock_week(self, week_ref) -> None:
+    def lock_week(self, week_ref, user: str | None = None) -> None:
         """Blocheaza saptamana dupa key ISO (YYYY-MM-DD) sau dupa week_record."""
+        self._require_admin(user)
         if isinstance(week_ref, str):
             week_record = deepcopy(self.data.get("weeks", {}).get(week_ref) or {})
             if not week_record:
@@ -430,34 +488,88 @@ class ScheduleStore:
         self.data.setdefault("weeks", {})[week_record["week_start"]] = deepcopy(week_record)
         self.save()
 
-    def publish_to_live(self):
-        """Copiaza in siguranta draft -> live."""
-        LIVE_SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(self.schedule_path, LIVE_SCHEDULE_PATH)
+    def publish_week(self, week_key: str, user: str) -> None:
+        """
+        Publica atomic o saptamana in fluxul draft -> live.
+        Pasii sunt executati integral in store:
+          1) valideaza saptamana
+          2) salveaza draft
+          3) scrie live cu temp file
+          4) replace live cu os.replace
+          5) blocheaza saptamana
+          6) adauga eveniment in audit log
+        """
+        self._require_admin(user)
 
-    def publish_week(self, week_record: dict, published_by: str | None = None) -> None:
-        """
-        Publica planificarea catre ecrane:
-          1) salveaza in draft
-          2) blocheaza saptamana publicata
-          3) copiaza intregul draft in schedule_live.json
-        """
+        week_record = deepcopy(self.data.get("weeks", {}).get(week_key) or {})
+        if not week_record:
+            raise ValueError("Săptămâna nu există.")
+
         self._normalize_week_record(week_record)
         week_record["locked"] = True
         week_record["published_at"] = datetime.now().isoformat(timespec="seconds")
-        if published_by:
-            week_record["published_by"] = published_by
-        self.data.setdefault("weeks", {})[week_record["week_start"]] = deepcopy(week_record)
-        self.save()
-        self.publish_to_live()
+        week_record["published_by"] = user
 
-    def unlock_week(self, week_record: dict) -> None:
+        previous_data = deepcopy(self.data)
+        self.data.setdefault("weeks", {})[week_record["week_start"]] = deepcopy(week_record)
+        try:
+            # Draft write (atomic)
+            self.save()
+            # Live write (atomic)
+            self._save_live_snapshot()
+        except Exception:
+            self.data = previous_data
+            self.save()
+            raise
+
+        log_event(
+            action="publish",
+            user=user,
+            week=week_key,
+            details={"week_start": week_record["week_start"]},
+        )
+
+    def unlock_week(self, week_record: dict, user: str | None = None) -> None:
         """Deblocă săptămâna pentru editare."""
+        self._require_admin(user)
         self._normalize_week_record(week_record)
         week_record["locked"] = False
         week_record["updated_at"] = datetime.now().isoformat(timespec="seconds")
         self.data.setdefault("weeks", {})[week_record["week_start"]] = deepcopy(week_record)
         self.save()
+
+    def delete_employee(self, employee: str, user: str) -> int:
+        """Sterge global un angajat din toate celulele de planificare draft."""
+        self._require_admin(user)
+        removed = 0
+        employee_cf = employee.casefold()
+        for week_rec in self.data.get("weeks", {}).values():
+            if not isinstance(week_rec, dict):
+                continue
+            self._normalize_week_record(week_rec)
+            for mode_rec in week_rec.get("modes", {}).values():
+                if not isinstance(mode_rec, dict):
+                    continue
+                for dept_sched in mode_rec.get("schedule", {}).values():
+                    for day_sched in dept_sched.values():
+                        for cell in day_sched.values():
+                            if not isinstance(cell, dict):
+                                continue
+                            employees = cell.get("employees", [])
+                            before = len(employees)
+                            cell["employees"] = [
+                                value for value in employees
+                                if not isinstance(value, str) or value.casefold() != employee_cf
+                            ]
+                            removed += before - len(cell["employees"])
+                            colors = cell.get("colors", {})
+                            if isinstance(colors, dict):
+                                for key in list(colors.keys()):
+                                    if isinstance(key, str) and key.casefold() == employee_cf:
+                                        colors.pop(key, None)
+        if removed > 0:
+            self.save()
+        return removed
 
     def is_week_locked(self, week_ref) -> bool:
         if isinstance(week_ref, str):

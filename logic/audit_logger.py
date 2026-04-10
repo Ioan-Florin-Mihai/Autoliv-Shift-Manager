@@ -57,3 +57,12 @@ def log_event(action: str, user: str, week: str, details: dict | None = None):
     if len(events) > MAX_AUDIT_ENTRIES:
         events = events[-MAX_AUDIT_ENTRIES:]
     _atomic_write(AUDIT_LOG_PATH, events)
+
+
+def read_recent_events(limit: int = 100, user: str | None = None, action: str | None = None) -> list[dict]:
+    events = list(reversed(_read_events(AUDIT_LOG_PATH)))
+    if user:
+        events = [item for item in events if str(item.get("user", "")).casefold() == user.casefold()]
+    if action:
+        events = [item for item in events if str(item.get("action", "")).casefold() == action.casefold()]
+    return events[:limit]

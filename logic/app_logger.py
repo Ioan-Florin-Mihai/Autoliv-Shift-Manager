@@ -17,10 +17,12 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 
+from logic.app_config import get_config
 from logic.app_paths import DATA_DIR, ensure_directory
 
 # ── Configurare logger ─────────────────────────────────────────
-_LOG_PATH = DATA_DIR / "app.log"
+_LOG_DIR = DATA_DIR.parent / "logs"
+_LOG_PATH = _LOG_DIR / "system.log"
 _LOGGER_NAME = "autoliv_shift_manager"
 _logger: logging.Logger | None = None
 
@@ -38,14 +40,15 @@ def _get_logger() -> logging.Logger:
         return _logger
 
     logger.setLevel(logging.DEBUG)
+    config = get_config()
 
     # ── Handler fisier rotativ ─────────────────────────────────
     try:
-        ensure_directory(DATA_DIR)
+        ensure_directory(_LOG_DIR)
         fh = RotatingFileHandler(
             _LOG_PATH,
-            maxBytes=5 * 1024 * 1024,   # 5 MB
-            backupCount=3,
+            maxBytes=int(config.get("log_max_bytes", 5 * 1024 * 1024)),
+            backupCount=int(config.get("log_backup_count", 5)),
             encoding="utf-8",
         )
         fh.setLevel(logging.DEBUG)

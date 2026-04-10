@@ -30,6 +30,7 @@ from pathlib import Path
 
 import bcrypt
 
+from logic.app_config import get_config
 from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import get_sensitive_path
 
@@ -153,6 +154,13 @@ def _find_user(users: list[dict], username: str) -> dict | None:
     )
 
 
+def _normalize_role(role: str) -> str:
+    value = (role or "").strip().lower()
+    if value == "user":
+        return "operator"
+    return value
+
+
 # â”€â”€ API public â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def verify_login(username: str, password: str) -> bool:
@@ -264,7 +272,9 @@ def change_password(username: str, old_password: str, new_password: str) -> tupl
 
 def add_user(username: str, password: str, role: str = "user") -> tuple[bool, str]:
     """Adauga un utilizator nou. Returneaza (succes, mesaj)."""
+    config = get_config()
     username = username.strip()
+    role = _normalize_role(role)
     if not username or not password:
         return False, "Username si parola sunt obligatorii."
     if len(username) > 64:
@@ -273,8 +283,8 @@ def add_user(username: str, password: str, role: str = "user") -> tuple[bool, st
         return False, "Parola trebuie sa aiba cel putin 8 caractere."
     if len(password) > 256:
         return False, "Parola este prea lunga."
-    if role not in {"admin", "user"}:
-        return False, "Rol invalid. Valori acceptate: admin, user."
+    if role not in {"admin", "operator"}:
+        return False, "Rol invalid. Valori acceptate: admin, operator."
 
     try:
         users = _load_users()
@@ -285,6 +295,8 @@ def add_user(username: str, password: str, role: str = "user") -> tuple[bool, st
 
     if _find_user(users, username) is not None:
         return False, f"Utilizatorul '{username}' exista deja."
+    if len(users) >= int(config.get("max_users", 3)):
+        return False, f"Sistemul permite maximum {int(config.get('max_users', 3))} utilizatori."
 
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
     users.append({"username": username, "password_hash": password_hash, "role": role})
@@ -336,7 +348,22 @@ def list_users() -> list[dict]:
         users = _load_users()
     except Exception:
         return []
-    return [{"username": u.get("username", ""), "role": u.get("role", "user")} for u in users]
+    return [{"username": u.get("username", ""), "role": _normalize_role(u.get("role", "operator"))} for u in users]
+
+
+def get_user_role(username: str) -> str:
+    try:
+        users = _load_users()
+    except Exception:
+        return "operator"
+    user = _find_user(users, username)
+    if not user:
+        return "operator"
+    return _normalize_role(user.get("role", "operator")) or "operator"
+
+
+def is_admin(username: str) -> bool:
+    return get_user_role(username) == "admin"
 
 
 def must_change_password(username: str) -> bool:
