@@ -48,12 +48,8 @@ if __name__ == "__main__":
     # Seteaza variabilele de mediu Tcl/Tk necesare pentru GUI
     configure_tk_runtime()
 
-    # TV MODE: pornit cu flagul --tv (ex: Autoliv_Shift_Manager.exe --tv)
-    if "--tv" in sys.argv:
-        from ui.tv_mode import run_tv_mode
-        run_tv_mode()
     # WEB TV SERVER: pornit cu flagul --tv-web (serveste dashboard la http://IP:8000/tv)
-    elif "--tv-web" in sys.argv:
+    if "--tv-web" in sys.argv:
         from tv_server import start_server
         start_server()
     else:

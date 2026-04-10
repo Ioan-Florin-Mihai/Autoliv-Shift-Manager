@@ -46,7 +46,6 @@ def get_bundle_dir() -> Path:
 BASE_DIR    = get_base_path()       # Rădăcina aplicației
 BUNDLE_DIR  = get_bundle_dir()      # Fișiere PyInstaller extracted
 DATA_DIR    = BASE_DIR / "data"     # Date utilizator (users, schedule)
-EXPORT_DIR  = BASE_DIR / "Exports"  # Export Excel
 ASSETS_DIR  = BASE_DIR / "assets"   # Logo, iconuri
 BACKUP_DIR  = BASE_DIR / "backups"  # Backup-uri planificări
 
@@ -54,16 +53,9 @@ BACKUP_DIR  = BASE_DIR / "backups"  # Backup-uri planificări
 APP_DIR     = BASE_DIR
 BACKUPS_DIR = BACKUP_DIR
 
-# ── Diagnostic startup ────────────────────────────────────────
-
-print(f"[app_paths] RUN MODE:   {'EXE' if getattr(sys, 'frozen', False) else 'DEV'}")
-print(f"[app_paths] BASE_DIR:   {BASE_DIR}")
-print(f"[app_paths] DATA_DIR:   {DATA_DIR}")
-print(f"[app_paths] BUNDLE_DIR: {BUNDLE_DIR}")
-
 # ── Auto-creare directoare critice ────────────────────────────
 
-for _d in (DATA_DIR, ASSETS_DIR, EXPORT_DIR, BACKUP_DIR):
+for _d in (DATA_DIR, ASSETS_DIR, BACKUP_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 

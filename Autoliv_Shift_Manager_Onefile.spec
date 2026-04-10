@@ -37,7 +37,6 @@ hiddenimports += [
     "logic.app_paths",
     "logic.auth",
     "logic.employee_store",
-    "logic.excel_exporter",
     "logic.personnel_manager",
     "logic.runtime_bootstrap",
     "logic.schedule_store",

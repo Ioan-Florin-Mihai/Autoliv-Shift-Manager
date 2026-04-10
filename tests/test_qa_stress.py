@@ -8,11 +8,9 @@
 #   4. Auth / Login
 #   5. Data Integrity (ScheduleStore)
 #   6. Data Integrity (EmployeeStore)
-#   7. Excel Export
-#   8. Validation Module
-#   9. Edge Cases
-#  10. Error Handling / Recovery
-#  11. Multi-Run Consistency
+#   7. Validation Module
+#   8. Error Handling / Recovery
+#   9. Multi-Run Consistency
 # ============================================================
 
 import json
@@ -58,32 +56,6 @@ def users_path(tmp_path, monkeypatch):
     path.parent.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr("logic.auth.USERS_PATH", path)
     return path
-
-
-@pytest.fixture
-def week_record():
-    """A populated week record for export testing."""
-    from logic.schedule_store import ScheduleStore
-    store = ScheduleStore()
-    return store.get_or_create_week(date.today())
-
-
-@pytest.fixture
-def populated_week():
-    """Week record with employees assigned."""
-    from logic.schedule_store import DAYS, SHIFTS, _empty_week_record, get_week_start
-    w = _empty_week_record(get_week_start(date.today()))
-    dept = w["modes"]["Magazie"]["departments"][0]
-    day_name = DAYS[0][0]
-    shift = SHIFTS[0]
-    cell = w["modes"]["Magazie"]["schedule"][dept][day_name][shift]
-    cell["employees"] = ["Ion Popescu", "Maria Ionescu", "Andrei Vasile"]
-    cell["colors"] = {
-        "Ion Popescu": "#C0392B",
-        "Maria Ionescu": "#27AE60",
-        "Andrei Vasile": "#C0392B",
-    }
-    return w
 
 
 # ================================================================
@@ -293,11 +265,6 @@ class TestPortability:
         """PT-003: DATA_DIR is auto-created at import."""
         from logic.app_paths import DATA_DIR
         assert DATA_DIR.is_dir()
-
-    def test_pt004_export_dir_exists(self):
-        """PT-004: EXPORT_DIR is auto-created at import."""
-        from logic.app_paths import EXPORT_DIR
-        assert EXPORT_DIR.is_dir()
 
     def test_pt005_backup_dir_exists(self):
         """PT-005: BACKUP_DIR is auto-created at import."""
@@ -822,251 +789,7 @@ class TestEmployeeIntegrity:
 
 
 # ================================================================
-# 7. EXCEL EXPORT (EX-001 to EX-030)
-# ================================================================
-
-class TestExcelExport:
-    """EX-001..EX-030: Excel A3 export structural validation."""
-
-    @pytest.fixture(autouse=True)
-    def _export(self, week_record, tmp_path):
-        from logic.excel_exporter import ExcelExporter
-        self.export_dir = tmp_path / "Exports"
-        self.export_dir.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", self.export_dir):
-            self.path = ExcelExporter.export(week_record, "Magazie")
-        from openpyxl import load_workbook
-        self.wb = load_workbook(self.path)
-        self.ws = self.wb.active
-
-    def test_ex001_file_exists(self):
-        """EX-001: Export file is created."""
-        assert self.path.exists()
-
-    def test_ex002_file_is_xlsx(self):
-        """EX-002: File has .xlsx extension."""
-        assert self.path.suffix == ".xlsx"
-
-    def test_ex003_sheet_title_is_mode(self):
-        """EX-003: Sheet title matches mode name."""
-        assert self.ws.title == "Magazie"
-
-    def test_ex004_max_column_is_9(self):
-        """EX-004: Table has exactly 9 columns (A-I), no dead col J."""
-        assert self.ws.max_column == 9
-
-    def test_ex005_paper_size_a3(self):
-        """EX-005: Paper size is A3 (code 8)."""
-        assert int(self.ws.page_setup.paperSize) == 8
-
-    def test_ex006_orientation_landscape(self):
-        """EX-006: Orientation is landscape."""
-        assert self.ws.page_setup.orientation == self.ws.ORIENTATION_LANDSCAPE
-
-    def test_ex007_fit_to_width_1(self):
-        """EX-007: fitToWidth = 1."""
-        assert self.ws.page_setup.fitToWidth == 1
-
-    def test_ex008_fit_to_height_1(self):
-        """EX-008: fitToHeight = 1 (single page)."""
-        assert self.ws.page_setup.fitToHeight == 1
-
-    def test_ex009_header_merge_a1_i2(self):
-        """EX-009: Header merged A1:I2."""
-        merges = [str(m) for m in self.ws.merged_cells.ranges]
-        assert "A1:I2" in merges
-
-    def test_ex010_subtitle_merge_a3_i3(self):
-        """EX-010: Subtitle merged A3:I3."""
-        merges = [str(m) for m in self.ws.merged_cells.ranges]
-        assert "A3:I3" in merges
-
-    def test_ex011_no_col_j_merge(self):
-        """EX-011: No merges extend to column J."""
-        for m in self.ws.merged_cells.ranges:
-            assert "J" not in str(m)
-
-    def test_ex012_header_text_contains_mode(self):
-        """EX-012: Header contains mode name."""
-        assert "magazie" in str(self.ws["A1"].value).lower()
-
-    def test_ex013_subtitle_contains_version(self):
-        """EX-013: Subtitle contains version."""
-        from logic.version import VERSION
-        assert VERSION in str(self.ws["A3"].value)
-
-    def test_ex014_header_fill_blue(self):
-        """EX-014: Header has blue fill (0067C8)."""
-        fill = self.ws["A1"].fill
-        assert fill.fgColor and "0067C8" in str(fill.fgColor.rgb).upper()
-
-    def test_ex015_header_font_white(self):
-        """EX-015: Header font is white."""
-        color = str(self.ws["A1"].font.color.rgb).upper()
-        assert color.endswith("FFFFFF")
-
-    def test_ex016_print_area_set(self):
-        """EX-016: Print area is set."""
-        assert self.ws.print_area is not None
-        assert len(self.ws.print_area) > 0
-
-    def test_ex017_print_area_no_col_j(self):
-        """EX-017: Print area does not include column J."""
-        pa = str(self.ws.print_area)
-        # Should end with $I$<something>
-        assert "$J$" not in pa
-
-    def test_ex018_freeze_panes_c4(self):
-        """EX-018: Freeze panes at C4."""
-        assert str(self.ws.freeze_panes) == "C4"
-
-    def test_ex019_print_title_rows(self):
-        """EX-019: Print title rows set to 1:3."""
-        assert self.ws.print_title_rows in ("1:3", "$1:$3")
-
-    def test_ex020_one_image(self):
-        """EX-020: Exactly one image (logo)."""
-        assert len(self.ws._images) == 1
-
-    def test_ex021_logo_dimensions(self):
-        """EX-021: Logo is present and has positive dimensions."""
-        img = self.ws._images[0]
-        assert img.width > 0
-        assert img.height > 0
-
-    def test_ex022_margins_tight(self):
-        """EX-022: Margins are tight for A3."""
-        m = self.ws.page_margins
-        assert m.left <= 0.3
-        assert m.right <= 0.3
-
-    def test_ex023_no_gridlines(self):
-        """EX-023: Grid lines hidden."""
-        assert self.ws.sheet_view.showGridLines is False
-
-    def test_ex024_column_a_width_narrow(self):
-        """EX-024: Column A width is narrow (dept vertical)."""
-        assert self.ws.column_dimensions["A"].width <= 6
-
-    def test_ex025_day_column_width_30(self):
-        """EX-025: Day columns (C-I) are width 30."""
-        for col in "CDEFGHI":
-            assert self.ws.column_dimensions[col].width == 30
-
-    def test_ex026_all_fills_ff_alpha(self):
-        """EX-026: All PatternFills have FF alpha prefix (no 00 transparency)."""
-        for row in self.ws.iter_rows(min_row=1, max_row=self.ws.max_row):
-            for cell in row:
-                if cell.fill and cell.fill.fgColor and cell.fill.fgColor.rgb:
-                    rgb = str(cell.fill.fgColor.rgb)
-                    if rgb and len(rgb) == 8 and rgb != "00000000":
-                        assert rgb.startswith("FF"), f"Cell {cell.coordinate}: alpha not FF → {rgb}"
-
-    def test_ex027_no_cellrichtext(self):
-        """EX-027: No CellRichText objects (would cause corruption)."""
-        from openpyxl.cell.rich_text import CellRichText
-        for row in self.ws.iter_rows(min_row=4, max_row=self.ws.max_row):
-            for cell in row:
-                assert not isinstance(cell.value, CellRichText)
-
-    def test_ex028_department_merge_exists(self):
-        """EX-028: Department cells are merged vertically."""
-        merges = [str(m) for m in self.ws.merged_cells.ranges]
-        dept_merges = [m for m in merges if m.startswith("A") and "I" not in m]
-        assert len(dept_merges) >= 6  # Magazie has 6 departments
-
-    def test_ex029_footer_set(self):
-        """EX-029: Footer is configured."""
-        assert self.ws.oddFooter.left.text is not None
-        assert "Autoliv" in self.ws.oddFooter.left.text
-
-    def test_ex030_subtitle_fill_navy(self):
-        """EX-030: Subtitle row has navy fill."""
-        fill = self.ws["A3"].fill
-        assert fill.fgColor and "1A4A80" in str(fill.fgColor.rgb).upper()
-
-
-# ================================================================
-# 7b. EXCEL EXPORT — POPULATED DATA (EP-001 to EP-008)
-# ================================================================
-
-class TestExcelExportPopulated:
-    """EP-001..EP-008: Export with actual employee data."""
-
-    @pytest.fixture(autouse=True)
-    def _export(self, populated_week, tmp_path):
-        from logic.excel_exporter import ExcelExporter
-        self.export_dir = tmp_path / "Exports"
-        self.export_dir.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", self.export_dir):
-            self.path = ExcelExporter.export(populated_week, "Magazie")
-        from openpyxl import load_workbook
-        self.wb = load_workbook(self.path)
-        self.ws = self.wb.active
-
-    def test_ep001_employees_in_cells(self):
-        """EP-001: Employee names appear in exported cells."""
-        found = False
-        for row in self.ws.iter_rows(min_row=4, max_row=self.ws.max_row):
-            for cell in row:
-                if cell.value and "Ion Popescu" in str(cell.value):
-                    found = True
-        assert found
-
-    def test_ep002_hours_prefix(self):
-        """EP-002: Employee names prefixed with hours fallback text."""
-        for row in self.ws.iter_rows(min_row=4, max_row=self.ws.max_row):
-            for cell in row:
-                if cell.value and "Ion Popescu" in str(cell.value):
-                    assert "\u25cf 12 Ion Popescu" in str(cell.value)
-                    assert "\u25cf" in str(cell.value)
-
-    def test_ep003_font_color_is_argb(self):
-        """EP-003: Font colors are 8-char ARGB."""
-        for row in self.ws.iter_rows(min_row=4, max_row=self.ws.max_row):
-            for cell in row:
-                if cell.value and "Ion Popescu" in str(cell.value):
-                    color = str(cell.font.color.rgb)
-                    assert len(color) == 8
-                    assert color.startswith("FF")
-
-    def test_ep004_cell_fill_white(self):
-        """EP-004: Employee cells have white fill."""
-        for row in self.ws.iter_rows(min_row=4, max_row=self.ws.max_row):
-            for cell in row:
-                if cell.value and "Ion Popescu" in str(cell.value):
-                    assert "FFFFFF" in str(cell.fill.fgColor.rgb).upper()
-
-    def test_ep005_multi_employee_newlines(self):
-        """EP-005: Multiple employees separated by newlines."""
-        for row in self.ws.iter_rows(min_row=4, max_row=self.ws.max_row):
-            for cell in row:
-                if cell.value and "Ion Popescu" in str(cell.value):
-                    assert "\n" in str(cell.value)
-                    assert "Maria Ionescu" in str(cell.value)
-
-    def test_ep006_file_opens_without_exception(self):
-        """EP-006: File loads with openpyxl without exception."""
-        from openpyxl import load_workbook
-        wb = load_workbook(self.path)
-        assert wb.active is not None
-
-    def test_ep007_max_column_still_9(self):
-        """EP-007: Populated export still has 9 columns max."""
-        assert self.ws.max_column == 9
-
-    def test_ep008_dept_header_row_has_day_labels(self):
-        """EP-008: Department header row contains day names."""
-        found_luni = False
-        for row in self.ws.iter_rows(min_row=4, max_row=self.ws.max_row):
-            for cell in row:
-                if cell.value and "Luni" in str(cell.value):
-                    found_luni = True
-        assert found_luni
-
-
-# ================================================================
-# 8. VALIDATION MODULE (VL-001 to VL-012)
+# 7. VALIDATION MODULE (VL-001 to VL-012)
 # ================================================================
 
 class TestValidation:
@@ -1129,153 +852,7 @@ class TestValidation:
 
 
 # ================================================================
-# 9. EDGE CASES (EC-001 to EC-015)
-# ================================================================
-
-class TestEdgeCases:
-    """EC-001..EC-015: Boundary conditions, stress scenarios."""
-
-    def test_ec001_empty_schedule_export(self, week_record, tmp_path):
-        """EC-001: Exporting empty schedule does not crash."""
-        from logic.excel_exporter import ExcelExporter
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(week_record, "Magazie")
-        assert path.exists()
-
-    def test_ec002_many_employees_one_cell(self, tmp_path):
-        """EC-002: Cell with 20 employees does not crash."""
-        from logic.excel_exporter import ExcelExporter
-        from logic.schedule_store import _empty_week_record, get_week_start
-        w = _empty_week_record(get_week_start(date.today()))
-        dept = w["modes"]["Magazie"]["departments"][0]
-        cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
-        cell["employees"] = [f"Employee_{i}" for i in range(20)]
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(w, "Magazie")
-        assert path.exists()
-
-    def test_ec003_long_employee_name(self, tmp_path):
-        """EC-003: Employee with very long name does not crash."""
-        from logic.excel_exporter import ExcelExporter
-        from logic.schedule_store import _empty_week_record, get_week_start
-        w = _empty_week_record(get_week_start(date.today()))
-        dept = w["modes"]["Magazie"]["departments"][0]
-        cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
-        cell["employees"] = ["A" * 100]
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(w, "Magazie")
-        assert path.exists()
-
-    def test_ec004_special_chars_in_name(self, tmp_path):
-        """EC-004: Special characters in name handled correctly."""
-        from logic.excel_exporter import ExcelExporter
-        from logic.schedule_store import _empty_week_record, get_week_start
-        w = _empty_week_record(get_week_start(date.today()))
-        dept = w["modes"]["Magazie"]["departments"][0]
-        cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
-        cell["employees"] = ["Ștefan Pîrvu-Dăescu", "José García", "François Müller"]
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(w, "Magazie")
-        from openpyxl import load_workbook
-        wb = load_workbook(path)
-        ws = wb.active
-        found = False
-        for row in ws.iter_rows():
-            for cell_obj in row:
-                if cell_obj.value and "Ștefan" in str(cell_obj.value):
-                    found = True
-        assert found
-
-    def test_ec005_export_bucle_mode(self, tmp_path):
-        """EC-005: Exporting Bucle mode works correctly."""
-        from logic.excel_exporter import ExcelExporter
-        from logic.schedule_store import _empty_week_record, get_week_start
-        w = _empty_week_record(get_week_start(date.today()))
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(w, "Bucle")
-        from openpyxl import load_workbook
-        wb = load_workbook(path)
-        assert wb.active.title == "Bucle"
-
-    def test_ec006_no_logo_no_crash(self, week_record, tmp_path):
-        """EC-006: Missing logo does not crash export."""
-        from logic.excel_exporter import ExcelExporter
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(week_record, "Magazie", logo_path=Path("/nonexistent/logo.png"))
-        assert path.exists()
-
-    def test_ec007_color_map_all_valid_hex(self):
-        """EC-007: All COLOR_MAP values are valid 6-char hex."""
-        from logic.excel_exporter import COLOR_MAP
-        for key, val in COLOR_MAP.items():
-            assert len(val) == 6
-            assert all(c in "0123456789ABCDEFabcdef" for c in val)
-
-    def test_ec008_cell_text_empty_list(self):
-        """EC-008: _cell_text_and_color with empty list returns empty."""
-        from logic.excel_exporter import _cell_text_and_color
-        text, color = _cell_text_and_color([], {})
-        assert text == ""
-
-    def test_ec009_cell_text_single_employee(self):
-        """EC-009: Single employee returns hours-prefixed text."""
-        from logic.excel_exporter import _cell_text_and_color
-        text, color = _cell_text_and_color(["Ion"], {"Ion": "#C0392B"})
-        assert "Ion" in text
-        assert text == "\u25cf 12 Ion"
-
-    def test_ec010_cell_text_mixed_colors_uses_default(self):
-        """EC-010: Mixed colors → default dark color."""
-        from logic.excel_exporter import DEFAULT_TEXT_COLOR, _cell_text_and_color
-        text, color = _cell_text_and_color(
-            ["A", "B"], {"A": "#C0392B", "B": "#27AE60"}
-        )
-        assert color == "FF" + DEFAULT_TEXT_COLOR
-
-    def test_ec011_cell_text_same_color_uses_it(self):
-        """EC-011: Same color for all → that color used."""
-        from logic.excel_exporter import _cell_text_and_color
-        text, color = _cell_text_and_color(
-            ["A", "B"], {"A": "#C0392B", "B": "#C0392B"}
-        )
-        assert color == "FFC0392B"
-
-    def test_ec012_to_argb_hash_prefix_stripped(self):
-        """EC-012: _to_argb strips # prefix correctly."""
-        from logic.excel_exporter import _to_argb
-        assert _to_argb("#C0392B") == "FFC0392B"
-
-    def test_ec013_to_argb_none_returns_default(self):
-        """EC-013: _to_argb(None) returns default."""
-        from logic.excel_exporter import DEFAULT_TEXT_COLOR, _to_argb
-        assert _to_argb(None) == "FF" + DEFAULT_TEXT_COLOR
-
-    def test_ec014_to_argb_invalid_hex_returns_default(self):
-        """EC-014: _to_argb('XYZ') returns default."""
-        from logic.excel_exporter import DEFAULT_TEXT_COLOR, _to_argb
-        assert _to_argb("XYZ") == "FF" + DEFAULT_TEXT_COLOR
-
-    def test_ec015_fill_helper_ff_prefix(self):
-        """EC-015: _fill always produces FF alpha."""
-        from logic.excel_exporter import _fill
-        fill = _fill("C0392B")
-        assert str(fill.fgColor.rgb).startswith("FF")
-
-
-# ================================================================
-# 10. ERROR HANDLING / RECOVERY (EH-001 to EH-010)
+# 8. ERROR HANDLING / RECOVERY (EH-001 to EH-010)
 # ================================================================
 
 class TestErrorHandling:
@@ -1338,36 +915,6 @@ class TestErrorHandling:
             assert ok is False
             assert "eroare" in msg.lower()
 
-    def test_eh005_export_with_none_colors(self, tmp_path):
-        """EH-005: Export handles None in colors dict."""
-        from logic.excel_exporter import ExcelExporter
-        from logic.schedule_store import _empty_week_record, get_week_start
-        w = _empty_week_record(get_week_start(date.today()))
-        dept = w["modes"]["Magazie"]["departments"][0]
-        cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
-        cell["employees"] = ["Ion"]
-        cell["colors"] = {"Ion": None}
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(w, "Magazie")
-        assert path.exists()
-
-    def test_eh006_export_missing_color_key(self, tmp_path):
-        """EH-006: Export handles employee without color entry."""
-        from logic.excel_exporter import ExcelExporter
-        from logic.schedule_store import _empty_week_record, get_week_start
-        w = _empty_week_record(get_week_start(date.today()))
-        dept = w["modes"]["Magazie"]["departments"][0]
-        cell = w["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
-        cell["employees"] = ["Ion"]
-        cell["colors"] = {}  # no color entry for Ion
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(w, "Magazie")
-        assert path.exists()
-
     def test_eh007_rotate_backups_limits_count(self, tmp_path, monkeypatch):
         """EH-007: Backup rotation keeps only max_backups files."""
         path = tmp_path / "data" / "schedule_data.json"
@@ -1388,49 +935,12 @@ class TestErrorHandling:
         remaining = list(backup_dir.glob("schedule_backup_*.json"))
         assert len(remaining) <= 5
 
-    def test_eh008_cell_text_no_colors_dict(self):
-        """EH-008: _cell_text_and_color with None colors dict."""
-        from logic.excel_exporter import _cell_text_and_color
-        text, color = _cell_text_and_color(["A"], None)
-        assert "A" in text
-
-    def test_eh009_cell_text_case_insensitive_lookup(self):
-        """EH-009: Color lookup is case-insensitive."""
-        from logic.excel_exporter import _cell_text_and_color
-        text, color = _cell_text_and_color(["Ion POPESCU"], {"ion popescu": "#C0392B"})
-        assert color == "FFC0392B"
-
-    def test_eh010_export_invalid_logo_path(self, week_record, tmp_path):
-        """EH-010: Invalid logo path logs error but doesn't crash."""
-        from logic.excel_exporter import ExcelExporter
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            path = ExcelExporter.export(week_record, "Magazie", logo_path=Path("/bad/path.png"))
-        assert path.exists()
-
-
 # ================================================================
-# 11. MULTI-RUN CONSISTENCY (MR-001 to MR-010)
+# 9. MULTI-RUN CONSISTENCY (MR-001 to MR-010)
 # ================================================================
 
 class TestMultiRunConsistency:
     """MR-001..MR-010: Repeated operations produce consistent results."""
-
-    def test_mr001_double_export_same_structure(self, week_record, tmp_path):
-        """MR-001: Two exports of same data have same column count."""
-        from openpyxl import load_workbook
-
-        from logic.excel_exporter import ExcelExporter
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            p1 = ExcelExporter.export(week_record, "Magazie")
-            p2 = ExcelExporter.export(week_record, "Magazie")
-        wb1 = load_workbook(p1)
-        wb2 = load_workbook(p2)
-        assert wb1.active.max_column == wb2.active.max_column
-        assert wb1.active.max_row == wb2.active.max_row
 
     def test_mr002_reload_schedule_consistent(self, schedule_store):
         """MR-002: Save + reload returns same data."""
@@ -1458,19 +968,6 @@ class TestMultiRunConsistency:
         for _ in range(3):
             assert verify_login("admin", "wrong") is False
 
-    def test_mr005_export_both_modes(self, tmp_path):
-        """MR-005: Exporting both modes produces 2 valid files."""
-        from logic.excel_exporter import ExcelExporter
-        from logic.schedule_store import _empty_week_record, get_week_start
-        w = _empty_week_record(get_week_start(date.today()))
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            p1 = ExcelExporter.export(w, "Magazie")
-            p2 = ExcelExporter.export(w, "Bucle")
-        assert p1.exists() and p2.exists()
-        assert p1 != p2
-
     def test_mr006_save_load_save_load(self, schedule_store):
         """MR-006: Multiple save/load cycles preserve data."""
         for i in range(3):
@@ -1497,28 +994,6 @@ class TestMultiRunConsistency:
         w2 = schedule_store.get_or_create_week(today)
         w3 = schedule_store.get_or_create_week(today)
         assert w1["week_start"] == w2["week_start"] == w3["week_start"]
-
-    def test_mr008_color_helpers_idempotent(self):
-        """MR-008: Color helpers give same result on repeated calls."""
-        from logic.excel_exporter import _fill, _to_argb
-        for _ in range(10):
-            assert _to_argb("#C0392B") == "FFC0392B"
-            assert str(_fill("FFFFFF").fgColor.rgb) == "FFFFFFFF"
-
-    def test_mr009_export_dimensions_stable(self, week_record, tmp_path):
-        """MR-009: Same data → same dimensions across exports."""
-        from openpyxl import load_workbook
-
-        from logic.excel_exporter import ExcelExporter
-        d = tmp_path / "Exports"
-        d.mkdir(parents=True, exist_ok=True)
-        dims = []
-        with patch("logic.excel_exporter.EXPORT_DIR", d):
-            for _ in range(3):
-                p = ExcelExporter.export(week_record, "Magazie")
-                wb = load_workbook(p)
-                dims.append(wb.active.dimensions)
-        assert len(set(dims)) == 1  # all same
 
     def test_mr010_schedule_constants_immutable(self):
         """MR-010: Module-level constants are consistent."""
