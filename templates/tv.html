@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autoliv — Shift Manager</title>
+  <link rel="stylesheet" href="/static/tv.css">
+</head>
+<body>
+
+  <!-- ── TOP BAR ── -->
+  <header id="topbar">
+    <div id="topbar-logo">AUTOLIV</div>
+    <div id="topbar-dept">—</div>
+    <div id="topbar-week">—</div>
+    <div id="topbar-clock">00:00:00</div>
+  </header>
+
+  <!-- ── MAIN GRID AREA ── -->
+  <main id="main">
+    <div id="grid-wrap">
+      <!-- populated by tv.js -->
+    </div>
+  </main>
+
+  <!-- ── FOOTER ── -->
+  <footer id="footer">
+    <span id="footer-legend"><span class="dot-12h">●</span> 12h schimb</span>
+    <span id="footer-mode">—</span>
+    <span id="dept-dots"></span>
+  </footer>
+
+  <script src="/static/tv.js"></script>
+</body>
+</html>

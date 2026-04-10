@@ -52,6 +52,10 @@ if __name__ == "__main__":
     if "--tv" in sys.argv:
         from ui.tv_mode import run_tv_mode
         run_tv_mode()
+    # WEB TV SERVER: pornit cu flagul --tv-web (serveste dashboard la http://IP:8000/tv)
+    elif "--tv-web" in sys.argv:
+        from tv_server import start_server
+        start_server()
     else:
         # Importa și porneste aplicația după bootstrapping cu succes
         from ui.dashboard import run_app
