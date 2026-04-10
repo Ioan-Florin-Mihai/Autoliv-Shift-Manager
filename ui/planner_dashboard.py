@@ -46,7 +46,7 @@ OUTER_PAD = 16
 SECTION_GAP = 24
 SECTION_INNER_GAP = 8
 LEFT_PANEL_WIDTH = 290
-RIGHT_PANEL_WIDTH = 350
+RIGHT_PANEL_WIDTH = 400
 PRIMARY_BUTTON_HEIGHT = 44
 SECONDARY_BUTTON_HEIGHT = 32
 UTILITY_BUTTON_HEIGHT = 30
@@ -642,7 +642,7 @@ class PlannerDashboard(ctk.CTkFrame):
         frame.grid_rowconfigure(3, weight=2)
 
         context_section = ctk.CTkFrame(frame, fg_color="transparent")
-        context_section.grid(row=0, column=0, sticky="nsew", padx=OUTER_PAD, pady=(OUTER_PAD, SECTION_GAP))
+        context_section.grid(row=0, column=0, sticky="nsew", padx=20, pady=(OUTER_PAD, SECTION_GAP))
         context_section.grid_columnconfigure(0, weight=1)
         context_section.grid_rowconfigure(5, weight=1)
         self._create_section_label(context_section, "CONTEXT").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
@@ -680,12 +680,12 @@ class PlannerDashboard(ctk.CTkFrame):
         self.cell_meta = ctk.CTkLabel(context_section, text="", text_color=MUTED_TEXT, justify="left")
         self.cell_meta.grid(row=3, column=0, sticky="w", pady=(2, SECTION_INNER_GAP))
         ctk.CTkLabel(context_section, text="Angajati in celula", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=4, column=0, sticky="w", pady=(0, 4))
-        self.assignment_frame = ctk.CTkScrollableFrame(context_section, width=330, fg_color=PANEL_BG)
+        self.assignment_frame = ctk.CTkScrollableFrame(context_section, width=370, fg_color=PANEL_BG)
         self.assignment_frame.grid(row=5, column=0, sticky="nsew")
         context_section.grid_rowconfigure(5, weight=1)
 
         quick_add_section = ctk.CTkFrame(frame, fg_color="transparent")
-        quick_add_section.grid(row=1, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
+        quick_add_section.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, SECTION_GAP))
         quick_add_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(quick_add_section, "QUICK ADD").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         entry = ctk.CTkEntry(
@@ -714,29 +714,13 @@ class PlannerDashboard(ctk.CTkFrame):
             corner_radius=12,
             font=ctk.CTkFont(size=14, weight="bold"),
         ).grid(row=2, column=0, sticky="ew")
-        # ── Absențe rapide: CO / CM / ABSENT ──
-        absence_row = ctk.CTkFrame(quick_add_section, fg_color="transparent")
-        absence_row.grid(row=3, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
-        absence_row.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkLabel(
-            absence_row, text="Absențe rapide:",
-            text_color=MUTED_TEXT, font=ctk.CTkFont(size=11),
-        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
-        for _idx, _abs_type in enumerate(ABSENCE_TYPES):
-            _color = ABSENCE_COLORS[_abs_type]
-            ctk.CTkButton(
-                absence_row, text=_abs_type, width=60, height=26,
-                corner_radius=8, fg_color=_color, hover_color=_color,
-                text_color="white", font=ctk.CTkFont(size=11, weight="bold"),
-                command=lambda at=_abs_type: self._quick_add_absence(at),
-            ).grid(row=1, column=_idx, sticky="ew", padx=2)
 
         more_actions_section = ctk.CTkFrame(frame, fg_color="transparent")
-        more_actions_section.grid(row=2, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
+        more_actions_section.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, SECTION_GAP))
         more_actions_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(more_actions_section, "MORE ACTIONS").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
-        self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=SECONDARY_BUTTON_HEIGHT).grid(row=1, column=0, sticky="ew", pady=(0, 6))
-        self._create_secondary_button(more_actions_section, "Redenumește", self.rename_employee_global, height=SECONDARY_BUTTON_HEIGHT).grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=SECONDARY_BUTTON_HEIGHT).grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        self._create_secondary_button(more_actions_section, "Redenumește", self.rename_employee_global, height=SECONDARY_BUTTON_HEIGHT).grid(row=2, column=0, sticky="ew", pady=(0, 8))
         ctk.CTkButton(
             more_actions_section,
             text="Șterge global",
@@ -750,11 +734,11 @@ class PlannerDashboard(ctk.CTkFrame):
         ).grid(row=3, column=0, sticky="ew")
 
         suggestions_section = ctk.CTkFrame(frame, fg_color="transparent")
-        suggestions_section.grid(row=3, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
+        suggestions_section.grid(row=3, column=0, sticky="nsew", padx=20, pady=(0, OUTER_PAD))
         suggestions_section.grid_columnconfigure(0, weight=1)
         suggestions_section.grid_rowconfigure(1, weight=1)
         self._create_section_label(suggestions_section, "SUGESTII").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
-        self.suggestion_frame = ctk.CTkScrollableFrame(suggestions_section, width=330, fg_color=PANEL_BG)
+        self.suggestion_frame = ctk.CTkScrollableFrame(suggestions_section, width=370, fg_color=PANEL_BG)
         self.suggestion_frame.grid(row=1, column=0, sticky="nsew")
 
     def show_inline_message(self, message: str, is_error=False):
@@ -1074,7 +1058,7 @@ class PlannerDashboard(ctk.CTkFrame):
                 border_color=current_color if current_color else LINE_BLUE,
                 corner_radius=10,
             )
-            card.pack(fill="x", padx=4, pady=4)
+            card.pack(fill="x", padx=4, pady=5)
 
             # Randul de sus: indicator culoare + nume + butoane actiune
             top_row = ctk.CTkFrame(card, fg_color="transparent")
@@ -1088,7 +1072,7 @@ class PlannerDashboard(ctk.CTkFrame):
                 top_row,
                 text=shown_name,
                 text_color=EMPLOYEE_NAME_TEXT,
-                font=ctk.CTkFont(size=14, weight="bold"),
+                font=ctk.CTkFont(size=15, weight="bold"),
                 anchor="w",
             )
             name_label.grid(row=0, column=1, sticky="ew")
