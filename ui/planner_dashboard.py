@@ -1,5 +1,4 @@
 import json
-import threading
 import tkinter as tk
 import tkinter.messagebox as messagebox
 import urllib.error
@@ -10,9 +9,8 @@ from queue import Empty, Queue
 import customtkinter as ctk
 
 from logic.app_config import get_config
-from logic.audit_logger import log_event
-from logic.audit_logger import read_recent_events
 from logic.app_logger import log_exception
+from logic.audit_logger import log_event, read_recent_events
 from logic.employee_store import EmployeeStore
 from logic.remote_control import RemoteChecker, RemoteControlService
 from logic.schedule_store import (
@@ -39,7 +37,7 @@ from ui.common_ui import (
 
 ACCENT_BLUE = "#0067C8"
 SOFT_BLUE = "#DCEBFA"
-WEEKEND_BG = ("#FFE9CC", "#4A3A28")
+WEEKEND_BG = ("#DDF7F1", "#1F4F4C")
 SELECTED_BG = ("#D2E7FF", "#1C4268")
 GRID_CELL_BG = ("#FFFFFF", "#2A2A2A")
 SUGGESTION_BG = ("#D9E6F5", "#1E3A5F")
@@ -70,9 +68,9 @@ DANGER_RED_HOVER = "#A93226"
 SUBTLE_HINT_TEXT = ("#93A5B8", "#6D8092")
 CELL_MIN_HEIGHT = 204
 GRID_BORDER_LIGHT = "#D8E1EB"
-GRID_BORDER_DARK = "#4A5C70"
+GRID_BORDER_DARK = "#6C88A6"
 GRID_HOVER_LIGHT = "#98B8D9"
-GRID_HOVER_DARK = "#6A7F97"
+GRID_HOVER_DARK = "#8FAFD1"
 HOURS_COLOR_MAP = {"8h": "#1A1A1A", "12h": "#C0392B"}
 BADGE_WIDTH = 24
 BADGE_HEIGHT = 24
@@ -473,6 +471,11 @@ class PlannerDashboard(ctk.CTkFrame):
         selected = "#8EB8E5" if is_dark else PRIMARY_BLUE[0]
         return normal, hover, selected
 
+    def _grid_border_width(self, is_selected: bool = False) -> int:
+        if is_selected:
+            return 2
+        return 2 if ctk.get_appearance_mode() == "Dark" else 1
+
     def _apply_cell_frame_style(self, day_name: str, shift: str, hover: bool = False):
         frame = self._grid_cell_frames.get((day_name, shift))
         if not frame or not frame.winfo_exists():
@@ -489,7 +492,7 @@ class PlannerDashboard(ctk.CTkFrame):
         else:
             fg_color = GRID_CELL_BG
             border_color = hover_border if hover else normal_border
-        frame.configure(fg_color=fg_color, border_width=2 if is_selected else 1, border_color=border_color)
+        frame.configure(fg_color=fg_color, border_width=self._grid_border_width(is_selected), border_color=border_color)
         canvas = self._grid_cell_canvases.get((day_name, shift))
         if canvas:
             resolved = self._resolve_theme_color(fg_color)
@@ -980,7 +983,7 @@ class PlannerDashboard(ctk.CTkFrame):
                     self.grid_frame,
                     fg_color=cell_bg,
                     corner_radius=14,
-                    border_width=2 if is_selected else 1,
+                    border_width=self._grid_border_width(is_selected),
                     border_color=border_color_active,
                     width=150,
                     height=CELL_MIN_HEIGHT,
