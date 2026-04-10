@@ -48,10 +48,15 @@ if __name__ == "__main__":
     # Seteaza variabilele de mediu Tcl/Tk necesare pentru GUI
     configure_tk_runtime()
 
-    # Importa și porneste aplicația după bootstrapping cu succes
-    from ui.dashboard import run_app
-    try:
-        run_app()
-    except Exception:
-        traceback.print_exc()
-        input("EROARE - Apasa Enter pentru a inchide...")
+    # TV MODE: pornit cu flagul --tv (ex: Autoliv_Shift_Manager.exe --tv)
+    if "--tv" in sys.argv:
+        from ui.tv_mode import run_tv_mode
+        run_tv_mode()
+    else:
+        # Importa și porneste aplicația după bootstrapping cu succes
+        from ui.dashboard import run_app
+        try:
+            run_app()
+        except Exception:
+            traceback.print_exc()
+            input("EROARE - Apasa Enter pentru a inchide...")

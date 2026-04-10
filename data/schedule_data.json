@@ -2400,19 +2400,23 @@
       "modes": {
         "Magazie": {
           "departments": [
-            "Sef Schimb",
-            "Receptii",
-            "Livrari",
-            "Etichetare Scanare",
+            "Sef schimb",
             "Retragere finite",
-            "Balotare Ambalare"
+            "Balotare ambalare",
+            "Etichetare scanare",
+            "Livrari",
+            "Receptii"
           ],
           "schedule": {
-            "Sef Schimb": {
+            "Sef schimb": {
               "Luni": {
                 "Sch1": {
-                  "employees": [],
-                  "colors": {}
+                  "employees": [
+                    "Munteanu M"
+                  ],
+                  "colors": {
+                    "Munteanu M": "#1A1A1A"
+                  }
                 },
                 "Sch2": {
                   "employees": [],
@@ -2708,7 +2712,7 @@
                 }
               }
             },
-            "Etichetare Scanare": {
+            "Etichetare scanare": {
               "Luni": {
                 "Sch1": {
                   "employees": [],
@@ -2908,7 +2912,7 @@
                 }
               }
             },
-            "Balotare Ambalare": {
+            "Balotare ambalare": {
               "Luni": {
                 "Sch1": {
                   "employees": [],
@@ -3012,16 +3016,17 @@
         },
         "Bucle": {
           "departments": [
-            "BUCLA RA + RB",
-            "BUCLA TA + TB",
+            "BUCLA 01",
             "BUCLA 02",
             "BUCLA 03",
             "BUCLA 04",
-            "BUCLA 05 + 07",
+            "BUCLA 05",
+            "BUCLA TA+TB",
+            "BUCLA RA+RB",
             "Ambalaje"
           ],
           "schedule": {
-            "BUCLA RA + RB": {
+            "BUCLA RA+RB": {
               "Luni": {
                 "Sch1": {
                   "employees": [],
@@ -3121,7 +3126,7 @@
                 }
               }
             },
-            "BUCLA TA + TB": {
+            "BUCLA TA+TB": {
               "Luni": {
                 "Sch1": {
                   "employees": [],
@@ -3521,7 +3526,7 @@
                 }
               }
             },
-            "BUCLA 05 + 07": {
+            "BUCLA 05": {
               "Luni": {
                 "Sch1": {
                   "employees": [],
@@ -3720,11 +3725,112 @@
                   "colors": {}
                 }
               }
+            },
+            "BUCLA 01": {
+              "Luni": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Marti": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Miercuri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Joi": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Vineri": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Sambata": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              },
+              "Duminica": {
+                "Sch1": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch2": {
+                  "employees": [],
+                  "colors": {}
+                },
+                "Sch3": {
+                  "employees": [],
+                  "colors": {}
+                }
+              }
             }
           }
         }
       },
-      "updated_at": "2026-04-07T08:22:45"
+      "updated_at": "2026-04-10T12:04:03",
+      "locked": false
     }
   }
 }

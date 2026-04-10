@@ -1,7 +1,6 @@
 import threading
 import tkinter as tk
 import tkinter.messagebox as messagebox
-from copy import deepcopy
 from datetime import date, datetime, timedelta
 from queue import Empty, Queue
 
@@ -9,7 +8,6 @@ import customtkinter as ctk
 
 from logic.app_logger import log_exception
 from logic.employee_store import EmployeeStore
-from logic.excel_exporter import ExcelExporter
 from logic.remote_control import RemoteChecker, RemoteControlService
 from logic.schedule_store import (
     DAY_NAMES,
@@ -27,7 +25,6 @@ from ui.common_ui import (
     CARD_WHITE,
     ENTRY_BG,
     LINE_BLUE,
-    LOGO_PATH,
     MUTED_TEXT,
     PANEL_BG,
     PRIMARY_BLUE,
@@ -205,7 +202,7 @@ class PlannerDashboard(ctk.CTkFrame):
 
         self._build_ui()
         self.bind_all("<Control-z>", lambda _e: self.undo())
-        self.refresh_all()
+        self.after(50, self.refresh_all)
         self.remote_checker.start()
         self.after(1000, self.process_remote_events)
 
@@ -427,7 +424,7 @@ class PlannerDashboard(ctk.CTkFrame):
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, PANEL_GAP))
         frame.grid_propagate(False)
         frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(3, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
 
         plan_section = ctk.CTkFrame(frame, fg_color="transparent")
         plan_section.grid(row=0, column=0, sticky="ew", padx=OUTER_PAD, pady=(OUTER_PAD, SECTION_GAP))
@@ -502,40 +499,9 @@ class PlannerDashboard(ctk.CTkFrame):
             font=ctk.CTkFont(size=11, weight="bold"),
         )
         self._lock_button.grid(row=4, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
-        export_section = ctk.CTkFrame(frame, fg_color="transparent")
-        export_section.grid(row=2, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
-        export_section.grid_columnconfigure(0, weight=1)
-        self._create_section_label(export_section, "EXPORT").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
-        self._create_secondary_button(export_section, "Export A3", self.export_excel).grid(row=1, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
-        printer_header = ctk.CTkFrame(export_section, fg_color="transparent")
-        printer_header.grid(row=2, column=0, sticky="ew", pady=(0, 4))
-        printer_header.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(printer_header, text="Imprimanta:", text_color=MUTED_TEXT, font=ctk.CTkFont(size=13)).grid(row=0, column=0, sticky="w")
-        self._create_utility_button(printer_header, "↻ Refresh", self.load_printers, width=82, height=24, font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=1, sticky="e")
-
-        self.printer_var = ctk.StringVar(value="")
-        self.printer_menu = ctk.CTkOptionMenu(
-            export_section,
-            variable=self.printer_var,
-            values=[""],
-            fg_color=SECONDARY_BUTTON_FG,
-            button_color=SECONDARY_BUTTON_HOVER,
-            button_hover_color=HOVER_BLUE,
-            text_color=UTILITY_BUTTON_TEXT,
-            dropdown_fg_color=CARD_WHITE,
-            dropdown_text_color=BODY_TEXT,
-            dynamic_resizing=False,
-        )
-        self.printer_menu.grid(row=3, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
-        self._create_secondary_button(export_section, "Printează A3", self.print_excel).grid(row=4, column=0, sticky="ew")
-        self._create_secondary_button(
-            export_section, "Export ambele moduri", self.export_all_modes_ui,
-        ).grid(row=5, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
-
-        self.after(200, self.load_printers)  # incarca imprimantele la pornire
 
         structure_section = ctk.CTkFrame(frame, fg_color="transparent")
-        structure_section.grid(row=3, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
+        structure_section.grid(row=2, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
         structure_section.grid_columnconfigure(0, weight=1)
         structure_section.grid_rowconfigure(4, weight=1)
         self._create_section_label(structure_section, "STRUCTURE").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
@@ -561,7 +527,7 @@ class PlannerDashboard(ctk.CTkFrame):
         structure_section.grid_rowconfigure(5, weight=1)
 
         settings_section = ctk.CTkFrame(frame, fg_color="transparent")
-        settings_section.grid(row=4, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
+        settings_section.grid(row=3, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
         settings_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(settings_section, "SETTINGS").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         self.theme_switch = ctk.CTkSwitch(settings_section, text="Dark Mode", command=self.toggle_theme, onvalue="Dark", offvalue="Light")
@@ -1460,101 +1426,6 @@ class PlannerDashboard(ctk.CTkFrame):
             log_exception("save_week", exc)
             self.show_inline_message("A apărut o eroare la salvare.", is_error=True)
 
-    # ── Gestionare imprimante ──────────────────────────────────
-
-    def load_printers(self):
-        """Porneste descoperirea imprimantelor in background (non-blocant)."""
-        self.printer_var.set("Se incarca...")
-        threading.Thread(target=self._discover_printers, daemon=True).start()
-
-    def _discover_printers(self):
-        """Rulat in thread background — fara acces la UI."""
-        printers = []
-        default  = ""
-        try:
-            import win32print
-            printers = [p[2] for p in win32print.EnumPrinters(
-                win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
-            )]
-            try:
-                default = win32print.GetDefaultPrinter()
-            except Exception:
-                pass
-        except ImportError:
-            try:
-                import subprocess
-                result = subprocess.run(
-                    ["powershell", "-Command",
-                     "Get-Printer | Select-Object -ExpandProperty Name"],
-                    capture_output=True, text=True, timeout=5
-                )
-                printers = [p.strip() for p in result.stdout.splitlines() if p.strip()]
-            except Exception:
-                pass
-        except Exception:
-            pass
-        # Actualizare UI — garantat pe main thread
-        self.after(0, lambda: self._apply_printers(printers, default))
-
-    def _apply_printers(self, printers: list, default: str):
-        """Actualizare UI cu lista de imprimante (rulat pe main thread)."""
-        if not printers:
-            printers = ["(nicio imprimanta gasita)"]
-        self.printer_menu.configure(values=printers)
-        if default and default in printers:
-            self.printer_var.set(default)
-        else:
-            self.printer_var.set(printers[0])
-
-    def print_excel(self):
-        """
-        Salveaza, exporta fisierul xlsx si trimite direct la imprimanta selectata.
-        """
-        selected_printer = self.printer_var.get()
-        if not selected_printer or selected_printer == "(nicio imprimanta gasita)":
-            messagebox.showwarning("Imprimanta", "Selecteaza o imprimanta din lista.")
-            return
-
-        # 1. Salveaza saptamana
-        self.save_week()
-
-        # 2. Exporta fisierul xlsx
-        try:
-            export_path = self._export_mode()
-        except Exception as exc:
-            log_exception("print_excel_export", exc)
-            messagebox.showerror("Eroare export", str(exc))
-            return
-
-        if export_path is None:
-            return
-
-        # 3. Trimite la imprimanta
-        try:
-            import win32api
-            win32api.ShellExecute(
-                0, "print", str(export_path),
-                f'/d:"{selected_printer}"',
-                ".", 0
-            )
-            self.show_inline_message(f"Trimis la: {selected_printer}")
-        except ImportError:
-            # Fallback: deschide cu handler-ul default si printare sistem
-            import subprocess
-            try:
-                subprocess.Popen(
-                    ["powershell", "-Command",
-                     f'Start-Process -FilePath "{export_path}" -Verb Print'],
-                    shell=False
-                )
-                self.show_inline_message(f"Printare initiata: {selected_printer}")
-            except Exception as exc2:
-                log_exception("print_excel_fallback", exc2)
-                messagebox.showerror("Eroare printare", str(exc2))
-        except Exception as exc:
-            log_exception("print_excel", exc)
-            messagebox.showerror("Eroare printare", str(exc))
-
     def _employee_day_count(self, employee: str):
         count = 0
         mode_record = self.current_mode_record()
@@ -1564,43 +1435,6 @@ class PlannerDashboard(ctk.CTkFrame):
                 if any(item.casefold() == employee.casefold() for item in employees):
                     count += 1
         return count
-
-    def export_excel(self):
-        self.save_week()
-        self.show_inline_message("Se exporta planificarea, asteata...")
-        week_snap = deepcopy(self.week_record)
-        mode_snap = self.current_mode
-        threading.Thread(
-            target=self._export_thread,
-            args=(week_snap, mode_snap),
-            daemon=True,
-        ).start()
-
-    def _export_thread(self, week_record, current_mode):
-        """Rulat in background — genereaza Excel fara a bloca UI-ul."""
-        try:
-            path = self._export_mode(week_record=week_record, current_mode=current_mode)
-            self.after(0, lambda p=path: self._on_export_success(p))
-        except Exception as exc:
-            log_exception("export_excel_thread", exc)
-            self.after(0, lambda e=str(exc): messagebox.showerror("Eroare export", e))
-
-    def _on_export_success(self, path):
-        """Callback pe main thread dupa export reusit."""
-        self.status_var.set(f"Export realizat: {path.name}")
-        messagebox.showinfo("Export finalizat", f"Fisierul a fost salvat in:\n{path}")
-
-    def _export_mode(self, week_record=None, current_mode=None):
-        """
-        Genereaza fisierul Excel A3 pentru modul curent.
-        Poate fi apelat din background thread (fara acces la UI).
-        Delegheaza catre ExcelExporter pentru separarea logicii de UI.
-        """
-        return ExcelExporter.export(
-            week_record   = week_record  or self.week_record,
-            current_mode  = current_mode or self.current_mode,
-            logo_path     = LOGO_PATH,
-        )
 
     def process_remote_events(self):
         if self._closing or not self.winfo_exists():
@@ -1707,33 +1541,6 @@ class PlannerDashboard(ctk.CTkFrame):
                 text="🔓 Săptămâna deschisă",
                 fg_color="#27AE60", hover_color="#1E8449",
             )
-
-    # ── Export ambele moduri ──────────────────────────────────────────────────
-
-    def export_all_modes_ui(self):
-        """Salvează și exportă Excel pentru ambele moduri în background."""
-        if self._dirty:
-            self.save_week()
-        self.show_inline_message("Export în curs...")
-        threading.Thread(target=self._export_all_thread, daemon=True).start()
-
-    def _export_all_thread(self):
-        """Rulat în thread — apelează ExcelExporter.export_all_modes()."""
-        try:
-            from logic.excel_exporter import ExcelExporter
-            from logic.app_paths import get_logo_path
-            logo = get_logo_path() if callable(get_logo_path) else None
-            paths = ExcelExporter.export_all_modes(self.week_record, logo_path=logo)
-            self.after(0, lambda: self._on_export_all_success(paths))
-        except Exception as exc:
-            log_exception("export_all_modes", exc)
-            self.after(0, lambda: self.show_inline_message("Eroare la export.", is_error=True))
-
-    def _on_export_all_success(self, paths: list):
-        """Apelat pe main thread după export reușit."""
-        names = "\n".join(str(p.name) for p in paths)
-        messagebox.showinfo("Export finalizat", f"Fișiere exportate:\n{names}")
-        self.show_inline_message(f"Export reușit: {len(paths)} fișiere.")
 
     # ── Absențe rapide ────────────────────────────────────────────────────────
 
