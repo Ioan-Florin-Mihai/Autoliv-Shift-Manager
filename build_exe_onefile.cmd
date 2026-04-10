@@ -41,23 +41,11 @@ if errorlevel 1 (
 	exit /b 1
 )
 
-copy /Y "dist\Autoliv Shift Manager.exe" "dist\Autoliv Shift Manager v%APP_VERSION%.exe" >nul
-if errorlevel 1 (
-	echo.
-	echo ============================================
-	echo  Build realizat, dar copia versionata nu a putut fi creata.
-	echo ============================================
-	exit /b 1
-)
-
 echo.
 echo ============================================
 echo  Build finalizat!
 echo  Executabilul portabil se afla in:
 echo  dist\Autoliv Shift Manager.exe
-echo.
-echo  Copie versionata:
-echo  dist\Autoliv Shift Manager v%APP_VERSION%.exe
 echo.
 echo  Pentru update sigur pe statie foloseste:
 echo  update_portable_exe.cmd "dist\Autoliv Shift Manager.exe" "C:\Folder\Autoliv Shift Manager.exe"
