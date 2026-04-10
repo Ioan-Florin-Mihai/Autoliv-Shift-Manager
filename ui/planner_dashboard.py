@@ -183,7 +183,6 @@ class PlannerDashboard(ctk.CTkFrame):
         self.selected_shift = SHIFTS[0]
         self.status_var = ctk.StringVar(value="Planner pregatit.")
         self.week_var = ctk.StringVar()
-        self.mode_var = ctk.StringVar(value=self.current_mode)
         self.day_view_mode = ctk.StringVar(value="weekdays")
         self.employee_search_var = ctk.StringVar()
         self.history_var = ctk.StringVar(value="")
@@ -424,7 +423,7 @@ class PlannerDashboard(ctk.CTkFrame):
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, PANEL_GAP))
         frame.grid_propagate(False)
         frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(2, weight=1)
+        frame.grid_rowconfigure(1, weight=1)
 
         plan_section = ctk.CTkFrame(frame, fg_color="transparent")
         plan_section.grid(row=0, column=0, sticky="ew", padx=OUTER_PAD, pady=(OUTER_PAD, SECTION_GAP))
@@ -468,7 +467,7 @@ class PlannerDashboard(ctk.CTkFrame):
         ).grid(row=6, column=0, sticky="w", pady=(2, 0))
 
         nav_section = ctk.CTkFrame(frame, fg_color="transparent")
-        nav_section.grid(row=1, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
+        nav_section.grid(row=1, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
         nav_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(nav_section, "NAVIGATION").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         self._create_secondary_button(nav_section, "Calendar", self.pick_week).grid(row=1, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
@@ -500,34 +499,8 @@ class PlannerDashboard(ctk.CTkFrame):
         )
         self._lock_button.grid(row=4, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
 
-        structure_section = ctk.CTkFrame(frame, fg_color="transparent")
-        structure_section.grid(row=2, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
-        structure_section.grid_columnconfigure(0, weight=1)
-        structure_section.grid_rowconfigure(4, weight=1)
-        self._create_section_label(structure_section, "STRUCTURE").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
-        ctk.CTkLabel(structure_section, text="Mod plan", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=1, column=0, sticky="w", pady=(0, 4))
-        self.mode_buttons_frame = ctk.CTkFrame(structure_section, fg_color="transparent")
-        self.mode_buttons_frame.grid(row=2, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
-        self.mode_buttons_frame.grid_columnconfigure((0, 1), weight=1)
-        self.mode_buttons = {}
-        for idx, mode_name in enumerate(TEMPLATES):
-            button = ctk.CTkButton(
-                self.mode_buttons_frame,
-                text=mode_name,
-                command=lambda value=mode_name: self.change_mode(value),
-                height=UTILITY_BUTTON_HEIGHT,
-                font=ctk.CTkFont(size=13, weight="bold"),
-            )
-            button.grid(row=0, column=idx, sticky="ew", padx=(0, 4) if idx == 0 else (4, 0))
-            self.mode_buttons[mode_name] = button
-        self._create_utility_button(structure_section, "Adauga departament", self.add_department).grid(row=3, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
-        ctk.CTkLabel(structure_section, text="Departamente", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=4, column=0, sticky="w", pady=(0, 4))
-        self.department_frame = ctk.CTkScrollableFrame(structure_section, width=230, fg_color=PANEL_BG)
-        self.department_frame.grid(row=5, column=0, sticky="nsew")
-        structure_section.grid_rowconfigure(5, weight=1)
-
         settings_section = ctk.CTkFrame(frame, fg_color="transparent")
-        settings_section.grid(row=3, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
+        settings_section.grid(row=2, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
         settings_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(settings_section, "SETTINGS").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         self.theme_switch = ctk.CTkSwitch(settings_section, text="Dark Mode", command=self.toggle_theme, onvalue="Dark", offvalue="Light")
@@ -729,10 +702,8 @@ class PlannerDashboard(ctk.CTkFrame):
         self._ensure_selected_day_is_visible()
         self.refresh_week_display()
         self.refresh_history()
-        self.render_mode_buttons()
         self.render_day_toggle_buttons()
         self.render_department_navigation()
-        self.render_department_buttons()
         self.render_grid()
         self.render_assignment_panel()
         self.refresh_suggestions()
@@ -743,11 +714,11 @@ class PlannerDashboard(ctk.CTkFrame):
         start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
         end = datetime.strptime(self.week_record["week_end"], "%Y-%m-%d").date()
         self.week_var.set(f"{self.week_record['week_label']}\n{start.strftime('%d.%m.%Y')} - {end.strftime('%d.%m.%Y')}")
-        self.editor_title.configure(text=f"Editor {self.current_mode}: {self.selected_department}")
+        self.editor_title.configure(text=f"Editor: {self.selected_department}")
         split_names = [name for name in self.current_cell()["employees"] if self._employee_day_count(name) > 1]
-        extra = f"\nSplit in zi: {', '.join(split_names)}" if split_names else ""
+        extra = f"  |  Split in zi: {', '.join(split_names)}" if split_names else ""
         self.cell_title.configure(text=f"{self.selected_department} | {self.selected_day} | {self.selected_shift}")
-        self.cell_meta.configure(text=f"Mod: {self.current_mode}{extra}")
+        self.cell_meta.configure(text=f"Tip: {self.current_mode}{extra}")
 
     def refresh_history(self):
         values = [f"{label} | {key}" for key, label, _ in self.store.get_week_history()] or [""]
@@ -756,23 +727,6 @@ class PlannerDashboard(ctk.CTkFrame):
 
     def render_department_navigation(self):
         self.department_name_var.set(self.selected_department or "-")
-
-    def render_department_buttons(self):
-        for widget in self.department_frame.winfo_children():
-            widget.destroy()
-        for department in self.department_list:
-            selected = department == self.selected_department
-            dep_text_color = "white" if selected else ("#15304B", "#E8E8E8")
-            ctk.CTkButton(self.department_frame, text=department, anchor="w", height=32, fg_color=PRIMARY_BLUE if selected else SUGGESTION_BG, text_color=dep_text_color, hover_color=ACCENT_BLUE, border_width=1 if selected else 0, border_color=LINE_BLUE, font=ctk.CTkFont(size=14, weight="bold" if selected else "normal"), command=lambda dep=department: self.select_department(dep)).pack(fill="x", padx=4, pady=4)
-
-    def render_mode_buttons(self):
-        for mode_name, button in self.mode_buttons.items():
-            selected = mode_name == self.current_mode
-            button.configure(
-                fg_color=PRIMARY_BLUE if selected else "#B8C2CC",
-                hover_color=ACCENT_BLUE if selected else "#9EAAB6",
-                text_color="white",
-            )
 
     def render_day_toggle_buttons(self):
         if not hasattr(self, "day_toggle_buttons"):
@@ -1138,18 +1092,6 @@ class PlannerDashboard(ctk.CTkFrame):
             return
         self._apply_cell_frame_style(old_day, old_shift, hover=False)
         self._apply_cell_frame_style(self.selected_day, self.selected_shift, hover=False)
-
-    def change_mode(self, selected_mode):
-        if self.current_mode == selected_mode:
-            return
-        self.current_mode = selected_mode
-        new_mode_depts = self.current_mode_record()["departments"]
-        if self.selected_department not in new_mode_depts:
-            self.selected_department = new_mode_depts[0] if new_mode_depts else ""
-        self.selected_day = DAY_NAMES[0]
-        self.selected_shift = SHIFTS[0]
-        self._grid_cell_frames = {}   # mod nou = grid trebuie reconstruit
-        self.refresh_all()
 
     def load_history_week(self, selected_value):
         if not selected_value or "|" not in selected_value:
