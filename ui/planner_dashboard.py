@@ -498,6 +498,17 @@ class PlannerDashboard(ctk.CTkFrame):
             font=ctk.CTkFont(size=11, weight="bold"),
         )
         self._lock_button.grid(row=4, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
+        ctk.CTkButton(
+            nav_section,
+            text="PUBLICA PE ECRANE",
+            command=self.publish_to_tv,
+            height=PRIMARY_BUTTON_HEIGHT,
+            corner_radius=12,
+            fg_color=ACCENT_BLUE,
+            hover_color=HOVER_BLUE,
+            text_color="white",
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).grid(row=5, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
 
         settings_section = ctk.CTkFrame(frame, fg_color="transparent")
         settings_section.grid(row=2, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
@@ -695,6 +706,15 @@ class PlannerDashboard(ctk.CTkFrame):
                 except Exception:
                     pass
         self.after(3000, reset_color)
+
+    def _ensure_week_editable(self) -> bool:
+        if self.store.is_week_locked(self.week_record):
+            self.show_inline_message(
+                "Saptamana este publicata (read-only). Deblocheaza sau publica alta versiune.",
+                is_error=True,
+            )
+            return False
+        return True
 
     def refresh_all(self):
         self._refresh_current_week_if_needed()
@@ -1137,19 +1157,23 @@ class PlannerDashboard(ctk.CTkFrame):
         self.add_employee_to_selected_cell(employee)
 
     def add_employee_to_selected_cell(self, employee: str):
+        if not self._ensure_week_editable():
+            return
+        self._push_undo()
         try:
-            self.store.validate_assignment(self.week_record, self.current_mode, self.selected_department, self.selected_day, self.selected_shift, employee)
+            default_color = ABSENCE_COLORS.get(employee.strip().upper(), HOURS_COLOR_MAP["8h"])
+            self.store.add_employee_assignment(
+                self.week_record,
+                self.current_mode,
+                self.selected_department,
+                self.selected_day,
+                self.selected_shift,
+                employee,
+                default_color=default_color,
+            )
         except ValueError as exc:
             self.show_inline_message(str(exc), is_error=True)
             return
-        self._push_undo()
-        cell = self.current_cell()
-        cell["employees"].append(employee)
-        # Culoare automată pentru absență
-        if employee.strip().upper() in ABSENCE_COLORS:
-            cell.setdefault("colors", {})[employee] = ABSENCE_COLORS[employee.strip().upper()]
-        else:
-            cell.setdefault("colors", {})[employee] = HOURS_COLOR_MAP["8h"]
         self._dirty = True
         self.employee_search_var.set("")
         self.show_inline_message(f"{employee} adăugat.")
@@ -1225,88 +1249,73 @@ class PlannerDashboard(ctk.CTkFrame):
         Actualizeaza si cheile din dict-urile de culori.
         Returneaza numarul de intrari modificate.
         """
-        count  = 0
-        old_cf = old_name.casefold()
-        for week_rec in self.store.data.get("weeks", {}).values():
-            if not isinstance(week_rec, dict):
-                continue
-            for mode_rec in week_rec.get("modes", {}).values():
-                if not isinstance(mode_rec, dict):
-                    continue
-                for dept_sched in mode_rec.get("schedule", {}).values():
-                    for day_sched in dept_sched.values():
-                        for cell in day_sched.values():
-                            if not isinstance(cell, dict):
-                                continue
-                            employees = cell.get("employees", [])
-                            for i, emp in enumerate(employees):
-                                if emp.casefold() == old_cf:
-                                    employees[i] = new_name
-                                    count += 1
-                            # Actualizeaza si culorile (cheia = nume angajat)
-                            colors = cell.get("colors", {})
-                            for k in list(colors.keys()):
-                                if k.casefold() == old_cf:
-                                    colors[new_name] = colors.pop(k)
-        if count > 0:
-            try:
-                self.store.save()
-            except Exception as exc:
-                log_exception("rename_in_schedule_store_save", exc)
-        return count
+        try:
+            return self.store.rename_employee_everywhere(old_name, new_name, skip_locked=True)
+        except Exception as exc:
+            log_exception("rename_in_schedule_store", exc)
+            return 0
             
     def remove_employee(self, employee: str):
+        if not self._ensure_week_editable():
+            return
         self._push_undo()
-        self.current_cell()["employees"] = [item for item in self.current_cell()["employees"] if item.casefold() != employee.casefold()]
+        self.store.remove_employee_assignment(
+            self.week_record,
+            self.current_mode,
+            self.selected_department,
+            self.selected_day,
+            self.selected_shift,
+            employee,
+        )
         self._dirty = True
         self.refresh_all()
 
     def reorder_employee(self, employee: str, direction: int):
-        employees = self.current_cell()["employees"]
-        index = next((idx for idx, value in enumerate(employees) if value.casefold() == employee.casefold()), None)
-        if index is None:
-            return
-        target = index + direction
-        if target < 0 or target >= len(employees):
+        if not self._ensure_week_editable():
             return
         self._push_undo()
-        employees[index], employees[target] = employees[target], employees[index]
+        self.store.reorder_employee_assignment(
+            self.week_record,
+            self.current_mode,
+            self.selected_department,
+            self.selected_day,
+            self.selected_shift,
+            employee,
+            direction,
+        )
         self._dirty = True
         self.refresh_all()
 
     def move_employee_to_shift(self, employee: str):
+        if not self._ensure_week_editable():
+            return
         candidates = [shift for shift in SHIFTS if shift != self.selected_shift]
         dlg = MoveShiftDialog(self.winfo_toplevel(), candidates)
         self.wait_window(dlg)
         target_shift = dlg.selected
         if target_shift is None:
             return
-        source_colors = self.current_cell().get("colors", {})
-        employee_color = self._lookup_color(source_colors if isinstance(source_colors, dict) else {}, employee)
+        self._push_undo()
         try:
-            self.store.validate_assignment(
+            self.store.move_employee_assignment(
                 self.week_record,
                 self.current_mode,
                 self.selected_department,
                 self.selected_day,
+                self.selected_shift,
                 target_shift,
                 employee,
-                ignore_assignment=(self.selected_department, self.selected_shift),
             )
         except ValueError as exc:
             messagebox.showwarning("Mutare invalida", str(exc))
             return
-        self._push_undo()
-        self.current_cell()["employees"] = [item for item in self.current_cell()["employees"] if item.casefold() != employee.casefold()]
-        target_cell = self.current_mode_record()["schedule"][self.selected_department][self.selected_day][target_shift]
-        target_cell["employees"].append(employee)
-        if employee_color:
-            target_cell.setdefault("colors", {})[employee] = employee_color
         self.selected_shift = target_shift
         self._dirty = True
         self.refresh_all()
 
     def add_department(self):
+        if not self._ensure_week_editable():
+            return
         dialog = ctk.CTkInputDialog(text="Introdu departamentul nou", title="Departament nou")
         value = dialog.get_input()
         if value is None:
@@ -1314,11 +1323,11 @@ class PlannerDashboard(ctk.CTkFrame):
         department = " ".join(value.split()).strip()
         if not department:
             return
-        if department in self.current_mode_record()["departments"]:
-            messagebox.showwarning("Exista deja", "Departamentul exista deja in modul curent.")
+        try:
+            self.store.add_department(self.week_record, self.current_mode, department)
+        except ValueError as exc:
+            messagebox.showwarning("Exista deja", str(exc))
             return
-        self.current_mode_record()["departments"].append(department)
-        self.current_mode_record()["schedule"][department] = {day: {shift: {"employees": []} for shift in SHIFTS} for day in DAY_NAMES}
         self._dirty = True
         self.selected_department = department
         self.save_week()   # auto-save dupa adaugare departament
@@ -1341,18 +1350,47 @@ class PlannerDashboard(ctk.CTkFrame):
             self.show_inline_message(str(exc), is_error=True)
 
     def clear_weekend(self):
+        if not self._ensure_week_editable():
+            return
         self.store.clear_weekend(self.week_record, self.current_mode)
         self._dirty = True
         self.refresh_all()
         self.show_inline_message(f"Weekend curățat pentru {self.current_mode}.")
 
     def clear_department(self):
+        if not self._ensure_week_editable():
+            return
         if not messagebox.askyesno("Confirmare", f"Sterg toate alocarile din {self.selected_department}?"):
             return
         self.store.clear_department(self.week_record, self.current_mode, self.selected_department)
         self._dirty = True
         self.refresh_all()
         self.show_inline_message(f"Departamentul {self.selected_department} a fost golit.")
+
+    def publish_to_tv(self):
+        confirm = messagebox.askyesno(
+            "Confirmare publicare",
+            "Publici planificarea curenta pe ecrane?\n\n"
+            "Actiunea va copia draft -> live si va bloca automat saptamana.",
+        )
+        if not confirm:
+            return
+        try:
+            self.week_record["published_at"] = datetime.now().isoformat(timespec="seconds")
+            self.week_record["published_by"] = self._username or "unknown"
+            self.store.update_week(self.week_record)
+            self.store.publish_to_live()
+            self.store.lock_week(self.week_record.get("week_start", ""))
+            self.week_record = self.store.get_or_create_week(self.selected_date)
+            self._dirty = False
+            self._undo_stack.clear()
+            self._update_dirty_indicator()
+            self._refresh_lock_button()
+            self.show_inline_message("Planificarea a fost publicata pe ecrane.")
+            messagebox.showinfo("Publicare reusita", "Planificarea live a fost actualizata.")
+        except Exception as exc:
+            log_exception("publish_to_tv", exc)
+            self.show_inline_message("Publicarea a esuat.", is_error=True)
 
     def save_week(self):
         try:

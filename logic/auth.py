@@ -350,15 +350,3 @@ def must_change_password(username: str) -> bool:
         pass
     return False
 
-
-def must_change_password(username: str) -> bool:
-    """Returneaza True dacă utilizatorul trebuie să schimbe parola (flag setat la creare cont)."""
-    try:
-        users = _load_users()
-        user = _find_user(users, username)
-        if user:
-            return bool(user.get("must_change_password", False))
-    except Exception:
-        pass
-    return False
-

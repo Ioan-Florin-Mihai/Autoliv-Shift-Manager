@@ -6,9 +6,47 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta
 
 from logic.app_logger import log_exception, log_warning
-from logic.app_paths import BACKUP_DIR, ensure_runtime_file
+from logic.app_paths import BACKUP_DIR, BASE_DIR
 
-SCHEDULE_PATH = ensure_runtime_file("data/schedule_data.json")
+DRAFT_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_draft.json"
+LIVE_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_live.json"
+LEGACY_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_data.json"
+
+# Alias de compatibilitate inversa folosit de teste si importuri legacy.
+SCHEDULE_PATH = DRAFT_SCHEDULE_PATH
+
+
+def _write_empty_schedule(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        return
+    path.write_text(json.dumps({"weeks": {}}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _bootstrap_schedule_files():
+    """
+        Initializeaza stocarea draft/live la pornire.
+        Ordinea migrarii:
+            1. schedule_data.json legacy -> schedule_draft.json (o singura data)
+            2. schedule_draft.json -> schedule_live.json (daca live lipseste)
+            3. fallback la structuri goale
+    """
+    DRAFT_SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    if not DRAFT_SCHEDULE_PATH.exists():
+        if LEGACY_SCHEDULE_PATH.exists():
+            shutil.copy2(LEGACY_SCHEDULE_PATH, DRAFT_SCHEDULE_PATH)
+        else:
+            _write_empty_schedule(DRAFT_SCHEDULE_PATH)
+
+    if not LIVE_SCHEDULE_PATH.exists():
+        if DRAFT_SCHEDULE_PATH.exists():
+            shutil.copy2(DRAFT_SCHEDULE_PATH, LIVE_SCHEDULE_PATH)
+        else:
+            _write_empty_schedule(LIVE_SCHEDULE_PATH)
+
+
+_bootstrap_schedule_files()
 
 DAYS = [
     ("Luni", 0),
@@ -214,7 +252,12 @@ def _guess_mode_for_department(department: str):
 
 class ScheduleStore:
     def __init__(self):
+        self.schedule_path = SCHEDULE_PATH
         self.data = self._load()
+
+    def _assert_not_locked(self, week_record):
+        if week_record.get("locked"):
+            raise ValueError("Săptămâna este publicată (read-only). Deblocă înainte de a edita.")
 
     def _load(self):
         if not SCHEDULE_PATH.exists():
@@ -262,10 +305,10 @@ class ScheduleStore:
 
     def save(self):
         """Salveaza datele folosind scriere atomica (temp + os.replace)."""
-        SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        self.schedule_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             tmp_fd, tmp_path = tempfile.mkstemp(
-                dir=SCHEDULE_PATH.parent, suffix=".tmp"
+                dir=self.schedule_path.parent, suffix=".tmp"
             )
             try:
                 with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
@@ -273,17 +316,35 @@ class ScheduleStore:
             except Exception:
                 os.unlink(tmp_path)
                 raise
-            os.replace(tmp_path, SCHEDULE_PATH)
+            os.replace(tmp_path, self.schedule_path)
         except OSError as exc:
             log_exception("schedule_store_save", exc)
             raise
 
+    def _save_live_snapshot(self):
+        """Scrie snapshot-ul publicat (read-only pentru TV) in schedule_live.json."""
+        LIVE_SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            tmp_fd, tmp_path = tempfile.mkstemp(
+                dir=LIVE_SCHEDULE_PATH.parent, suffix=".tmp"
+            )
+            try:
+                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
+                    json.dump(self.data, tmp, ensure_ascii=False, indent=2)
+            except Exception:
+                os.unlink(tmp_path)
+                raise
+            os.replace(tmp_path, LIVE_SCHEDULE_PATH)
+        except OSError as exc:
+            log_exception("schedule_store_save_live", exc)
+            raise
+
     def backup(self):
         BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-        if not SCHEDULE_PATH.exists():
+        if not self.schedule_path.exists():
             return
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        shutil.copy2(SCHEDULE_PATH, BACKUP_DIR / f"schedule_backup_{timestamp}.json")
+        shutil.copy2(self.schedule_path, BACKUP_DIR / f"schedule_backup_{timestamp}.json")
         self._rotate_backups()
 
     def _rotate_backups(self, max_backups: int = 20):
@@ -319,6 +380,7 @@ class ScheduleStore:
 
     def update_week(self, week_record):
         self._normalize_week_record(week_record)
+        self._assert_not_locked(week_record)
         week_record["updated_at"] = datetime.now().isoformat(timespec="seconds")
         self.backup()
         self.data.setdefault("weeks", {})[week_record["week_start"]] = deepcopy(week_record)
@@ -340,6 +402,7 @@ class ScheduleStore:
         return deepcopy(self.data["weeks"][current_start.isoformat()])
 
     def clear_weekend(self, week_record, mode_name: str):
+        self._assert_not_locked(week_record)
         mode_record = week_record["modes"][mode_name]
         for department in mode_record["departments"]:
             for day_name in WEEKEND_DAYS:
@@ -347,23 +410,60 @@ class ScheduleStore:
                     mode_record["schedule"][department][day_name][shift] = _empty_cell()
 
     def clear_department(self, week_record, mode_name: str, department: str):
+        self._assert_not_locked(week_record)
         mode_record = week_record["modes"][mode_name]
         for day_name in DAY_NAMES:
             for shift in SHIFTS:
                 mode_record["schedule"][department][day_name][shift] = _empty_cell()
 
-    def lock_week(self, week_record: dict) -> None:
-        """Marcă săptămâna ca publicată (read-only)."""
+    def lock_week(self, week_ref) -> None:
+        """Blocheaza saptamana dupa key ISO (YYYY-MM-DD) sau dupa week_record."""
+        if isinstance(week_ref, str):
+            week_record = deepcopy(self.data.get("weeks", {}).get(week_ref) or {})
+            if not week_record:
+                raise ValueError("Săptămâna nu există.")
+        else:
+            week_record = deepcopy(week_ref)
+        self._normalize_week_record(week_record)
         week_record["locked"] = True
-        self.update_week(week_record)
+        week_record["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        self.data.setdefault("weeks", {})[week_record["week_start"]] = deepcopy(week_record)
+        self.save()
+
+    def publish_to_live(self):
+        """Copiaza in siguranta draft -> live."""
+        LIVE_SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(self.schedule_path, LIVE_SCHEDULE_PATH)
+
+    def publish_week(self, week_record: dict, published_by: str | None = None) -> None:
+        """
+        Publica planificarea catre ecrane:
+          1) salveaza in draft
+          2) blocheaza saptamana publicata
+          3) copiaza intregul draft in schedule_live.json
+        """
+        self._normalize_week_record(week_record)
+        week_record["locked"] = True
+        week_record["published_at"] = datetime.now().isoformat(timespec="seconds")
+        if published_by:
+            week_record["published_by"] = published_by
+        self.data.setdefault("weeks", {})[week_record["week_start"]] = deepcopy(week_record)
+        self.save()
+        self.publish_to_live()
 
     def unlock_week(self, week_record: dict) -> None:
         """Deblocă săptămâna pentru editare."""
+        self._normalize_week_record(week_record)
         week_record["locked"] = False
-        self.update_week(week_record)
+        week_record["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        self.data.setdefault("weeks", {})[week_record["week_start"]] = deepcopy(week_record)
+        self.save()
 
-    def is_week_locked(self, week_record: dict) -> bool:
-        return bool(week_record.get("locked", False))
+    def is_week_locked(self, week_ref) -> bool:
+        if isinstance(week_ref, str):
+            week_record = self.data.get("weeks", {}).get(week_ref) or {}
+            return bool(week_record.get("locked", False))
+        return bool((week_ref or {}).get("locked", False))
 
     def build_assignment_map(self, week_record, mode_name: str):
         result: dict[str, list[dict[str, str]]] = {}
@@ -420,8 +520,7 @@ class ScheduleStore:
         employee: str,
         ignore_assignment: tuple[str, str] | None = None,
     ):
-        if week_record.get("locked"):
-            raise ValueError("Săptămâna este publicată (read-only). Deblocă înainte de a edita.")
+        self._assert_not_locked(week_record)
 
         mode_record = week_record["modes"][mode_name]
         target_cell = mode_record["schedule"][department][day_name][shift]["employees"]
@@ -459,6 +558,143 @@ class ScheduleStore:
         shift_indexes = sorted(SHIFTS.index(value) for value in candidate_shifts)
         if len(shift_indexes) == 2 and shift_indexes[1] - shift_indexes[0] != 1:
             raise ValueError("12h trebuie sa fie pe schimburi consecutive.")
+
+    def add_employee_assignment(
+        self,
+        week_record,
+        mode_name: str,
+        department: str,
+        day_name: str,
+        shift: str,
+        employee: str,
+        default_color: str | None = None,
+    ):
+        self._assert_not_locked(week_record)
+        self.validate_assignment(week_record, mode_name, department, day_name, shift, employee)
+        cell = week_record["modes"][mode_name]["schedule"][department][day_name][shift]
+        cell.setdefault("employees", []).append(employee)
+        if default_color:
+            cell.setdefault("colors", {})[employee] = default_color
+
+    def remove_employee_assignment(
+        self,
+        week_record,
+        mode_name: str,
+        department: str,
+        day_name: str,
+        shift: str,
+        employee: str,
+    ):
+        self._assert_not_locked(week_record)
+        cell = week_record["modes"][mode_name]["schedule"][department][day_name][shift]
+        cell["employees"] = [value for value in cell.get("employees", []) if value.casefold() != employee.casefold()]
+        colors = cell.get("colors", {})
+        if isinstance(colors, dict):
+            for key in list(colors.keys()):
+                if isinstance(key, str) and key.casefold() == employee.casefold():
+                    colors.pop(key, None)
+
+    def reorder_employee_assignment(
+        self,
+        week_record,
+        mode_name: str,
+        department: str,
+        day_name: str,
+        shift: str,
+        employee: str,
+        direction: int,
+    ):
+        self._assert_not_locked(week_record)
+        employees = week_record["modes"][mode_name]["schedule"][department][day_name][shift]["employees"]
+        index = next((i for i, value in enumerate(employees) if value.casefold() == employee.casefold()), None)
+        if index is None:
+            return
+        target = index + direction
+        if target < 0 or target >= len(employees):
+            return
+        employees[index], employees[target] = employees[target], employees[index]
+
+    def move_employee_assignment(
+        self,
+        week_record,
+        mode_name: str,
+        department: str,
+        day_name: str,
+        source_shift: str,
+        target_shift: str,
+        employee: str,
+    ):
+        self._assert_not_locked(week_record)
+        source_cell = week_record["modes"][mode_name]["schedule"][department][day_name][source_shift]
+        source_colors = source_cell.get("colors", {}) if isinstance(source_cell, dict) else {}
+        carry_color = None
+        if isinstance(source_colors, dict):
+            for key, value in source_colors.items():
+                if isinstance(key, str) and key.casefold() == employee.casefold():
+                    carry_color = value
+                    break
+
+        self.validate_assignment(
+            week_record,
+            mode_name,
+            department,
+            day_name,
+            target_shift,
+            employee,
+            ignore_assignment=(department, source_shift),
+        )
+
+        self.remove_employee_assignment(week_record, mode_name, department, day_name, source_shift, employee)
+        target_cell = week_record["modes"][mode_name]["schedule"][department][day_name][target_shift]
+        target_cell.setdefault("employees", []).append(employee)
+        if carry_color:
+            target_cell.setdefault("colors", {})[employee] = carry_color
+
+    def add_department(self, week_record, mode_name: str, department: str):
+        self._assert_not_locked(week_record)
+        mode_record = week_record["modes"][mode_name]
+        if department in mode_record["departments"]:
+            raise ValueError("Departamentul exista deja in modul curent.")
+        mode_record["departments"].append(department)
+        mode_record["schedule"][department] = {
+            day: {shift: _empty_cell() for shift in SHIFTS}
+            for day in DAY_NAMES
+        }
+
+    def rename_employee_everywhere(self, old_name: str, new_name: str, skip_locked: bool = True) -> int:
+        """
+        Redenumeste un angajat in toate saptamanile draft si actualizeaza cheile de culoare.
+        Implicit, saptamanile blocate raman neschimbate.
+        """
+        count = 0
+        old_cf = old_name.casefold()
+        for week_rec in self.data.get("weeks", {}).values():
+            if not isinstance(week_rec, dict):
+                continue
+            if skip_locked and self.is_week_locked(week_rec):
+                continue
+            self._normalize_week_record(week_rec)
+            for mode_rec in week_rec.get("modes", {}).values():
+                if not isinstance(mode_rec, dict):
+                    continue
+                for dept_sched in mode_rec.get("schedule", {}).values():
+                    for day_sched in dept_sched.values():
+                        for cell in day_sched.values():
+                            if not isinstance(cell, dict):
+                                continue
+                            employees = cell.get("employees", [])
+                            for i, emp in enumerate(employees):
+                                if isinstance(emp, str) and emp.casefold() == old_cf:
+                                    employees[i] = new_name
+                                    count += 1
+                            colors = cell.get("colors", {})
+                            if isinstance(colors, dict):
+                                for k in list(colors.keys()):
+                                    if isinstance(k, str) and k.casefold() == old_cf:
+                                        colors[new_name] = colors.pop(k)
+        if count > 0:
+            self.save()
+        return count
 
     def _normalize_week_record(self, week_record):
         modes = week_record.get("modes")

@@ -1,15 +1,15 @@
 """
 tv_server.py
 ─────────────────────────────────────────────────────────────
-FastAPI web TV server — Autoliv Shift Manager
+Server web TV FastAPI — Autoliv Shift Manager
 
-Serves an industrial dashboard to factory TVs over LAN.
-All TVs open the same URL → perfectly synced, zero interaction.
+Livreaza un dashboard industrial catre televizoarele din fabrica prin LAN.
+Toate TV-urile deschid acelasi URL -> sincronizare perfecta, fara interactiune.
 
-Usage:
+Utilizare:
     python main.py --tv-web
 
-TV URL:
+URL TV:
     http://<LAN_IP>:8000/tv
 """
 
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import socket
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -27,12 +28,12 @@ from fastapi.staticfiles import StaticFiles
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 ROOT       = Path(__file__).parent
-DATA_FILE  = ROOT / "data" / "schedule_data.json"
+DATA_FILE  = ROOT / "data" / "schedule_live.json"
 STATIC_DIR = ROOT / "static"
 TPL_DIR    = ROOT / "templates"
 
-# ─── Domain constants (mirrored from schedule_store, no import to keep server
-#     dependency-free and usable with --tv-web without loading the full app) ──
+# ─── Constante domeniu (oglindite din schedule_store, fara import ca serverul
+#     sa ramana fara dependinte si utilizabil cu --tv-web fara incarcarea aplicatiei complete) ──
 ABSENCE_NAMES: frozenset[str] = frozenset({"CO", "CM", "ABSENT"})
 COLOR_12H = "#C0392B"   # stored in cell["colors"][employee_name]
 SHIFTS     = ["Sch1", "Sch2", "Sch3"]
@@ -44,6 +45,9 @@ DAY_OFFSETS   = {name: offset for name, offset in DAYS}
 WEEKEND_DAYS  = frozenset({"Sambata", "Duminica"})
 MODE_NAMES    = ["Magazie", "Bucle"]
 
+_LAST_MTIME: float = 0.0
+_CACHED_DATA: dict | None = None
+
 
 # ─── Pure helpers ─────────────────────────────────────────────────────────────
 
@@ -51,10 +55,23 @@ def _week_start(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
-def _load_json() -> dict:
-    """Read schedule_data.json fresh on every call — no caching."""
+def _load_schedule() -> dict:
+    """Citeste schedule_live.json cu cache pe mtime pentru throughput stabil pe mai multe TV-uri."""
+    global _LAST_MTIME, _CACHED_DATA
+    if not DATA_FILE.exists():
+        _CACHED_DATA = {"weeks": {}}
+        _LAST_MTIME = 0.0
+        return _CACHED_DATA
+
+    mtime = DATA_FILE.stat().st_mtime
+    if _CACHED_DATA is not None and mtime == _LAST_MTIME:
+        return _CACHED_DATA
+
     with open(DATA_FILE, encoding="utf-8") as f:
-        return json.load(f)
+        loaded = json.load(f)
+    _CACHED_DATA = loaded if isinstance(loaded, dict) else {"weeks": {}}
+    _LAST_MTIME = mtime
+    return _CACHED_DATA
 
 
 def _get_week(data: dict, d: date) -> dict:
@@ -67,7 +84,7 @@ def _is_active(name: str) -> bool:
 
 
 def _is_12h(colors: dict, employee: str) -> bool:
-    """Return True if the employee is assigned a 12h colour (case-insensitive)."""
+    """Returneaza True daca angajatul are culoarea de 12h (case-insensitive)."""
     for k, v in colors.items():
         if k.casefold() == employee.casefold():
             return (v or "").strip().upper() == COLOR_12H.upper()
@@ -75,7 +92,7 @@ def _is_12h(colors: dict, employee: str) -> bool:
 
 
 def _has_weekend_data(week: dict) -> bool:
-    """Return True if any active employee is scheduled on Sat or Sun."""
+    """Returneaza True daca exista cel putin un angajat activ planificat Sambata sau Duminica."""
     for mode_rec in week.get("modes", {}).values():
         for dept_sched in mode_rec.get("schedule", {}).values():
             for day_name in ("Sambata", "Duminica"):
@@ -87,28 +104,35 @@ def _has_weekend_data(week: dict) -> bool:
     return False
 
 
+def _get_display_days(current_week: dict, next_week: dict) -> list[str]:
+    """
+    CAZ 1 (normal): saptamana urmatoare Luni-Vineri.
+    CAZ 2 (weekend publicat): saptamana curenta Sambata-Duminica + saptamana urmatoare Luni-Vineri.
+    """
+    has_weekend = _has_weekend_data(current_week) if current_week else False
+    if has_weekend:
+        return ["Sambata", "Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri"]
+    return ["Luni", "Marti", "Miercuri", "Joi", "Vineri"]
+
+
 # ─── Main data builder ────────────────────────────────────────────────────────
 
 def _build_tv_data() -> dict:
-    raw          = _load_json()
+    raw          = _load_schedule()
     today        = date.today()
     current_week = _get_week(raw, today)
     next_week    = _get_week(raw, today + timedelta(days=7))
 
-    has_weekend = _has_weekend_data(current_week) if current_week else False
+    display_days = _get_display_days(current_week, next_week)
+    has_weekend = display_days[0] == "Sambata" if display_days else False
 
-    if has_weekend:
-        display_days = ["Sambata", "Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri"]
-    else:
-        display_days = ["Luni", "Marti", "Miercuri", "Joi", "Vineri"]
-
-    # Each display day maps to the week record it belongs to
+    # Fiecare zi afisata se mapeaza la saptamana din care face parte
     data_map: dict[str, dict] = {
         d: (current_week if d in WEEKEND_DAYS else next_week)
         for d in display_days
     }
 
-    # Compute display date labels per day
+    # Calculeaza etichetele de data afisata pentru fiecare zi
     day_dates: dict[str, str]     = {}
     day_dates_iso: dict[str, str] = {}
     for day_name in display_days:
@@ -123,7 +147,7 @@ def _build_tv_data() -> dict:
             day_dates[day_name]     = day_name
             day_dates_iso[day_name] = ""
 
-    # Week range label (from next week)
+    # Eticheta intervalului de saptamana (din saptamana urmatoare)
     week_label = next_week.get("week_label", "") if next_week else ""
     week_range = ""
     try:
@@ -140,7 +164,7 @@ def _build_tv_data() -> dict:
     except Exception:  # noqa: BLE001
         pass
 
-    # Build per-mode departments and schedule
+    # Construieste departamentele si planificarea pe fiecare mod
     departments: dict[str, list]  = {}
     schedule: dict[str, dict]     = {}
 
@@ -184,6 +208,9 @@ def _build_tv_data() -> dict:
         "day_dates":      day_dates,
         "day_dates_iso":  day_dates_iso,
         "today_iso":      today.isoformat(),
+        "server_time_ms": int(time.time() * 1000),
+        "rotation_step_ms": 10_000,
+        "last_update_ms": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
         "week_label":     week_label,
         "week_range":     week_range,
         "departments":    departments,
@@ -228,7 +255,7 @@ def _local_ip() -> str:
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 def start_server(host: str = "0.0.0.0", port: int = 8000) -> None:
-    """Called from main.py when --tv-web flag is present."""
+    """Apelata din main.py cand este prezent flag-ul --tv-web."""
     ip = _local_ip()
     sep = "=" * 56
     print(f"\n{sep}")

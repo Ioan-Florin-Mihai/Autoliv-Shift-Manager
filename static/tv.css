@@ -267,7 +267,8 @@ html, body {
   justify-content: space-between;
   height: var(--footer-h);
   background: var(--navy);
-  padding: 0 24px;
+  padding: 0 18px;
+  gap: 14px;
   flex-shrink: 0;
   border-top: 2px solid var(--blue-dark);
 }
@@ -288,6 +289,22 @@ html, body {
   font-weight: 700;
   color: var(--gold);
   letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+#footer-last-update {
+  font-size: 12px;
+  color: #B7CBE0;
+  white-space: nowrap;
+}
+
+#footer-warning {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFB3AD;
+  min-width: 240px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 /* Dept progress dots */
