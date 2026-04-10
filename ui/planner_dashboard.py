@@ -705,16 +705,16 @@ class PlannerDashboard(ctk.CTkFrame):
         frame.grid(row=0, column=2, sticky="nsew")
         frame.grid_propagate(False)
         frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(0, weight=9)
-        frame.grid_rowconfigure(3, weight=0)
+        frame.grid_rowconfigure(0, weight=0)
+        frame.grid_rowconfigure(1, weight=1)
+        frame.grid_rowconfigure(2, weight=0, minsize=250)
 
-        context_section = ctk.CTkFrame(frame, fg_color="transparent")
-        context_section.grid(row=0, column=0, sticky="nsew", padx=20, pady=(OUTER_PAD, 10))
-        context_section.grid_columnconfigure(0, weight=1)
-        context_section.grid_rowconfigure(5, weight=1, minsize=300)
-        self._create_section_label(context_section, "CONTEXT").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
-        department_nav = ctk.CTkFrame(context_section, fg_color="transparent")
-        department_nav.grid(row=1, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
+        header_section = ctk.CTkFrame(frame, fg_color="transparent")
+        header_section.grid(row=0, column=0, sticky="ew", padx=20, pady=(OUTER_PAD, 6))
+        header_section.grid_columnconfigure(0, weight=1)
+        self._create_section_label(header_section, "CONTEXT").grid(row=0, column=0, sticky="w", pady=(0, 6))
+        department_nav = ctk.CTkFrame(header_section, fg_color="transparent")
+        department_nav.grid(row=1, column=0, sticky="ew", pady=(0, 6))
         department_nav.grid_columnconfigure(1, weight=1)
         self.department_prev_button = self._create_utility_button(
             department_nav,
@@ -742,30 +742,42 @@ class PlannerDashboard(ctk.CTkFrame):
             font=ctk.CTkFont(size=12, weight="bold"),
         )
         self.department_next_button.grid(row=0, column=2, sticky="e")
-        self.cell_title = ctk.CTkLabel(context_section, text="Celula selectata", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=20, weight="bold"))
+        self.cell_title = ctk.CTkLabel(header_section, text="Celula selectata", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=20, weight="bold"))
         self.cell_title.grid(row=2, column=0, sticky="w")
-        self.cell_meta = ctk.CTkLabel(context_section, text="", text_color=MUTED_TEXT, justify="left")
-        self.cell_meta.grid(row=3, column=0, sticky="w", pady=(2, SECTION_INNER_GAP))
-        ctk.CTkLabel(context_section, text="Angajati in celula", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=4, column=0, sticky="w", pady=(0, 4))
-        self.assignment_frame = ctk.CTkScrollableFrame(context_section, width=370, height=320, fg_color=PANEL_BG)
-        self.assignment_frame.grid(row=5, column=0, sticky="nsew")
-        context_section.grid_rowconfigure(5, weight=1, minsize=300)
+        self.cell_meta = ctk.CTkLabel(header_section, text="", text_color=MUTED_TEXT, justify="left")
+        self.cell_meta.grid(row=3, column=0, sticky="w", pady=(2, 4))
 
-        quick_add_section = ctk.CTkFrame(frame, fg_color="transparent")
-        quick_add_section.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 8))
+        employees_section = ctk.CTkFrame(frame, fg_color="transparent")
+        employees_section.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 8))
+        employees_section.grid_columnconfigure(0, weight=1)
+        employees_section.grid_rowconfigure(1, weight=1)
+        ctk.CTkLabel(employees_section, text="Angajati in celula", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self.assignment_frame = ctk.CTkScrollableFrame(employees_section, width=370, height=360, fg_color=PANEL_BG)
+        self.assignment_frame.grid(row=1, column=0, sticky="nsew")
+
+        bottom_section = ctk.CTkFrame(frame, fg_color="transparent", height=250)
+        bottom_section.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, OUTER_PAD))
+        bottom_section.grid_propagate(False)
+        bottom_section.grid_columnconfigure(0, weight=1)
+        bottom_section.grid_rowconfigure(0, weight=0)
+        bottom_section.grid_rowconfigure(1, weight=0)
+        bottom_section.grid_rowconfigure(2, weight=0)
+
+        quick_add_section = ctk.CTkFrame(bottom_section, fg_color="transparent")
+        quick_add_section.grid(row=0, column=0, sticky="ew", pady=(0, 6))
         quick_add_section.grid_columnconfigure(0, weight=1)
-        self._create_section_label(quick_add_section, "QUICK ADD").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
+        self._create_section_label(quick_add_section, "QUICK ADD").grid(row=0, column=0, sticky="w", pady=(0, 4))
         entry = ctk.CTkEntry(
             quick_add_section,
             textvariable=self.employee_search_var,
             placeholder_text="Scrie numele angajatului",
-            height=34,
+            height=30,
             fg_color=ENTRY_BG,
             border_width=2,
             border_color=LINE_BLUE,
             text_color=BODY_TEXT,
         )
-        entry.grid(row=1, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
+        entry.grid(row=1, column=0, sticky="ew", pady=(0, 4))
         entry.bind("<KeyRelease>", self._on_search_change)
         entry.bind("<Return>", lambda _e: self.add_employee_from_search())
         self._search_entry = entry
@@ -777,18 +789,18 @@ class PlannerDashboard(ctk.CTkFrame):
             fg_color=ACCENT_BLUE,
             hover_color=HOVER_BLUE,
             text_color="white",
-            height=36,
+            height=32,
             corner_radius=12,
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
         )
         self._add_button.grid(row=2, column=0, sticky="ew")
 
-        more_actions_section = ctk.CTkFrame(frame, fg_color="transparent")
-        more_actions_section.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 8))
+        more_actions_section = ctk.CTkFrame(bottom_section, fg_color="transparent")
+        more_actions_section.grid(row=1, column=0, sticky="ew", pady=(6, 6))
         more_actions_section.grid_columnconfigure(0, weight=1)
-        self._create_section_label(more_actions_section, "MORE ACTIONS").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
-        self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=26).grid(row=1, column=0, sticky="ew", pady=(0, 4))
-        self._create_secondary_button(more_actions_section, "Redenumește", self.rename_employee_global, height=26).grid(row=2, column=0, sticky="ew", pady=(0, 4))
+        self._create_section_label(more_actions_section, "MORE ACTIONS").grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=24).grid(row=1, column=0, sticky="ew", pady=(0, 3))
+        self._create_secondary_button(more_actions_section, "Redenumește", self.rename_employee_global, height=24).grid(row=2, column=0, sticky="ew", pady=(0, 3))
         self._delete_global_button = ctk.CTkButton(
             more_actions_section,
             text="Șterge global",
@@ -796,18 +808,18 @@ class PlannerDashboard(ctk.CTkFrame):
             fg_color=DANGER_RED,
             hover_color=DANGER_RED_HOVER,
             text_color="white",
-            height=26,
+            height=24,
             corner_radius=10,
-            font=ctk.CTkFont(size=12, weight="bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
         self._delete_global_button.grid(row=3, column=0, sticky="ew")
 
-        suggestions_section = ctk.CTkFrame(frame, fg_color="transparent")
-        suggestions_section.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, OUTER_PAD))
+        suggestions_section = ctk.CTkFrame(bottom_section, fg_color="transparent")
+        suggestions_section.grid(row=2, column=0, sticky="ew")
         suggestions_section.grid_columnconfigure(0, weight=1)
         suggestions_section.grid_rowconfigure(1, weight=0)
-        self._create_section_label(suggestions_section, "SUGESTII").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
-        self.suggestion_frame = ctk.CTkScrollableFrame(suggestions_section, width=370, height=120, fg_color=PANEL_BG)
+        self._create_section_label(suggestions_section, "SUGESTII").grid(row=0, column=0, sticky="w", pady=(0, 4))
+        self.suggestion_frame = ctk.CTkScrollableFrame(suggestions_section, width=370, height=86, fg_color=PANEL_BG)
         self.suggestion_frame.grid(row=1, column=0, sticky="ew")
 
     def show_inline_message(self, message: str, is_error=False):
@@ -1121,11 +1133,11 @@ class PlannerDashboard(ctk.CTkFrame):
                 border_color=current_color if current_color else LINE_BLUE,
                 corner_radius=10,
             )
-            card.pack(fill="x", padx=4, pady=5)
+            card.pack(fill="x", padx=4, pady=3)
 
             # Randul de sus: indicator culoare + nume + butoane actiune
             top_row = ctk.CTkFrame(card, fg_color="transparent")
-            top_row.pack(fill="x", padx=8, pady=(7, 2))
+            top_row.pack(fill="x", padx=8, pady=(6, 1))
             top_row.grid_columnconfigure(1, weight=1)
 
             badge = self._create_hours_badge(top_row, cell_colors, employee)
@@ -1158,7 +1170,7 @@ class PlannerDashboard(ctk.CTkFrame):
 
             # Randul de jos: selector ore (comportament radio)
             palette_row = ctk.CTkFrame(card, fg_color="transparent")
-            palette_row.pack(fill="x", padx=8, pady=(1, 7))
+            palette_row.pack(fill="x", padx=8, pady=(1, 5))
             ctk.CTkLabel(palette_row, text="Program:", text_color=MUTED_TEXT, font=ctk.CTkFont(size=11)).pack(side="left", padx=(0, 6))
             for label in ("8h", "12h"):
                 is_active = hours_label == label
@@ -1191,19 +1203,19 @@ class PlannerDashboard(ctk.CTkFrame):
                 self.suggestion_frame,
                 text=employee,
                 anchor="w",
-                height=30,
+                height=24,
                 fg_color=("#F8FBFE", "#202A35"),
                 text_color=UTILITY_BUTTON_TEXT,
                 hover_color=("#EBF3FA", "#2B3A4B"),
                 border_width=1,
                 border_color=LINE_BLUE,
                 corner_radius=10,
-                font=ctk.CTkFont(size=12),
+                font=ctk.CTkFont(size=11),
                 command=lambda e=employee: self.add_employee_to_selected_cell(e),
             )
             if is_locked:
                 btn.configure(state="disabled")
-            btn.pack(fill="x", padx=4, pady=3)
+            btn.pack(fill="x", padx=4, pady=2)
 
     def select_department(self, department):
         self.selected_department = department
