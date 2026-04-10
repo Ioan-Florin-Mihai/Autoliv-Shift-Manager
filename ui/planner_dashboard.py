@@ -501,7 +501,8 @@ class PlannerDashboard(ctk.CTkFrame):
             text_color="white",
             font=ctk.CTkFont(size=11, weight="bold"),
         )
-        self._lock_button.grid(row=4, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0)) = ctk.CTkFrame(frame, fg_color="transparent")
+        self._lock_button.grid(row=4, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
+        export_section = ctk.CTkFrame(frame, fg_color="transparent")
         export_section.grid(row=2, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
         export_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(export_section, "EXPORT").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
