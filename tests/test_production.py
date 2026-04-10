@@ -1,10 +1,12 @@
 import json
 from datetime import date
 
+import bcrypt
 from fastapi.testclient import TestClient
 
 import logic.app_config as app_config
 import logic.audit_logger as audit_logger
+import logic.auth as auth_module
 import logic.schedule_store as schedule_store_module
 import main as main_module
 import tv_server
@@ -140,3 +142,81 @@ def test_entry_modes_dispatch(monkeypatch):
 
     assert called["planner"] == 1
     assert called["tv_web"] == 1
+
+
+def test_password_verification_uses_config_hash(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                **app_config.DEFAULT_CONFIG,
+                "app_password_hash": bcrypt.hashpw(b"admin123", bcrypt.gensalt(rounds=12)).decode("utf-8"),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(app_config, "CONFIG_PATH", config_path)
+    monkeypatch.setattr(app_config, "_cached_config", None)
+    monkeypatch.setattr(auth_module, "USERS_PATH", tmp_path / "users.json")
+
+    ok, _ = auth_module.verify_login_detailed("admin", "admin123")
+    assert ok is True
+
+    ok_wrong_password, _ = auth_module.verify_login_detailed("admin", "wrong")
+    assert ok_wrong_password is False
+
+
+def test_publish_week_atomic_single_domain_call(monkeypatch, tmp_path):
+    monkeypatch.setattr(schedule_store_module, "DRAFT_SCHEDULE_PATH", tmp_path / "schedule_draft.json")
+    monkeypatch.setattr(schedule_store_module, "LIVE_SCHEDULE_PATH", tmp_path / "schedule_live.json")
+    monkeypatch.setattr(schedule_store_module, "LEGACY_SCHEDULE_PATH", tmp_path / "schedule_data.json")
+    monkeypatch.setattr(schedule_store_module, "SCHEDULE_PATH", tmp_path / "schedule_draft.json")
+    monkeypatch.setattr(schedule_store_module, "BACKUP_DIR", tmp_path / "backups")
+    monkeypatch.setattr(schedule_store_module, "auth_is_admin", lambda user: user == "admin")
+
+    store = ScheduleStore()
+    week = store.get_or_create_week(date(2026, 4, 6))
+    week_key = week["week_start"]
+    store.data.setdefault("weeks", {})[week_key] = week
+
+    counters = {"save": 0, "live": 0}
+    original_save = store.save
+    original_live = store._save_live_snapshot
+
+    def save_spy():
+        counters["save"] += 1
+        return original_save()
+
+    def live_spy():
+        counters["live"] += 1
+        return original_live()
+
+    monkeypatch.setattr(store, "save", save_spy)
+    monkeypatch.setattr(store, "_save_live_snapshot", live_spy)
+
+    store.publish_week(week_key, "admin")
+
+    assert counters["save"] == 1
+    assert counters["live"] == 1
+    assert bool(store.data["weeks"][week_key].get("locked")) is True
+
+
+def test_auto_ip_detection_from_config_auto(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                **app_config.DEFAULT_CONFIG,
+                "server_ip": "AUTO",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(app_config, "CONFIG_PATH", config_path)
+    monkeypatch.setattr(app_config, "_cached_config", None)
+    monkeypatch.setattr(app_config, "get_local_ip", lambda: "192.168.50.77")
+
+    cfg = app_config.get_config(force_reload=True)
+    assert cfg["server_ip"] == "192.168.50.77"

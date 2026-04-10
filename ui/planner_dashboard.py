@@ -3,6 +3,7 @@ import tkinter as tk
 import tkinter.messagebox as messagebox
 import urllib.error
 import urllib.request
+from copy import deepcopy
 from datetime import date, datetime, timedelta
 from queue import Empty, Queue
 
@@ -1556,8 +1557,12 @@ class PlannerDashboard(ctk.CTkFrame):
         if not confirm:
             return
         try:
-            self.store.update_week(self.week_record)
-            self.store.publish_week(self.week_record.get("week_start", ""), self._username or "")
+            week_key = self.week_record.get("week_start", "")
+            if not week_key:
+                raise ValueError("Saptamana curenta este invalida.")
+            # Persistam in bufferul store, apoi publicarea executa intern tot fluxul atomic.
+            self.store.data.setdefault("weeks", {})[week_key] = deepcopy(self.week_record)
+            self.store.publish_week(week_key, self._username or "")
             self.week_record = self.store.get_or_create_week(self.selected_date)
             self._dirty = False
             self._update_dirty_indicator()

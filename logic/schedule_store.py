@@ -4,10 +4,10 @@ import tempfile
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
-from logic.audit_logger import log_event
 from logic.app_config import get_config
 from logic.app_logger import log_exception, log_warning
 from logic.app_paths import BACKUP_DIR, BASE_DIR
+from logic.audit_logger import log_event
 from logic.auth import is_admin as auth_is_admin
 
 DRAFT_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_draft.json"
@@ -506,6 +506,10 @@ class ScheduleStore:
             raise ValueError("Săptămâna nu există.")
 
         self._normalize_week_record(week_record)
+        if week_record.get("week_start") != week_key:
+            raise ValueError("Săptămâna are date invalide pentru publicare.")
+        if not isinstance(week_record.get("modes"), dict) or not week_record.get("modes"):
+            raise ValueError("Datele săptămânii sunt incomplete.")
         week_record["locked"] = True
         week_record["published_at"] = datetime.now().isoformat(timespec="seconds")
         week_record["published_by"] = user

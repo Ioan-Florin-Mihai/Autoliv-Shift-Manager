@@ -30,11 +30,9 @@ if not exist "Exports" mkdir "Exports"
 "%PYTHON_EXE%" -c "from logic.app_config import ensure_config; from logic.auth import _load_users; ensure_config(); _load_users()"
 if errorlevel 1 exit /b 1
 
-echo [4/6] Configurez IP-ul serverului pentru TV...
-set "SERVER_IP="
-set /p SERVER_IP=Introdu IP server (ex: 192.168.1.20): 
-if "%SERVER_IP%"=="" set "SERVER_IP=127.0.0.1"
-"%PYTHON_EXE%" -c "import json; from pathlib import Path; p=Path('config.json'); cfg=json.loads(p.read_text(encoding='utf-8')); cfg['server_ip']='%SERVER_IP%'; p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')"
+echo [4/6] Configurez IP-ul serverului pentru TV (AUTO)...
+set "SERVER_IP=AUTO"
+"%PYTHON_EXE%" -c "import json; from pathlib import Path; p=Path('config.json'); cfg=json.loads(p.read_text(encoding='utf-8')); cfg['server_ip']='AUTO'; p.write_text(json.dumps(cfg, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')"
 if errorlevel 1 (
     echo [EROARE] Nu am putut actualiza config.json cu IP-ul serverului.
     exit /b 1
@@ -51,7 +49,7 @@ if /i "%MODE%"=="kiosk" copy /y "start_kiosk.cmd" "%STARTUP_DIR%\Autoliv Shift M
 
 echo [6/6] Instalare finalizata.
 echo.
-echo Server TV configurat pe IP: %SERVER_IP%
+echo Server TV configurat pe IP: AUTO (detectie automata la runtime)
 echo Mod auto-start activ: %MODE%
 echo Script startup: "%STARTUP_DIR%\Autoliv Shift Manager Startup.cmd"
 echo.

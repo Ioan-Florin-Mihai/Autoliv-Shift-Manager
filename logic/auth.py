@@ -62,19 +62,26 @@ def _load_users() -> list[dict]:
             "auth: users.json lipseste (%s) — se creeaza cont admin default.",
             USERS_PATH,
         )
-        default_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt(rounds=12))
+        config = get_config()
+        configured_hash = str(config.get("app_password_hash", "")).strip()
+        if not configured_hash:
+            raise ValueError("app_password_hash lipseste din config.json")
+        try:
+            # Validare format hash bcrypt (fara comparatie in clar).
+            bcrypt.checkpw(b"_probe_", configured_hash.encode("utf-8"))
+        except ValueError as exc:
+            raise ValueError("app_password_hash invalid in config.json") from exc
         default_users = [
             {
                 "username": "admin",
-                "password_hash": default_hash.decode("utf-8"),
+                "password_hash": configured_hash,
                 "role": "admin",
                 "must_change_password": True,
             }
         ]
         _save_users(default_users)
         log_info(
-            "auth: cont admin creat (user: admin, parola: admin123). "
-            "SCHIMBATI PAROLA IMEDIAT!"
+            "auth: cont admin creat din hash-ul configurat (user: admin)."
         )
         return default_users
     try:

@@ -1,4 +1,5 @@
 import json
+import socket
 from copy import deepcopy
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from logic.app_paths import BASE_DIR
 CONFIG_PATH = BASE_DIR / "config.json"
 DEFAULT_CONFIG = {
     "server_host": "0.0.0.0",
-    "server_ip": "127.0.0.1",
+    "server_ip": "AUTO",
     "server_port": 8000,
     "rotation_interval": 10,
     "refresh_interval": 5,
@@ -20,8 +21,21 @@ DEFAULT_CONFIG = {
     "server_restart_delay": 5,
     "log_max_bytes": 5 * 1024 * 1024,
     "log_backup_count": 5,
+    "app_password_hash": "$2b$12$6Z/FpUJQWSBanOtVHCq2p.zItXw9jP.SrLd9OSnP/9yNHLp2zzWHa",
 }
 _cached_config: dict | None = None
+
+
+def get_local_ip() -> str:
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(1)
+        sock.connect(("8.8.8.8", 80))
+        ip = str(sock.getsockname()[0])
+        sock.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
 
 
 def _as_int(value, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
@@ -74,6 +88,7 @@ def _merge_config(raw: dict | None) -> dict:
     merged["server_restart_delay"] = _as_int(merged.get("server_restart_delay"), DEFAULT_CONFIG["server_restart_delay"], 1, 300)
     merged["log_max_bytes"] = _as_int(merged.get("log_max_bytes"), DEFAULT_CONFIG["log_max_bytes"], 1024, 100 * 1024 * 1024)
     merged["log_backup_count"] = _as_int(merged.get("log_backup_count"), DEFAULT_CONFIG["log_backup_count"], 1, 50)
+    merged["app_password_hash"] = str(merged.get("app_password_hash") or DEFAULT_CONFIG["app_password_hash"])
     return merged
 
 
@@ -108,4 +123,6 @@ def get_config(force_reload: bool = False) -> dict:
     except (OSError, json.JSONDecodeError):
         raw = {}
     _cached_config = _merge_config(raw)
+    if str(_cached_config.get("server_ip", "")).strip().upper() == "AUTO":
+        _cached_config["server_ip"] = get_local_ip()
     return deepcopy(_cached_config)
