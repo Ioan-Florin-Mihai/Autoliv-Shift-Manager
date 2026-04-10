@@ -518,7 +518,6 @@ class PlannerDashboard(ctk.CTkFrame):
         self.theme_switch.grid(row=1, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         if ctk.get_appearance_mode() == "Dark":
             self.theme_switch.select()
-        self._create_utility_button(settings_section, "Schimba parola", self._open_change_password).grid(row=2, column=0, sticky="ew")
 
     def _build_center(self):
         frame = ctk.CTkFrame(self, fg_color=CARD_WHITE, corner_radius=18, border_width=1, border_color=LINE_BLUE)
@@ -1184,14 +1183,6 @@ class PlannerDashboard(ctk.CTkFrame):
     def toggle_theme(self):
         mode = self.theme_switch.get()
         ctk.set_appearance_mode(mode)
-
-    def _open_change_password(self):
-        """Deschide dialogul de schimbare parola daca exista un user autentificat."""
-        from ui.dashboard import ChangePasswordDialog
-        if self._username:
-            ChangePasswordDialog(self.winfo_toplevel(), self._username)
-        else:
-            messagebox.showwarning("Indisponibil", "Nu exista un utilizator autentificat.")
 
     def delete_employee_global(self):
         value = self.employee_search_var.get().strip()

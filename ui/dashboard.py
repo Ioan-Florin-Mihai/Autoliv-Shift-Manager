@@ -4,7 +4,7 @@ import tkinter.messagebox as messagebox
 import customtkinter as ctk
 
 from logic.app_logger import log_exception
-from logic.auth import change_password, verify_login_detailed
+from logic.auth import verify_login_detailed
 from logic.remote_control import RemoteControlService
 from logic.version import APP_NAME, VERSION
 from ui.common_ui import (
@@ -110,86 +110,6 @@ class LoginFrame(ctk.CTkFrame):
         self.login()
 
 
-class ChangePasswordDialog(ctk.CTkToplevel):
-    """
-    Dialog modal pentru schimbarea parolei utilizatorului curent.
-    Apeleaza logic.auth.change_password() — nu acceseaza fisiere direct.
-    """
-
-    def __init__(self, master, username: str):
-        super().__init__(master)
-        self.username  = username
-        self.title("Schimba parola")
-        self.geometry("420x360")
-        self.resizable(False, False)
-        self.grab_set()               # modal
-        self.lift()
-        self.focus_force()
-        self._build_ui()
-
-    def _build_ui(self):
-        self.configure(fg_color=BG_WHITE)
-        pad = {"padx": 32, "pady": 8}
-
-        ctk.CTkLabel(
-            self, text="Schimba parola",
-            font=ctk.CTkFont(size=20, weight="bold"), text_color=PRIMARY_BLUE,
-        ).pack(**pad, pady=(24, 4))
-
-        ctk.CTkLabel(self, text="Parola curenta", text_color=BODY_TEXT,
-                     font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=32)
-        self._old_var = ctk.StringVar()
-        ctk.CTkEntry(self, textvariable=self._old_var, show="*", width=360,
-                     fg_color=ENTRY_BG, border_color=LINE_BLUE, border_width=2,
-                     text_color=BODY_TEXT).pack(**pad)
-
-        ctk.CTkLabel(self, text="Parola noua (min 8 caractere)", text_color=BODY_TEXT,
-                     font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=32)
-        self._new_var = ctk.StringVar()
-        ctk.CTkEntry(self, textvariable=self._new_var, show="*", width=360,
-                     fg_color=ENTRY_BG, border_color=LINE_BLUE, border_width=2,
-                     text_color=BODY_TEXT).pack(**pad)
-
-        ctk.CTkLabel(self, text="Confirma parola noua", text_color=BODY_TEXT,
-                     font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=32)
-        self._confirm_var = ctk.StringVar()
-        ctk.CTkEntry(self, textvariable=self._confirm_var, show="*", width=360,
-                     fg_color=ENTRY_BG, border_color=LINE_BLUE, border_width=2,
-                     text_color=BODY_TEXT).pack(**pad)
-
-        self._status_var = ctk.StringVar()
-        ctk.CTkLabel(self, textvariable=self._status_var, text_color="#C0392B",
-                     font=ctk.CTkFont(size=12), wraplength=360).pack(padx=32)
-
-        ctk.CTkButton(
-            self, text="Salveaza parola", command=self._submit,
-            width=360, height=44, fg_color=PRIMARY_BLUE,
-            font=ctk.CTkFont(size=14, weight="bold"), corner_radius=10,
-        ).pack(padx=32, pady=(8, 16))
-
-    def _submit(self):
-        old     = self._old_var.get()
-        new     = self._new_var.get()
-        confirm = self._confirm_var.get()
-
-        if not old or not new:
-            self._status_var.set("Completeaza toate campurile.")
-            return
-        if new != confirm:
-            self._status_var.set("Parolele noi nu coincid.")
-            return
-        if new == old:
-            self._status_var.set("Parola noua trebuie sa fie diferita de cea curenta.")
-            return
-
-        ok, msg = change_password(self.username, old, new)
-        if ok:
-            messagebox.showinfo("Succes", msg, parent=self)
-            self.destroy()
-        else:
-            self._status_var.set(msg)
-
-
 class ShiftManagerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -218,25 +138,6 @@ class ShiftManagerApp(ctk.CTk):
             self.current_frame.destroy()
         self.unbind("<Return>")
         self.current_frame = PlannerDashboard(self, self.remote_service, username=username)
-        # Schimbare parolă obligatorie la primul login (parola implicită)
-        from logic.auth import must_change_password as _must_change
-        if _must_change(username):
-            self.after(700, lambda: self._prompt_mandatory_password_change(username))
-
-    def _prompt_mandatory_password_change(self, username: str):
-        """Afișează avertisment + dialog obligatoriu de schimbare parolă."""
-        import tkinter.messagebox as messagebox
-        messagebox.showwarning(
-            "Schimbare parolă obligatorie",
-            "Folosești parola implicită (admin123).\n"
-            "Din motive de securitate, trebuie să schimbi parola acum.",
-            parent=self,
-        )
-        ChangePasswordDialog(self, username)
-
-    def open_change_password(self):
-        if self._current_username:
-            ChangePasswordDialog(self, self._current_username)
 
     def close_app(self):
         # Verifica modificari nesalvate in PlannerDashboard
