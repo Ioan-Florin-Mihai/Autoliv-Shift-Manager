@@ -38,6 +38,7 @@ from ui.common_ui import (
 ACCENT_BLUE = "#0067C8"
 SOFT_BLUE = "#DCEBFA"
 WEEKEND_BG = ("#DDF7F1", "#1F4F4C")
+WEEKEND_SELECTED_BG = ("#BFEAE1", "#2B6661")
 SELECTED_BG = ("#D2E7FF", "#1C4268")
 GRID_CELL_BG = ("#FFFFFF", "#2A2A2A")
 SUGGESTION_BG = ("#D9E6F5", "#1E3A5F")
@@ -484,7 +485,7 @@ class PlannerDashboard(ctk.CTkFrame):
         is_selected = self.selected_day == day_name and self.selected_shift == shift
         is_weekend = day_name in WEEKEND_DAYS
         if is_selected:
-            fg_color = SELECTED_BG
+            fg_color = WEEKEND_SELECTED_BG if is_weekend else SELECTED_BG
             border_color = selected_border
         elif is_weekend:
             fg_color = WEEKEND_BG
@@ -975,7 +976,10 @@ class PlannerDashboard(ctk.CTkFrame):
                 normal_border, _hover_border, selected_border = self._grid_border_theme()
                 is_selected = self.selected_day == day_name and self.selected_shift == shift
                 is_weekend = day_name in WEEKEND_DAYS
-                cell_bg = SELECTED_BG if is_selected else (WEEKEND_BG if is_weekend else GRID_CELL_BG)
+                if is_selected:
+                    cell_bg = WEEKEND_SELECTED_BG if is_weekend else SELECTED_BG
+                else:
+                    cell_bg = WEEKEND_BG if is_weekend else GRID_CELL_BG
                 border_color_active = selected_border if is_selected else normal_border
 
                 # Celula — frame clickabil
