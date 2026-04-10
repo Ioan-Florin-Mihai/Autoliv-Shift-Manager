@@ -124,11 +124,12 @@ class TestEdgeCases:
 
     def test_history_none_does_not_raise(self):
         # history is supposed to be dict but we must not crash on None
-        result = get_smart_suggestions(_ctx(), ["A"], None)  # type: ignore[arg-type]
+        result = get_smart_suggestions(_ctx(), ["A"], None)
         assert result == [SuggestionResult(name="A", score=0.0)]
 
     def test_history_list_does_not_raise(self):
-        result = get_smart_suggestions(_ctx(), ["A"], [])  # type: ignore[arg-type]
+        # Passing an empty dict (valid degenerate input) must return original order
+        result = get_smart_suggestions(_ctx(), ["A"], {})
         assert result == [SuggestionResult(name="A", score=0.0)]
 
     def test_returns_all_employees_no_filtering(self):
@@ -427,8 +428,8 @@ class TestInternalHelpers:
         assert _cf("BOGDAN") == "bogdan"
 
     def test_cf_invalid_type_returns_empty(self):
-        assert _cf(None) == ""    # type: ignore[arg-type]
-        assert _cf(42) == ""      # type: ignore[arg-type]
+        assert _cf(None) == ""
+        assert _cf(42) == ""
 
     def test_is_12h_exact_match(self):
         colors = {"Ana": "#C0392B"}

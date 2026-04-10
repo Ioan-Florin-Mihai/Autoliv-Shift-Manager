@@ -70,7 +70,7 @@ class SuggestionResult:
 def get_smart_suggestions(
     context: dict,
     employees: list[str],
-    history: dict,
+    history: dict | None,
 ) -> list[SuggestionResult]:
     """Rank employees for a schedule slot using historical assignment data.
 
