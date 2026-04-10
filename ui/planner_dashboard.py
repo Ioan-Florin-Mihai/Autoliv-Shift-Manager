@@ -423,7 +423,7 @@ class PlannerDashboard(ctk.CTkFrame):
         frame.grid(row=0, column=0, sticky="nsew", padx=(0, PANEL_GAP))
         frame.grid_propagate(False)
         frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(1, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
 
         plan_section = ctk.CTkFrame(frame, fg_color="transparent")
         plan_section.grid(row=0, column=0, sticky="ew", padx=OUTER_PAD, pady=(OUTER_PAD, SECTION_GAP))
@@ -467,7 +467,7 @@ class PlannerDashboard(ctk.CTkFrame):
         ).grid(row=6, column=0, sticky="w", pady=(2, 0))
 
         nav_section = ctk.CTkFrame(frame, fg_color="transparent")
-        nav_section.grid(row=1, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
+        nav_section.grid(row=1, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, SECTION_GAP))
         nav_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(nav_section, "NAVIGATION").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         self._create_secondary_button(nav_section, "Calendar", self.pick_week).grid(row=1, column=0, sticky="ew", pady=(0, SECTION_INNER_GAP))
@@ -500,7 +500,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self._lock_button.grid(row=4, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
 
         settings_section = ctk.CTkFrame(frame, fg_color="transparent")
-        settings_section.grid(row=2, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
+        settings_section.grid(row=2, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
         settings_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(settings_section, "SETTINGS").grid(row=0, column=0, sticky="w", pady=(0, SECTION_INNER_GAP))
         self.theme_switch = ctk.CTkSwitch(settings_section, text="Dark Mode", command=self.toggle_theme, onvalue="Dark", offvalue="Light")
