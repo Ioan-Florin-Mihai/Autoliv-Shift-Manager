@@ -273,6 +273,30 @@ html, body {
   border-top: 2px solid var(--blue-dark);
 }
 
+#footer-left,
+#footer-right {
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+}
+
+#footer-left {
+  justify-content: flex-start;
+}
+
+#footer-right {
+  justify-content: flex-end;
+}
+
+#footer-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
 #footer-legend {
   font-size: 13px;
   color: #8DB6E0;
@@ -298,13 +322,17 @@ html, body {
   white-space: nowrap;
 }
 
-#footer-warning {
+#footer-status {
   font-size: 13px;
   font-weight: 700;
-  color: #FFB3AD;
-  min-width: 240px;
+  color: #A7F3C9;
+  min-width: 200px;
   text-align: center;
   white-space: nowrap;
+}
+
+#footer-status.warn {
+  color: #FFB3AD;
 }
 
 /* Dept progress dots */

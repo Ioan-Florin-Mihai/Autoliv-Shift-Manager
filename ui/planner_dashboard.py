@@ -6,6 +6,7 @@ from queue import Empty, Queue
 
 import customtkinter as ctk
 
+from logic.audit_logger import log_event
 from logic.app_logger import log_exception
 from logic.employee_store import EmployeeStore
 from logic.remote_control import RemoteChecker, RemoteControlService
@@ -192,7 +193,9 @@ class PlannerDashboard(ctk.CTkFrame):
         self._undo_stack: list = []                # stiva undo (max 10 stari)
         self._search_entry: ctk.CTkEntry | None = None   # referinta la entry search
         self._last_saved_var = ctk.StringVar(value="")
+        self._lock_state_var = ctk.StringVar(value="")
         self._lock_button: ctk.CTkButton | None = None
+        self._add_button: ctk.CTkButton | None = None
         self._dirty_indicator: ctk.CTkLabel | None = None
         self._grid_cell_frames: dict = {}          # cache {(day, shift): CTkFrame}
         self._grid_cell_canvases: dict = {}        # cache {(day, shift): tk.Canvas}
@@ -204,6 +207,15 @@ class PlannerDashboard(ctk.CTkFrame):
         self.refresh_all()
         self.remote_checker.start()
         self.after(1000, self.process_remote_events)
+        self.after(60000, self._auto_save)
+
+    def _current_week_code(self) -> str:
+        try:
+            week_start = date.fromisoformat(self.week_record.get("week_start", ""))
+            iso = week_start.isocalendar()
+            return f"{iso.year}-W{iso.week:02d}"
+        except Exception:
+            return "unknown"
 
     def current_mode_record(self):
         return self.week_record["modes"][self.current_mode]
@@ -498,6 +510,13 @@ class PlannerDashboard(ctk.CTkFrame):
             font=ctk.CTkFont(size=11, weight="bold"),
         )
         self._lock_button.grid(row=4, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
+        ctk.CTkLabel(
+            nav_section,
+            textvariable=self._lock_state_var,
+            text_color=("#8A1F17", "#FFB3AD"),
+            font=ctk.CTkFont(size=11, weight="bold"),
+            anchor="w",
+        ).grid(row=5, column=0, sticky="ew", pady=(4, 0))
         ctk.CTkButton(
             nav_section,
             text="PUBLICA PE ECRANE",
@@ -508,7 +527,7 @@ class PlannerDashboard(ctk.CTkFrame):
             hover_color=HOVER_BLUE,
             text_color="white",
             font=ctk.CTkFont(size=13, weight="bold"),
-        ).grid(row=5, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
+        ).grid(row=6, column=0, sticky="ew", pady=(SECTION_INNER_GAP, 0))
 
         settings_section = ctk.CTkFrame(frame, fg_color="transparent")
         settings_section.grid(row=2, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
@@ -652,7 +671,7 @@ class PlannerDashboard(ctk.CTkFrame):
         entry.bind("<Return>", lambda _e: self.add_employee_from_search())
         self._search_entry = entry
         self._bind_entry_focus_style(entry)
-        ctk.CTkButton(
+        self._add_button = ctk.CTkButton(
             quick_add_section,
             text="Adaugă",
             command=self.add_employee_from_search,
@@ -662,7 +681,8 @@ class PlannerDashboard(ctk.CTkFrame):
             height=PRIMARY_BUTTON_HEIGHT,
             corner_radius=12,
             font=ctk.CTkFont(size=14, weight="bold"),
-        ).grid(row=2, column=0, sticky="ew")
+        )
+        self._add_button.grid(row=2, column=0, sticky="ew")
 
         more_actions_section = ctk.CTkFrame(frame, fg_color="transparent")
         more_actions_section.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, SECTION_GAP))
@@ -728,6 +748,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self.refresh_suggestions()
         self._update_dirty_indicator()
         self._refresh_lock_button()
+        self._sync_action_states()
 
     def refresh_week_display(self):
         start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
@@ -950,17 +971,18 @@ class PlannerDashboard(ctk.CTkFrame):
         Seteaza sau sterge culoarea unui angajat in celula curenta.
         `color` = hex string sau None (pentru reset).
         """
+        if not self._ensure_week_editable():
+            return
         self._push_undo()
-        cell = self.current_cell()
-        colors = cell.setdefault("colors", {})
-        # Gasim cheia exacta (case-insensitive)
-        existing_key = next((k for k in colors if k.casefold() == employee.casefold()), None)
-        if color is None:
-            if existing_key:
-                del colors[existing_key]
-        else:
-            key = existing_key or employee
-            colors[key] = color
+        self.store.set_employee_color(
+            self.week_record,
+            self.current_mode,
+            self.selected_department,
+            self.selected_day,
+            self.selected_shift,
+            employee,
+            color,
+        )
         self._dirty = True
         self.render_grid()
         self.render_assignment_panel()
@@ -1019,10 +1041,18 @@ class PlannerDashboard(ctk.CTkFrame):
 
             actions = ctk.CTkFrame(top_row, fg_color="transparent")
             actions.grid(row=0, column=2, sticky="e", padx=(8, 0))
-            self._create_utility_button(actions, "Sus", lambda e=employee: self.reorder_employee(e, -1), width=38, height=26, font=ctk.CTkFont(size=11)).pack(side="left", padx=(0, 3))
-            self._create_utility_button(actions, "Jos", lambda e=employee: self.reorder_employee(e, 1), width=38, height=26, font=ctk.CTkFont(size=11)).pack(side="left", padx=3)
-            self._create_utility_button(actions, "Mut", lambda e=employee: self.move_employee_to_shift(e), width=38, height=26, font=ctk.CTkFont(size=11)).pack(side="left", padx=3)
-            ctk.CTkButton(actions, text="✕", width=28, height=26, fg_color=DANGER_RED, hover_color=DANGER_RED_HOVER, text_color="white", font=ctk.CTkFont(size=12), command=lambda e=employee: self.remove_employee(e)).pack(side="left", padx=(3, 0))
+            is_locked = self.store.is_week_locked(self.week_record)
+            up_btn = self._create_utility_button(actions, "Sus", lambda e=employee: self.reorder_employee(e, -1), width=38, height=26, font=ctk.CTkFont(size=11))
+            down_btn = self._create_utility_button(actions, "Jos", lambda e=employee: self.reorder_employee(e, 1), width=38, height=26, font=ctk.CTkFont(size=11))
+            move_btn = self._create_utility_button(actions, "Mut", lambda e=employee: self.move_employee_to_shift(e), width=38, height=26, font=ctk.CTkFont(size=11))
+            remove_btn = ctk.CTkButton(actions, text="✕", width=28, height=26, fg_color=DANGER_RED, hover_color=DANGER_RED_HOVER, text_color="white", font=ctk.CTkFont(size=12), command=lambda e=employee: self.remove_employee(e))
+            if is_locked:
+                for btn in (up_btn, down_btn, move_btn, remove_btn):
+                    btn.configure(state="disabled")
+            up_btn.pack(side="left", padx=(0, 3))
+            down_btn.pack(side="left", padx=3)
+            move_btn.pack(side="left", padx=3)
+            remove_btn.pack(side="left", padx=(3, 0))
 
             # Randul de jos: selector ore (comportament radio)
             palette_row = ctk.CTkFrame(card, fg_color="transparent")
@@ -1053,8 +1083,9 @@ class PlannerDashboard(ctk.CTkFrame):
         if not suggestions:
             ctk.CTkLabel(self.suggestion_frame, text="Nicio sugestie.", text_color=MUTED_TEXT).pack(anchor="w", padx=8, pady=8)
             return
+        is_locked = self.store.is_week_locked(self.week_record)
         for employee in suggestions:
-            ctk.CTkButton(
+            btn = ctk.CTkButton(
                 self.suggestion_frame,
                 text=employee,
                 anchor="w",
@@ -1067,7 +1098,10 @@ class PlannerDashboard(ctk.CTkFrame):
                 corner_radius=10,
                 font=ctk.CTkFont(size=12),
                 command=lambda e=employee: self.add_employee_to_selected_cell(e),
-            ).pack(fill="x", padx=4, pady=3)
+            )
+            if is_locked:
+                btn.configure(state="disabled")
+            btn.pack(fill="x", padx=4, pady=3)
 
     def select_department(self, department):
         self.selected_department = department
@@ -1174,6 +1208,18 @@ class PlannerDashboard(ctk.CTkFrame):
             self.show_inline_message(str(exc), is_error=True)
             return
         self._dirty = True
+        log_event(
+            action="add_employee",
+            user=self._username or "unknown",
+            week=self._current_week_code(),
+            details={
+                "mode": self.current_mode,
+                "department": self.selected_department,
+                "day": self.selected_day,
+                "shift": self.selected_shift,
+                "employee": employee,
+            },
+        )
         self.employee_search_var.set("")
         self.show_inline_message(f"{employee} adăugat.")
         self.refresh_all()
@@ -1259,6 +1305,18 @@ class PlannerDashboard(ctk.CTkFrame):
             employee,
         )
         self._dirty = True
+        log_event(
+            action="remove_employee",
+            user=self._username or "unknown",
+            week=self._current_week_code(),
+            details={
+                "mode": self.current_mode,
+                "department": self.selected_department,
+                "day": self.selected_day,
+                "shift": self.selected_shift,
+                "employee": employee,
+            },
+        )
         self.refresh_all()
 
     def reorder_employee(self, employee: str, direction: int):
@@ -1280,6 +1338,7 @@ class PlannerDashboard(ctk.CTkFrame):
     def move_employee_to_shift(self, employee: str):
         if not self._ensure_week_editable():
             return
+        source_shift = self.selected_shift
         candidates = [shift for shift in SHIFTS if shift != self.selected_shift]
         dlg = MoveShiftDialog(self.winfo_toplevel(), candidates)
         self.wait_window(dlg)
@@ -1302,6 +1361,19 @@ class PlannerDashboard(ctk.CTkFrame):
             return
         self.selected_shift = target_shift
         self._dirty = True
+        log_event(
+            action="move_employee",
+            user=self._username or "unknown",
+            week=self._current_week_code(),
+            details={
+                "mode": self.current_mode,
+                "department": self.selected_department,
+                "day": self.selected_day,
+                "source_shift": source_shift,
+                "target_shift": target_shift,
+                "employee": employee,
+            },
+        )
         self.refresh_all()
 
     def add_department(self):
@@ -1355,14 +1427,28 @@ class PlannerDashboard(ctk.CTkFrame):
             return
         self.store.clear_department(self.week_record, self.current_mode, self.selected_department)
         self._dirty = True
+        log_event(
+            action="clear_department",
+            user=self._username or "unknown",
+            week=self._current_week_code(),
+            details={
+                "mode": self.current_mode,
+                "department": self.selected_department,
+            },
+        )
         self.refresh_all()
         self.show_inline_message(f"Departamentul {self.selected_department} a fost golit.")
 
     def publish_to_tv(self):
+        week_text = self._current_week_code()
         confirm = messagebox.askyesno(
             "Confirmare publicare",
-            "Publici planificarea curenta pe ecrane?\n\n"
-            "Actiunea va copia draft -> live si va bloca automat saptamana.",
+            "Sigur vrei să publici planificarea?\n\n"
+            f"Săptămâna: {week_text}\n"
+            f"Departament: {self.selected_department}\n\n"
+            "După publicare:\n"
+            "• datele devin vizibile pe toate ecranele\n"
+            "• săptămâna va fi blocată (read-only)",
         )
         if not confirm:
             return
@@ -1372,6 +1458,21 @@ class PlannerDashboard(ctk.CTkFrame):
             self.store.update_week(self.week_record)
             self.store.publish_to_live()
             self.store.lock_week(self.week_record.get("week_start", ""))
+            log_event(
+                action="publish",
+                user=self._username or "unknown",
+                week=week_text,
+                details={
+                    "mode": self.current_mode,
+                    "department": self.selected_department,
+                },
+            )
+            log_event(
+                action="lock_week",
+                user=self._username or "unknown",
+                week=week_text,
+                details={"source": "publish"},
+            )
             self.week_record = self.store.get_or_create_week(self.selected_date)
             self._dirty = False
             self._undo_stack.clear()
@@ -1490,28 +1591,67 @@ class PlannerDashboard(ctk.CTkFrame):
         """Publicare / deblocare săptămână curentă."""
         if self.store.is_week_locked(self.week_record):
             self.store.unlock_week(self.week_record)
+            log_event(
+                action="unlock_week",
+                user=self._username or "unknown",
+                week=self._current_week_code(),
+                details={"source": "manual"},
+            )
             self.show_inline_message("Săptămâna a fost deblocată pentru editare.")
         else:
             if self._dirty:
                 self.save_week()
             self.store.lock_week(self.week_record)
+            log_event(
+                action="lock_week",
+                user=self._username or "unknown",
+                week=self._current_week_code(),
+                details={"source": "manual"},
+            )
             self.show_inline_message("Săptămâna a fost publicată (read-only).")
         self._refresh_lock_button()
+        self._sync_action_states()
 
     def _refresh_lock_button(self):
         """Actualizează textul și culoarea butonului de lock în funcție de starea curentă."""
         if self._lock_button is None:
             return
         if self.store.is_week_locked(self.week_record):
+            self._lock_state_var.set("🔒 SĂPTĂMÂNĂ BLOCATĂ")
             self._lock_button.configure(
                 text="🔒 Săptămână publicată",
                 fg_color="#C0392B", hover_color="#A93226",
             )
         else:
+            self._lock_state_var.set("")
             self._lock_button.configure(
                 text="🔓 Săptămâna deschisă",
                 fg_color="#27AE60", hover_color="#1E8449",
             )
+
+    def _sync_action_states(self):
+        is_locked = self.store.is_week_locked(self.week_record)
+        if self._add_button is not None:
+            self._add_button.configure(state="disabled" if is_locked else "normal")
+
+    def _auto_save(self):
+        if self._closing or not self.winfo_exists():
+            return
+        try:
+            if self._dirty:
+                self.store.update_week(self.week_record)
+                self._dirty = False
+                self._undo_stack.clear()
+                self._last_saved_var.set(f"Salvat automat la {datetime.now().strftime('%H:%M')}")
+                self._update_dirty_indicator()
+                self.refresh_history()
+        except Exception as exc:
+            log_exception("auto_save", exc)
+        finally:
+            try:
+                self.after(60000, self._auto_save)
+            except tk.TclError:
+                pass
 
     # ── Absențe rapide ────────────────────────────────────────────────────────
 

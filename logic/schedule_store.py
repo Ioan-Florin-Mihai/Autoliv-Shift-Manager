@@ -650,6 +650,29 @@ class ScheduleStore:
         if carry_color:
             target_cell.setdefault("colors", {})[employee] = carry_color
 
+    def set_employee_color(
+        self,
+        week_record,
+        mode_name: str,
+        department: str,
+        day_name: str,
+        shift: str,
+        employee: str,
+        color: str | None,
+    ):
+        self._assert_not_locked(week_record)
+        cell = week_record["modes"][mode_name]["schedule"][department][day_name][shift]
+        colors = cell.setdefault("colors", {})
+        existing_key = next(
+            (key for key in colors if isinstance(key, str) and key.casefold() == employee.casefold()),
+            None,
+        )
+        if color is None:
+            if existing_key:
+                colors.pop(existing_key, None)
+            return
+        colors[existing_key or employee] = color
+
     def add_department(self, week_record, mode_name: str, department: str):
         self._assert_not_locked(week_record)
         mode_record = week_record["modes"][mode_name]

@@ -16,6 +16,7 @@ URL TV:
 from __future__ import annotations
 
 import json
+import logging
 import socket
 import time
 from datetime import date, timedelta
@@ -35,7 +36,7 @@ TPL_DIR    = ROOT / "templates"
 # ─── Constante domeniu (oglindite din schedule_store, fara import ca serverul
 #     sa ramana fara dependinte si utilizabil cu --tv-web fara incarcarea aplicatiei complete) ──
 ABSENCE_NAMES: frozenset[str] = frozenset({"CO", "CM", "ABSENT"})
-COLOR_12H = "#C0392B"   # stored in cell["colors"][employee_name]
+COLOR_12H = "#C0392B"   # stocat in cell["colors"][nume_angajat]
 SHIFTS     = ["Sch1", "Sch2", "Sch3"]
 DAYS       = [
     ("Luni", 0), ("Marti", 1), ("Miercuri", 2),
@@ -218,6 +219,31 @@ def _build_tv_data() -> dict:
     }
 
 
+def _count_all_employees(payload: dict) -> int:
+    total = 0
+    for mode_schedule in payload.get("schedule", {}).values():
+        if not isinstance(mode_schedule, dict):
+            continue
+        for dept_data in mode_schedule.values():
+            if not isinstance(dept_data, dict):
+                continue
+            for day_data in dept_data.values():
+                if not isinstance(day_data, dict):
+                    continue
+                for shift_entries in day_data.values():
+                    if isinstance(shift_entries, list):
+                        total += len(shift_entries)
+    return total
+
+
+def _count_departments(payload: dict) -> int:
+    all_departments: set[str] = set()
+    for dep_list in payload.get("departments", {}).values():
+        if isinstance(dep_list, list):
+            all_departments.update(item for item in dep_list if isinstance(item, str))
+    return len(all_departments)
+
+
 # ─── FastAPI app ──────────────────────────────────────────────────────────────
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -238,6 +264,29 @@ async def tv_data() -> JSONResponse:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@app.get("/health")
+async def health() -> JSONResponse:
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "last_update": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
+            "data_loaded": _CACHED_DATA is not None,
+        }
+    )
+
+
+@app.get("/metrics")
+async def metrics() -> JSONResponse:
+    payload = _build_tv_data()
+    return JSONResponse(
+        content={
+            "departments": _count_departments(payload),
+            "employees_total": _count_all_employees(payload),
+            "last_refresh": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
+        }
+    )
+
+
 # ─── LAN IP helper ────────────────────────────────────────────────────────────
 
 def _local_ip() -> str:
@@ -256,12 +305,13 @@ def _local_ip() -> str:
 
 def start_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     """Apelata din main.py cand este prezent flag-ul --tv-web."""
+    logger = logging.getLogger("tv_server")
     ip = _local_ip()
     sep = "=" * 56
-    print(f"\n{sep}")
-    print("  AUTOLIV TV SERVER — pornit")
-    print(f"  Local :  http://127.0.0.1:{port}/tv")
-    print(f"  Rețea :  http://{ip}:{port}/tv")
-    print("  Deschide URL-ul de mai sus pe fiecare TV")
-    print(f"{sep}\n")
+    logger.warning("\n%s", sep)
+    logger.warning("  AUTOLIV TV SERVER - pornit")
+    logger.warning("  Local :  http://127.0.0.1:%s/tv", port)
+    logger.warning("  Retea :  http://%s:%s/tv", ip, port)
+    logger.warning("  Deschide URL-ul de mai sus pe fiecare TV")
+    logger.warning("%s\n", sep)
     uvicorn.run(app, host=host, port=port, log_level="warning")

@@ -26,6 +26,7 @@ let _data    = null;   // ultimul raspuns API valid
 let _modeIdx = 0;      // indexul modului curent (Magazie / Bucle)
 let _deptIdx = 0;      // indexul departamentului curent in modul activ
 let _lastSuccessMs = 0;
+let _lastDataUpdateMs = 0;
 let _refreshDelayMs = REFRESH_MS;
 let _refreshTimer = null;
 let _syncTimer = null;
@@ -62,17 +63,20 @@ function formatTimeMs(ms) {
 }
 
 function updateStaleWarning(nowMs = Date.now()) {
-  const warningEl = document.getElementById('footer-warning');
+  const statusEl = document.getElementById('footer-status');
   const lastEl = document.getElementById('footer-last-update');
+  const referenceMs = _lastDataUpdateMs || _lastSuccessMs;
   if (lastEl) {
-    lastEl.textContent = `Ultima actualizare: ${formatTimeMs(_lastSuccessMs)}`;
+    lastEl.textContent = `Ultima actualizare: ${formatTimeMs(referenceMs)}`;
   }
-  if (!warningEl) return;
-  if (!_lastSuccessMs || (nowMs - _lastSuccessMs) <= STALE_WARN_MS) {
-    warningEl.textContent = '';
+  if (!statusEl) return;
+  if (!referenceMs || (nowMs - referenceMs) <= STALE_WARN_MS) {
+    statusEl.textContent = '✔ Conectat';
+    statusEl.classList.remove('warn');
     return;
   }
-  warningEl.textContent = '⚠ Datele nu se mai actualizează';
+  statusEl.textContent = '⚠ Datele nu se mai actualizează';
+  statusEl.classList.add('warn');
 }
 
 function computeSyncedDeptIndex(nowMs, deptCount) {
@@ -108,6 +112,7 @@ async function fetchData() {
     if (json && !json.error) {
       _data = json;
       _lastSuccessMs = Date.now();
+      _lastDataUpdateMs = Number(json.last_update_ms || _lastSuccessMs);
       _refreshDelayMs = REFRESH_MS;
       updateStaleWarning(_lastSuccessMs);
       return true;

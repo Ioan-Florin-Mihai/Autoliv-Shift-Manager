@@ -96,6 +96,7 @@ datas = [
     ("data/remote_config.json",        "data"),
     ("data/schedule_draft.json",       "data"),
     ("data/schedule_live.json",        "data"),
+    ("data/audit_log.json",            "data"),
     ("data/employees.json",            "data"),
 ]
 
