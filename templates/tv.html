@@ -3,41 +3,483 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Autoliv — Shift Manager</title>
-  <link rel="stylesheet" href="/static/tv.css">
+  <title>Autoliv — Shift Manager TV</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #eef3f8;
+      --surface: #ffffff;
+      --line: #b8c6d6;
+      --line-strong: #8ea3b8;
+      --head: #123e6b;
+      --head-text: #ffffff;
+      --text: #17324b;
+      --muted: #5c728a;
+      --filled: #dcecff;
+      --filled-12h: #ffe2bf;
+      --empty: #eef2f6;
+      --today: #fff4bf;
+      --weekend: #f4f6f8;
+      --accent: #0c549f;
+      --ok: #1d7d45;
+      --danger: #b54a1d;
+      --header-height: 44px;
+      --footer-height: 20px;
+      --font-size: 11px;
+      --row-height: 24px;
+      --cell-pad: 3px;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+      cursor: none;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: var(--header-height) 1fr var(--footer-height);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    #topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--head);
+      color: var(--head-text);
+      padding: 0 10px;
+      overflow: hidden;
+    }
+
+    #topbar-logo {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      white-space: nowrap;
+    }
+
+    #topbar-clock {
+      font-size: 16px;
+      font-weight: 700;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #main-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 2px;
+      font-size: 10px;
+      color: var(--muted);
+      min-height: 15px;
+    }
+
+    #main {
+      min-height: 0;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+    }
+
+    #table-wrap {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      height: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: var(--font-size);
+    }
+
+    th,
+    td {
+      padding: var(--cell-pad);
+      border: 1px solid var(--line);
+      text-align: center;
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    thead th {
+      background: var(--head);
+      color: var(--head-text);
+      font-size: var(--font-size);
+      font-weight: 800;
+    }
+
+    tbody tr {
+      height: var(--row-height);
+    }
+
+    tbody tr:nth-child(even) td {
+      background: #fafcff;
+    }
+
+    .col-position {
+      width: 18%;
+      text-align: left;
+      font-weight: 700;
+    }
+
+    .col-shift {
+      width: 6%;
+      font-weight: 700;
+    }
+
+    .col-day {
+      width: 10.8%;
+    }
+
+    .day-head {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .day-title {
+      font-weight: 800;
+    }
+
+    .day-date {
+      font-size: 9px;
+      color: #dfe9f5;
+    }
+
+    .position-cell {
+      text-align: left;
+      font-weight: 700;
+      color: var(--text);
+      background: #f7fafe;
+    }
+
+    .shift-cell {
+      font-weight: 800;
+      color: var(--accent);
+      background: #f3f7fb;
+    }
+
+    .people-cell {
+      padding: 2px 4px;
+      background: var(--empty);
+    }
+
+    .people-cell.filled {
+      background: var(--filled);
+    }
+
+    .people-cell.h12 {
+      background: var(--filled-12h);
+    }
+
+    .people-cell.today {
+      box-shadow: inset 0 0 0 9999px rgba(255, 244, 191, 0.5);
+    }
+
+    .people-cell.weekend {
+      box-shadow: inset 0 0 0 9999px rgba(244, 246, 248, 0.55);
+    }
+
+    .people-list {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
+      min-height: 100%;
+    }
+
+    .person {
+      font-size: var(--font-size);
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.05;
+    }
+
+    .person.h12 {
+      color: var(--danger);
+    }
+
+    .empty-mark {
+      font-size: calc(var(--font-size) - 1px);
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .empty-board {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      padding: 16px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    #footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      padding: 0 6px;
+      font-size: 9px;
+      color: var(--muted);
+      overflow: hidden;
+    }
+
+    #footer-right {
+      color: var(--ok);
+      font-weight: 700;
+    }
+
+    body.compact-13 {
+      --font-size: 10px;
+      --row-height: 22px;
+      --cell-pad: 2px;
+    }
+
+    body.compact-16 {
+      --font-size: 9px;
+      --row-height: 20px;
+      --cell-pad: 1px;
+    }
+  </style>
 </head>
 <body>
-
-  <!-- ── TOP BAR ── -->
   <header id="topbar">
     <div id="topbar-logo">AUTOLIV</div>
-    <div id="topbar-dept">—</div>
-    <div id="topbar-week">—</div>
     <div id="topbar-clock">00:00:00</div>
   </header>
 
-  <!-- ── MAIN GRID AREA ── -->
+  <div id="main-head">
+    <div id="week-label">—</div>
+    <div id="position-count">—</div>
+  </div>
+
   <main id="main">
-    <div id="grid-wrap">
-      <!-- populated by tv.js -->
-    </div>
+    <div id="table-wrap" aria-live="polite"></div>
   </main>
 
-  <!-- ── FOOTER ── -->
   <footer id="footer">
-    <div id="footer-left">
-      <span id="footer-last-update">Ultima actualizare: —</span>
-    </div>
-    <div id="footer-center">
-      <span id="footer-legend"><span class="dot-12h">●</span> 12h schimb</span>
-      <span id="footer-mode">—</span>
-      <span id="dept-dots"></span>
-    </div>
-    <div id="footer-right">
-      <span id="footer-status" aria-live="polite">✔ Conectat</span>
-    </div>
+    <div>Ultima actualizare: <span id="footer-last-update">—</span></div>
+    <div id="footer-right">Status: <span id="footer-status">Conectat</span></div>
   </footer>
 
-  <script src="/static/tv.js"></script>
+  <script>
+    'use strict';
+
+    const DATA_URL = '/api/tv-data';
+    const RELOAD_MS = 5000;
+    const SHIFT_LABELS = { Sch1: 'Sch1', Sch2: 'Sch2', Sch3: 'Sch3' };
+    const WEEKEND_DAYS = new Set(['Sambata', 'Duminica']);
+    let lastPublishTime = null;
+
+    function setClock() {
+      const now = new Date();
+      const pad = value => String(value).padStart(2, '0');
+      const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const dateText = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+      document.getElementById('topbar-clock').textContent = `${time} ${dateText}`;
+    }
+
+    function formatPublishTime(value) {
+      if (!value) return '—';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '—';
+      return parsed.toLocaleString('ro-RO', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function createElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined) element.textContent = text;
+      return element;
+    }
+
+    function collectDepartments(data) {
+      const items = [];
+      const modes = Object.keys(data.departments || {});
+      modes.forEach(modeName => {
+        const departments = data.departments[modeName] || [];
+        departments.forEach(department => {
+          items.push({ modeName, department });
+        });
+      });
+      return items;
+    }
+
+    function applyDensity(positionCount) {
+      document.body.classList.remove('compact-13', 'compact-16');
+      if (positionCount >= 16) {
+        document.body.classList.add('compact-16');
+      } else if (positionCount >= 13) {
+        document.body.classList.add('compact-13');
+      }
+    }
+
+    function buildHeaderRow(displayDays, data) {
+      const thead = document.createElement('thead');
+      const row = document.createElement('tr');
+
+      const positionHead = createElement('th', 'col-position', 'Poziție / Departament');
+      row.appendChild(positionHead);
+
+      const shiftHead = createElement('th', 'col-shift', 'Schimb');
+      row.appendChild(shiftHead);
+
+      displayDays.forEach(day => {
+        const head = createElement('th', 'col-day');
+        const wrapper = createElement('div', 'day-head');
+        wrapper.appendChild(createElement('div', 'day-title', day));
+        wrapper.appendChild(createElement('div', 'day-date', (data.day_dates || {})[day] || ''));
+        head.appendChild(wrapper);
+        row.appendChild(head);
+      });
+
+      thead.appendChild(row);
+      return thead;
+    }
+
+    function buildPeopleCell(entries, day, data) {
+      const cell = createElement('td', 'people-cell');
+      const iso = (data.day_dates_iso || {})[day];
+      if (iso === data.today_iso) cell.classList.add('today');
+      if (WEEKEND_DAYS.has(day)) cell.classList.add('weekend');
+      if (entries.length) cell.classList.add('filled');
+      if (entries.some(entry => entry.hours12)) cell.classList.add('h12');
+
+      const list = createElement('div', 'people-list');
+      if (entries.length) {
+        entries.forEach(entry => {
+          const person = createElement('div', `person${entry.hours12 ? ' h12' : ''}`, entry.name || '—');
+          list.appendChild(person);
+        });
+      } else {
+        list.appendChild(createElement('div', 'empty-mark', '—'));
+      }
+      cell.appendChild(list);
+      return cell;
+    }
+
+    function buildBodyRows(items, displayDays, data) {
+      const tbody = document.createElement('tbody');
+
+      items.forEach(item => {
+        ['Sch1', 'Sch2', 'Sch3'].forEach((shift, index) => {
+          const row = document.createElement('tr');
+
+          if (index === 0) {
+            const positionCell = createElement('td', 'position-cell', `${item.department} / ${item.modeName}`);
+            positionCell.rowSpan = 3;
+            row.appendChild(positionCell);
+          }
+
+          row.appendChild(createElement('td', 'shift-cell', SHIFT_LABELS[shift] || shift));
+
+          displayDays.forEach(day => {
+            const entries = ((((data.schedule || {})[item.modeName] || {})[item.department] || {})[day] || {})[shift] || [];
+            row.appendChild(buildPeopleCell(entries, day, data));
+          });
+
+          tbody.appendChild(row);
+        });
+      });
+
+      return tbody;
+    }
+
+    function renderEmpty(message) {
+      const wrap = document.getElementById('table-wrap');
+      wrap.innerHTML = '';
+      wrap.appendChild(createElement('div', 'empty-board', message || 'Nu există date publicate'));
+      document.getElementById('week-label').textContent = message || 'Nu există date publicate';
+      document.getElementById('position-count').textContent = '0 poziții';
+    }
+
+    function render(data) {
+      const items = collectDepartments(data);
+      if (!items.length || data.has_data === false) {
+        renderEmpty(data.message || 'Nu există date publicate');
+        return;
+      }
+
+      applyDensity(items.length);
+      const wrap = document.getElementById('table-wrap');
+      wrap.innerHTML = '';
+      const displayDays = data.display_days || [];
+      const table = document.createElement('table');
+      table.appendChild(buildHeaderRow(displayDays, data));
+      table.appendChild(buildBodyRows(items, displayDays, data));
+      wrap.appendChild(table);
+
+      const weekText = [data.week_label || '', data.week_range ? `(${data.week_range})` : '']
+        .filter(Boolean)
+        .join(' ');
+      document.getElementById('week-label').textContent = weekText || 'Planificare curentă';
+      document.getElementById('position-count').textContent = `${items.length} poziții`; 
+    }
+
+    async function loadTvData() {
+      try {
+        const response = await fetch(DATA_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        if (!payload || payload.error || !payload.data) throw new Error(payload?.error || 'No data');
+
+        lastPublishTime = payload.last_publish_time || lastPublishTime;
+        document.getElementById('footer-last-update').textContent = formatPublishTime(lastPublishTime);
+        document.getElementById('footer-status').textContent = 'Conectat';
+        render(payload.data);
+      } catch (_error) {
+        document.getElementById('footer-status').textContent = 'Deconectat';
+        renderEmpty('Nu există date publicate');
+      }
+    }
+
+    function init() {
+      setClock();
+      loadTvData();
+      setInterval(setClock, 1000);
+      setInterval(() => {
+        location.reload();
+      }, RELOAD_MS);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
 </body>
 </html>
