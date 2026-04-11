@@ -9,6 +9,7 @@ from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import BACKUP_DIR, SCHEDULE_DRAFT, SCHEDULE_LEGACY, SCHEDULE_LIVE
 from logic.audit_logger import log_event
 from logic.auth import is_admin as auth_is_admin
+from logic.tv_update import trigger_tv_update
 
 DRAFT_SCHEDULE_PATH = SCHEDULE_DRAFT
 LIVE_SCHEDULE_PATH = SCHEDULE_LIVE
@@ -525,6 +526,7 @@ class ScheduleStore:
             live_payload = json.loads(LIVE_SCHEDULE_PATH.read_text(encoding="utf-8"))
             if isinstance(live_payload, dict) and isinstance(live_payload.get("weeks", {}), dict) and week_key in live_payload.get("weeks", {}):
                 log_info("[PUBLISH] OK - data written")
+                trigger_tv_update()
             else:
                 log_warning("[PUBLISH] Live snapshot missing published week %s", week_key)
         except Exception:

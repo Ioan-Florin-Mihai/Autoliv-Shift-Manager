@@ -37,6 +37,8 @@ from logic.app_paths import (
     SCHEDULE_LIVE,
     bootstrap_runtime_root,
 )
+from logic.tv_update import load_tv_version
+from logic.tv_update import trigger_tv_update as _shared_trigger_tv_update
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 RESOURCE_ROOT = BUNDLE_DIR if (BUNDLE_DIR / "templates").exists() else BASE_DIR
@@ -60,6 +62,8 @@ MODE_NAMES    = ["Magazie", "Bucle"]
 
 _LAST_MTIME: float = 0.0
 _CACHED_DATA: dict | None = None
+TV_VERSION = load_tv_version()
+_LAST_LOGGED_TV_VERSION = TV_VERSION
 
 
 # ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -142,6 +146,18 @@ def _resolve_display_window(data: dict, today: date) -> tuple[dict, dict, list[s
     return reference_week, {}, ["Luni", "Marti", "Miercuri", "Joi", "Vineri", "Sambata", "Duminica"]
 
 
+def _sync_tv_version() -> int:
+    global TV_VERSION
+    TV_VERSION = load_tv_version()
+    return TV_VERSION
+
+
+def trigger_tv_update() -> int:
+    global TV_VERSION
+    TV_VERSION = _shared_trigger_tv_update()
+    return TV_VERSION
+
+
 def _load_schedule() -> dict:
     """Citeste schedule_live.json cu cache pe mtime pentru throughput stabil pe mai multe TV-uri."""
     global _LAST_MTIME, _CACHED_DATA
@@ -213,6 +229,7 @@ def _build_tv_data() -> dict:
     raw = _load_schedule()
     today = date.today()
     current_week, next_week, display_days = _resolve_display_window(raw, today)
+    current_tv_version = _sync_tv_version()
 
     # Fiecare zi afisata se mapeaza la saptamana din care face parte
     data_map: dict[str, dict] = {d: current_week for d in display_days}
@@ -289,6 +306,7 @@ def _build_tv_data() -> dict:
         "day_dates":      day_dates,
         "day_dates_iso":  day_dates_iso,
         "today_iso":      today.isoformat(),
+        "tv_version":     current_tv_version,
         "server_time_ms": int(time.time() * 1000),
         "refresh_interval_ms": int(config.get("refresh_interval", 5)) * 1000,
         "tv_stale_ms": int(config.get("tv_stale_seconds", 15)) * 1000,
@@ -376,6 +394,16 @@ async def tv_data() -> JSONResponse:
         )
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@app.get("/tv/version")
+async def get_tv_version() -> JSONResponse:
+    global _LAST_LOGGED_TV_VERSION
+    version = _sync_tv_version()
+    if version != _LAST_LOGGED_TV_VERSION:
+        log_info("[TV] Version changed -> reload")
+        _LAST_LOGGED_TV_VERSION = version
+    return JSONResponse(content={"version": version})
 
 
 @app.get("/health")

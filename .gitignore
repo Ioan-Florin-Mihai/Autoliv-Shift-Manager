@@ -28,6 +28,9 @@ data/schedule_data.json
 data/schedule_draft.json
 data/schedule_live.json
 data/ui_state.json
+data/runtime_root.txt
+data/tv_version.json
+runtime_root.txt
 
 # Sensitive files
 data/firebase_service_account.json

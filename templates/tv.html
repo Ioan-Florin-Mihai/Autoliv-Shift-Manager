@@ -12,27 +12,21 @@
     }
 
     :root {
-      --bg: #eef3f8;
+      --bg: #e9eef5;
       --surface: #ffffff;
-      --line: #c7d3df;
-      --line-strong: #9fb2c4;
+      --line: #c8d2dd;
+      --line-strong: #9aaec2;
       --head: #123e6b;
       --head-text: #ffffff;
-      --muted: #60768d;
       --text: #16304a;
-      --today: #fff2c4;
-      --weekend: #f3f6f9;
-      --filled: #eef6ff;
-      --filled-12h: #fff0d9;
-      --position-accent: #2f6db2;
-      --position-bg: #edf4fb;
-      --header-height: 34px;
-      --subhead-height: 20px;
-      --footer-height: 18px;
-      --font-size: 9px;
-      --header-font-size: 10px;
-      --row-height: 14px;
-      --cell-pad: 1px;
+      --muted: #60768d;
+      --header-height: 38px;
+      --subhead-height: 24px;
+      --footer-height: 22px;
+      --cell-font-size: 9px;
+      --day-font-size: 9px;
+      --position-col-width: 96px;
+      --shift-col-width: 30px;
     }
 
     html, body {
@@ -50,30 +44,30 @@
     body {
       display: grid;
       grid-template-rows: var(--header-height) var(--subhead-height) 1fr var(--footer-height);
-      gap: 2px;
-      padding: 2px;
+      gap: 3px;
+      padding: 3px;
     }
 
     #topbar {
       display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center;
-      gap: 8px;
-      padding: 0 10px;
+      gap: 10px;
+      padding: 0 12px;
       background: var(--head);
       color: var(--head-text);
       overflow: hidden;
     }
 
     #topbar-logo {
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 900;
       letter-spacing: 2px;
       white-space: nowrap;
     }
 
     #topbar-title {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 800;
       color: #e7f0fb;
       white-space: nowrap;
@@ -83,7 +77,7 @@
 
     #topbar-clock {
       justify-self: end;
-      font-size: 13px;
+      font-size: 15px;
       font-weight: 700;
       white-space: nowrap;
       font-variant-numeric: tabular-nums;
@@ -92,13 +86,12 @@
     #subhead {
       display: flex;
       align-items: center;
-      justify-content: flex-start;
       gap: 18px;
-      padding: 0 8px;
-      border: 1px solid var(--line);
+      padding: 0 10px;
       background: var(--surface);
+      border: 1px solid var(--line);
       color: var(--muted);
-      font-size: 9px;
+      font-size: 12px;
       white-space: nowrap;
       overflow: hidden;
     }
@@ -113,153 +106,155 @@
       overflow: hidden;
       border: 1px solid var(--line-strong);
       background: var(--surface);
+      padding: 6px;
     }
 
-    #table-wrap {
+    #board-wrap {
       width: 100%;
       height: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.16fr);
+      gap: 8px;
+    }
+
+    .department-panel {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 30px 1fr;
+      border: 1px solid var(--line-strong);
+      background: #fefefe;
       overflow: hidden;
     }
 
-    table {
+    .department-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--head);
+      color: var(--head-text);
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .department-table-wrap {
+      min-width: 0;
+      min-height: 0;
+      padding: 6px;
+      overflow: hidden;
+    }
+
+    table.department-table {
       width: 100%;
       height: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: var(--font-size);
+      background: #ffffff;
     }
 
-    th, td {
-      border: 1px solid #ccc;
-      padding: 2px;
+    .department-table th,
+    .department-table td {
+      border: 1px solid var(--line);
       text-align: center;
       vertical-align: middle;
       overflow: hidden;
+      padding: 1px;
     }
 
-    thead th {
-      background: var(--head);
-      color: var(--head-text);
-      font-size: var(--header-font-size);
-      font-weight: 800;
-      line-height: 1.05;
-    }
-
-    tbody tr {
-      height: 24px;
-    }
-
-    .col-position {
-      width: 18%;
-      text-align: left;
-    }
-
-    .col-shift {
-      width: 6%;
-    }
-
-    .col-day {
-      width: 10.85%;
-    }
-
-    .day-head {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1px;
-    }
-
-    .day-title {
-      font-weight: 800;
-    }
-
-    .day-date {
-      font-size: 8px;
-      color: #dbe8f5;
-    }
-
-    .position-cell {
-      padding: 0;
-      background: var(--position-bg);
-      text-align: left;
-      white-space: normal;
-    }
-
-    .position-tag {
-      min-height: 100%;
-      display: grid;
-      grid-template-columns: 5px 1fr;
-    }
-
-    .position-tag-accent {
-      background: var(--position-accent);
-    }
-
-    .position-tag-text {
-      display: flex;
-      align-items: center;
-      padding: 1px 4px;
-      font-weight: 800;
-      line-height: 1.05;
+    .department-table thead th {
+      background: #f3f7fb;
       color: var(--text);
-      background: linear-gradient(180deg, #f6faff 0%, #e9f1f9 100%);
+      font-size: var(--day-font-size);
+      font-weight: 900;
+      line-height: 1.05;
+      height: 36px;
     }
 
-    .shift-cell {
-      font-weight: 800;
-      color: #fff;
-      background: #0c549f;
-      white-space: nowrap;
+    .corner-cell {
+      width: var(--position-col-width);
     }
 
-    .people-cell {
-      background: #f7f9fb;
-      padding: 0 2px;
+    .shift-head {
+      width: var(--shift-col-width);
     }
 
-    .people-cell.filled {
-      background: var(--filled);
-    }
-
-    .people-cell.h12 {
-      background: var(--filled-12h);
-    }
-
-    .people-cell.today {
-      box-shadow: inset 0 0 0 9999px rgba(255, 242, 196, 0.6);
-    }
-
-    .people-cell.weekend {
-      box-shadow: inset 0 0 0 9999px rgba(243, 246, 249, 0.72);
-    }
-
-    .people-lines {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 0;
-      line-height: 1;
-    }
-
-    .person-line {
-      width: 100%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-size: var(--font-size);
+    .day-head-date {
+      display: block;
+      margin-top: 2px;
+      font-size: 9px;
+      color: var(--muted);
       font-weight: 700;
     }
 
-    .person-line.h12 {
-      color: #b54a1d;
+    .position-cell {
+      width: var(--position-col-width);
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.1;
+      text-align: center;
+      padding: 8px 6px;
+      border-left-width: 8px;
+      border-left-style: solid;
     }
 
-    .empty-mark {
+    .shift-cell {
+      width: var(--shift-col-width);
+      background: #1d5ea4;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .day-cell {
+      background: #ffffff;
+      padding: 3px 2px;
+    }
+
+    .cell-content {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .entry-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      font-size: var(--cell-font-size);
+      line-height: 1.05;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .entry-name {
+      color: #1a1a1a;
+      font-weight: 700;
+    }
+
+    .entry-name.h12 {
+      color: #c0392b;
+      font-weight: 900;
+    }
+
+    .entry-separator {
       color: #7a8fa7;
-      font-weight: 600;
-      font-size: 8px;
+      font-weight: 700;
+    }
+
+    .entry-empty {
+      color: #8ba0b2;
+      font-weight: 700;
+      font-size: 10px;
     }
 
     .empty-board {
@@ -268,8 +263,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
-      font-weight: 800;
+      font-size: 24px;
+      font-weight: 900;
       color: #0c549f;
     }
 
@@ -277,29 +272,24 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      padding: 0 6px;
-      border: 1px solid var(--line);
+      gap: 12px;
+      padding: 0 8px;
       background: var(--surface);
+      border: 1px solid var(--line);
       color: var(--muted);
-      font-size: 8px;
+      font-size: 10px;
       white-space: nowrap;
       overflow: hidden;
     }
 
     #footer-status {
       color: #1d7d45;
-      font-weight: 700;
+      font-weight: 800;
     }
 
-    body.compact-13 {
-      --font-size: 8px;
-      --header-font-size: 9px;
-    }
-
-    body.compact-18 {
-      --font-size: 7px;
-      --header-font-size: 8px;
+    #page-indicator {
+      font-weight: 800;
+      color: var(--text);
     }
   </style>
 </head>
@@ -311,16 +301,17 @@
   </header>
 
   <div id="subhead">
-    <div>Departamente: <span id="department-label" class="subhead-value">—</span></div>
+    <div><span class="subhead-value">Departament:</span> <span id="department-label" class="subhead-value">Magazie + Bucle</span></div>
     <div><span id="week-label" class="subhead-value">—</span></div>
   </div>
 
   <main id="main">
-    <div id="table-wrap" aria-live="polite"></div>
+    <div id="board-wrap" aria-live="polite"></div>
   </main>
 
   <footer id="footer">
     <div>Ultima actualizare: <span id="footer-last-update">—</span></div>
+    <div id="page-indicator">Toate pozițiile afișate</div>
     <div>Status: <span id="footer-status">Conectat</span></div>
   </footer>
 
@@ -328,12 +319,28 @@
     'use strict';
 
     const DATA_URL = '/api/tv-data';
-    const RELOAD_MS = 5000;
+    const VERSION_URL = '/tv/version';
+    const SHIFT_KEYS = ['Sch1', 'Sch2', 'Sch3'];
     const SHIFT_LABELS = { Sch1: 'Sch1', Sch2: 'Sch2', Sch3: 'Sch3' };
-    const POSITION_PALETTE = [
-      '#2f6db2', '#3d8f58', '#b57b22', '#8d5db7', '#c75b4a', '#2f8a8a', '#6a78c2', '#b34f86'
+    const MAGAZIE_LAYOUT = [
+      { key: 'Sef schimb', label: 'Șef schimb', accent: '#5B9BD5', surface: '#e7f0fb' },
+      { key: 'Receptii', label: 'Recepții', accent: '#4472C4', surface: '#dfe8fb' },
+      { key: 'Livrari', label: 'Livrări', accent: '#A9D18E', surface: '#e8f5db' },
+      { key: 'Etichetare scanare', label: 'Etichetare + Scanare', accent: '#C9B0D9', surface: '#f0e6f7' },
+      { key: 'Retragere finite', label: 'Retragere finite', accent: '#D9A35F', surface: '#f6ebd6' },
+      { key: 'Balotare ambalare', label: 'Balotare / Ambalare', accent: '#D9E2F3', surface: '#eef3f9' }
     ];
-    const WEEKEND_DAYS = new Set(['Sambata', 'Duminica']);
+    const BUCLE_LAYOUT = [
+      { keys: ['BUCLA RA+RB'], label: 'BUCLA RA + RB', accent: '#cf8268', surface: '#f7e2db' },
+      { keys: ['BUCLA TA+TB'], label: 'BUCLA TA + TB', accent: '#d09d59', surface: '#f7ead7' },
+      { keys: ['BUCLA 02'], label: 'BUCLA 02', accent: '#d0b36d', surface: '#f8f0de' },
+      { keys: ['BUCLA 03'], label: 'BUCLA 03', accent: '#d5b54a', surface: '#faf2d6' },
+      { keys: ['BUCLA 04'], label: 'BUCLA 04', accent: '#d7bb4c', surface: '#fbf4da' },
+      { keys: ['BUCLA 05 + 07', 'BUCLA 05'], label: 'BUCLA 05 + 07', accent: '#d9c56a', surface: '#fbf7df' },
+      { keys: ['Ambalaje'], label: 'Ambalaje', accent: '#d99694', surface: '#f7e1df' }
+    ];
+
+    let currentVersion = 0;
 
     function createElement(tag, className, text) {
       const element = document.createElement(tag);
@@ -360,137 +367,139 @@
       });
     }
 
-    function collectItems(data) {
-      const items = [];
-      Object.entries(data.departments || {}).forEach(([modeName, departments]) => {
-        (departments || []).forEach(department => {
-          items.push({ modeName, department });
-        });
+    function getDayInfo(day, payload) {
+      const shortNames = {
+        Luni: 'Lu',
+        Marti: 'Ma',
+        Miercuri: 'Mi',
+        Joi: 'Jo',
+        Vineri: 'Vi',
+        Sambata: 'Sa',
+        Duminica: 'Du'
+      };
+      return {
+        name: shortNames[day] || day,
+        date: ''
+      };
+    }
+
+    function splitEntriesAcrossRows(entries) {
+      if (entries.length <= 2) return [entries];
+      const firstRowCount = Math.min(3, Math.ceil(entries.length / 2));
+      return [entries.slice(0, firstRowCount), entries.slice(firstRowCount, 5)];
+    }
+
+    function appendEntryRow(container, entries) {
+      const row = createElement('div', 'entry-row');
+      entries.forEach((entry, index) => {
+        row.appendChild(createElement('span', `entry-name${entry.hours12 ? ' h12' : ''}`, String(entry.name || '—')));
+        if (index < entries.length - 1) {
+          row.appendChild(createElement('span', 'entry-separator', '•'));
+        }
       });
-      return items;
+      container.appendChild(row);
     }
 
-    function collectDepartmentNames(items) {
-      return [...new Set(items.map(item => item.modeName).filter(Boolean))];
-    }
-
-    function applyDensity(positionCount) {
-      document.body.classList.remove('compact-13', 'compact-18');
-      if (positionCount >= 18) {
-        document.body.classList.add('compact-18');
-      } else if (positionCount >= 13) {
-        document.body.classList.add('compact-13');
-      }
-    }
-
-    function colorForPosition(positionName) {
-      let hash = 0;
-      for (const char of String(positionName || '').toLowerCase()) {
-        hash = ((hash << 5) - hash) + char.charCodeAt(0);
-        hash |= 0;
-      }
-      return POSITION_PALETTE[Math.abs(hash) % POSITION_PALETTE.length];
-    }
-
-    function buildHeaderRow(displayDays, data) {
-      const thead = document.createElement('thead');
-      const row = document.createElement('tr');
-      row.appendChild(createElement('th', 'col-position', 'Poziție / Departament'));
-      row.appendChild(createElement('th', 'col-shift', 'Schimb'));
-
-      displayDays.forEach(day => {
-        const head = createElement('th', 'col-day');
-        const wrapper = createElement('div', 'day-head');
-        wrapper.appendChild(createElement('div', 'day-title', day));
-        wrapper.appendChild(createElement('div', 'day-date', (data.day_dates || {})[day] || ''));
-        head.appendChild(wrapper);
-        row.appendChild(head);
-      });
-
-      thead.appendChild(row);
-      return thead;
-    }
-
-    function buildPeopleCell(entries, day, data) {
-      const cell = createElement('td', 'people-cell');
-      const iso = (data.day_dates_iso || {})[day];
-      if (iso === data.today_iso) cell.classList.add('today');
-      if (WEEKEND_DAYS.has(day)) cell.classList.add('weekend');
-      if (entries.length) cell.classList.add('filled');
-      if (entries.some(entry => entry.hours12)) cell.classList.add('h12');
-
-      const lines = createElement('div', 'people-lines');
+    function buildCellContent(entries) {
+      const wrapper = createElement('div', 'cell-content');
       if (!entries.length) {
-        lines.appendChild(createElement('div', 'empty-mark', '—'));
-      } else {
-        entries.forEach(entry => {
-          lines.appendChild(createElement('div', `person-line${entry.hours12 ? ' h12' : ''}`, entry.name || '—'));
-        });
+        wrapper.appendChild(createElement('div', 'entry-empty', '—'));
+        return wrapper;
       }
-      cell.appendChild(lines);
-      return cell;
+
+      splitEntriesAcrossRows(entries.slice(0, 5)).forEach(rowEntries => appendEntryRow(wrapper, rowEntries));
+      return wrapper;
     }
 
-    function buildBodyRows(items, displayDays, data) {
+    function getShiftEntries(payload, modeName, departmentKeys, day, shift) {
+      const modeSchedule = (payload.schedule || {})[modeName] || {};
+      for (const key of departmentKeys) {
+        const department = modeSchedule[key];
+        if (department && department[day] && department[day][shift]) {
+          return department[day][shift] || [];
+        }
+      }
+      return [];
+    }
+
+    function buildDepartmentTable(modeName, definitions, panelTitle, payload) {
+      const panel = createElement('section', 'department-panel');
+      panel.appendChild(createElement('div', 'department-title', panelTitle));
+
+      const wrap = createElement('div', 'department-table-wrap');
+      const table = createElement('table', 'department-table');
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      headRow.appendChild(createElement('th', 'corner-cell', 'Poziție'));
+      headRow.appendChild(createElement('th', 'shift-head', 'Sch'));
+      (payload.display_days || []).forEach(day => {
+        const dayInfo = getDayInfo(day, payload);
+        const th = document.createElement('th');
+        th.appendChild(createElement('div', '', dayInfo.name));
+        th.appendChild(createElement('span', 'day-head-date', dayInfo.date));
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
       const tbody = document.createElement('tbody');
-
-      items.forEach(item => {
-        ['Sch1', 'Sch2', 'Sch3'].forEach((shift, index) => {
+      definitions.forEach(definition => {
+        SHIFT_KEYS.forEach((shift, shiftIndex) => {
           const row = document.createElement('tr');
-
-          if (index === 0) {
-            const positionCell = createElement('td', 'position-cell');
-            positionCell.rowSpan = 3;
-            const tag = createElement('div', 'position-tag');
-            const accent = createElement('div', 'position-tag-accent');
-            accent.style.background = colorForPosition(item.department);
-            const label = createElement('div', 'position-tag-text', `${item.department} / ${item.modeName}`);
-            tag.appendChild(accent);
-            tag.appendChild(label);
-            positionCell.appendChild(tag);
+          if (shiftIndex === 0) {
+            const positionCell = createElement('td', 'position-cell', definition.label);
+            positionCell.rowSpan = SHIFT_KEYS.length;
+            positionCell.style.background = definition.surface;
+            positionCell.style.borderLeftColor = definition.accent;
             row.appendChild(positionCell);
           }
 
-          row.appendChild(createElement('td', 'shift-cell', SHIFT_LABELS[shift] || shift));
-
-          displayDays.forEach(day => {
-            const entries = ((((data.schedule || {})[item.modeName] || {})[item.department] || {})[day] || {})[shift] || [];
-            row.appendChild(buildPeopleCell(entries, day, data));
+          row.appendChild(createElement('td', 'shift-cell', SHIFT_LABELS[shift]));
+          (payload.display_days || []).forEach(day => {
+            const entries = getShiftEntries(payload, modeName, definition.keys || [definition.key], day, shift);
+            const td = createElement('td', 'day-cell');
+            td.appendChild(buildCellContent(entries));
+            row.appendChild(td);
           });
-
           tbody.appendChild(row);
         });
       });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      panel.appendChild(wrap);
+      return panel;
+    }
 
-      return tbody;
+    function render_magazie_layout(payload) {
+      return buildDepartmentTable('Magazie', MAGAZIE_LAYOUT, 'Magazie', payload);
+    }
+
+    function render_bucle_layout(payload) {
+      return buildDepartmentTable('Bucle', BUCLE_LAYOUT, 'Bucle', payload);
     }
 
     function renderEmpty(message) {
-      const wrap = document.getElementById('table-wrap');
+      const wrap = document.getElementById('board-wrap');
       wrap.innerHTML = '';
-      wrap.appendChild(createElement('div', 'empty-board', message || 'Nu există date publicate'));
-      document.getElementById('department-label').textContent = '—';
+      const empty = createElement('div', 'empty-board', message || 'Nu există date publicate');
+      empty.style.gridColumn = '1 / -1';
+      wrap.appendChild(empty);
       document.getElementById('week-label').textContent = message || 'Nu există date publicate';
     }
 
     function render(payload) {
-      const items = collectItems(payload);
-      if (!items.length || payload.has_data === false) {
-        renderEmpty(payload.message || 'Nu există date publicate');
+      if (!payload || payload.has_data === false) {
+        renderEmpty(payload?.message || 'Nu există date publicate');
         return;
       }
 
-      applyDensity(items.length);
-      const wrap = document.getElementById('table-wrap');
+      const wrap = document.getElementById('board-wrap');
       wrap.innerHTML = '';
-      const table = document.createElement('table');
-      const displayDays = payload.display_days || [];
-      table.appendChild(buildHeaderRow(displayDays, payload));
-      table.appendChild(buildBodyRows(items, displayDays, payload));
-      wrap.appendChild(table);
-
-      document.getElementById('department-label').textContent = collectDepartmentNames(items).join(' + ') || '—';
-      document.getElementById('week-label').textContent = [payload.week_label || '', payload.week_range ? `(${payload.week_range})` : ''].filter(Boolean).join(' ') || 'Planificare curentă';
+      wrap.appendChild(render_magazie_layout(payload));
+      wrap.appendChild(render_bucle_layout(payload));
+      document.getElementById('department-label').textContent = 'Magazie + Bucle';
+      document.getElementById('week-label').textContent = [payload.week_label || '', payload.week_range ? `(${payload.week_range})` : ''].filter(Boolean).join(' ');
+      document.getElementById('page-indicator').textContent = 'Toate pozițiile afișate';
     }
 
     async function loadTvData() {
@@ -499,7 +508,7 @@
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json();
         if (!payload || payload.error || !payload.data) throw new Error(payload?.error || 'No data');
-
+        currentVersion = Number(payload.data.tv_version || 0);
         document.getElementById('footer-last-update').textContent = formatPublishTime(payload.last_publish_time);
         document.getElementById('footer-status').textContent = 'Conectat';
         render(payload.data);
@@ -509,13 +518,27 @@
       }
     }
 
+    async function checkUpdate() {
+      try {
+        const response = await fetch(VERSION_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        const nextVersion = Number(payload.version || 0);
+        if (nextVersion !== currentVersion) {
+          location.reload();
+          return;
+        }
+        currentVersion = nextVersion;
+      } catch (_error) {
+      }
+    }
+
     function init() {
       setClock();
       loadTvData();
       setInterval(setClock, 1000);
-      setInterval(() => {
-        location.reload();
-      }, RELOAD_MS);
+      setInterval(checkUpdate, 2000);
+      setInterval(() => location.reload(), 5000);
     }
 
     document.addEventListener('DOMContentLoaded', init);

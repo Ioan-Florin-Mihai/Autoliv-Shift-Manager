@@ -9,6 +9,7 @@ import logic.app_paths as app_paths
 import logic.audit_logger as audit_logger
 import logic.auth as auth_module
 import logic.schedule_store as schedule_store_module
+import logic.tv_update as tv_update_module
 import main as main_module
 import tv_server
 from logic.schedule_store import ScheduleStore
@@ -44,6 +45,7 @@ def test_publish_flow_atomic_and_locked(monkeypatch, tmp_path):
     monkeypatch.setattr(schedule_store_module, "SCHEDULE_PATH", tmp_path / "schedule_draft.json")
     monkeypatch.setattr(schedule_store_module, "BACKUP_DIR", tmp_path / "backups")
     monkeypatch.setattr(schedule_store_module, "auth_is_admin", lambda user: user == "admin")
+    monkeypatch.setattr(tv_update_module, "TV_VERSION_FILE", tmp_path / "tv_version.json")
 
     store = ScheduleStore()
     week = store.get_or_create_week(date(2026, 4, 6))
@@ -66,6 +68,7 @@ def test_publish_flow_atomic_and_locked(monkeypatch, tmp_path):
     assert bool(store.data["weeks"][week_key].get("locked")) is True
     assert store.data["weeks"][week_key].get("published_by") == "admin"
     assert list(tmp_path.glob("*.tmp")) == []
+    assert tv_update_module.load_tv_version() == 1
 
 
 def test_tv_endpoints_health_and_data(monkeypatch, tmp_path):
@@ -75,8 +78,11 @@ def test_tv_endpoints_health_and_data(monkeypatch, tmp_path):
     monkeypatch.setattr(tv_server, "DATA_FILE", live_path)
     monkeypatch.setattr(tv_server, "DRAFT_FILE", tmp_path / "schedule_draft.json")
     monkeypatch.setattr(tv_server, "BACKUP_DIR", tmp_path / "backups")
+    monkeypatch.setattr(tv_update_module, "TV_VERSION_FILE", tmp_path / "tv_version.json")
     tv_server._CACHED_DATA = None
     tv_server._LAST_MTIME = 0.0
+    tv_server.TV_VERSION = 0
+    tv_server._LAST_LOGGED_TV_VERSION = 0
 
     client = TestClient(tv_server.app)
 
@@ -92,6 +98,21 @@ def test_tv_endpoints_health_and_data(monkeypatch, tmp_path):
     assert "server_time" in payload
     assert "last_publish_time" in payload
     assert isinstance(payload.get("data"), dict)
+    assert payload["data"]["tv_version"] == 0
+
+
+def test_tv_version_endpoint_tracks_publish_updates(monkeypatch, tmp_path):
+    monkeypatch.setattr(tv_update_module, "TV_VERSION_FILE", tmp_path / "tv_version.json")
+    tv_server.TV_VERSION = 0
+    tv_server._LAST_LOGGED_TV_VERSION = 0
+
+    client = TestClient(tv_server.app)
+
+    assert client.get("/tv/version").json() == {"version": 0}
+
+    tv_update_module.trigger_tv_update()
+
+    assert client.get("/tv/version").json() == {"version": 1}
 
 
 def test_tv_uses_latest_published_week_when_calendar_window_misses(monkeypatch, tmp_path):

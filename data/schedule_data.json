@@ -2411,12 +2411,8 @@
             "Sef schimb": {
               "Luni": {
                 "Sch1": {
-                  "employees": [
-                    "Munteanu M"
-                  ],
-                  "colors": {
-                    "Munteanu M": "#1A1A1A"
-                  }
+                  "employees": [],
+                  "colors": {}
                 },
                 "Sch2": {
                   "employees": [],
