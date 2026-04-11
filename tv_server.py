@@ -26,7 +26,6 @@ from datetime import date, timedelta
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from logic.app_config import get_config
 from logic.app_logger import log_error, log_info
@@ -47,7 +46,6 @@ from logic.tv_update import trigger_tv_update as _shared_trigger_tv_update
 RESOURCE_ROOT = BUNDLE_DIR if (BUNDLE_DIR / "templates").exists() else BASE_DIR
 DATA_FILE  = SCHEDULE_LIVE
 DRAFT_FILE = SCHEDULE_DRAFT
-STATIC_DIR = RESOURCE_ROOT / "static"
 TPL_DIR    = RESOURCE_ROOT / "templates"
 
 # ─── Constante domeniu (oglindite din schedule_store, fara import ca serverul
@@ -383,7 +381,6 @@ def _count_departments(payload: dict) -> int:
 # ─── FastAPI app ──────────────────────────────────────────────────────────────
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/tv", response_class=HTMLResponse)
