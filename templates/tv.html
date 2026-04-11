@@ -23,10 +23,10 @@
       --header-height: 38px;
       --subhead-height: 24px;
       --footer-height: 22px;
-      --cell-font-size: 9px;
-      --day-font-size: 9px;
-      --position-col-width: 96px;
-      --shift-col-width: 30px;
+      --cell-font-size: 11px;
+      --day-font-size: 11px;
+      --position-col-width: 59px;
+      --shift-col-width: 24px;
     }
 
     html, body {
@@ -106,43 +106,28 @@
       overflow: hidden;
       border: 1px solid var(--line-strong);
       background: var(--surface);
-      padding: 6px;
+      padding: 3px;
     }
 
-    #board-wrap {
+    #tv-root {
       width: 100%;
       height: 100%;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.16fr);
-      gap: 8px;
-    }
-
-    .department-panel {
       min-width: 0;
       min-height: 0;
-      display: grid;
-      grid-template-rows: 30px 1fr;
-      border: 1px solid var(--line-strong);
+    }
+
+    .tv-page {
+      width: 100%;
+      height: 100%;
+      --row-count: 18;
       background: #fefefe;
       overflow: hidden;
     }
 
-    .department-title {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--head);
-      color: var(--head-text);
-      font-size: 14px;
-      font-weight: 900;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-
     .department-table-wrap {
       min-width: 0;
-      min-height: 0;
-      padding: 6px;
+      height: 100%;
+      padding: 3px;
       overflow: hidden;
     }
 
@@ -158,18 +143,22 @@
     .department-table td {
       border: 1px solid var(--line);
       text-align: center;
-      vertical-align: middle;
-      overflow: hidden;
+      vertical-align: top;
       padding: 1px;
     }
 
     .department-table thead th {
-      background: #f3f7fb;
-      color: var(--text);
+      background: #1d5ea4;
+      color: #ffffff;
       font-size: var(--day-font-size);
       font-weight: 900;
       line-height: 1.05;
-      height: 36px;
+      height: 32px;
+      vertical-align: middle;
+    }
+
+    .department-table tbody tr {
+      height: calc((100% - 32px) / var(--row-count));
     }
 
     .corner-cell {
@@ -178,6 +167,14 @@
 
     .shift-head {
       width: var(--shift-col-width);
+    }
+
+    .weekday-col {
+      width: 13.2%;
+    }
+
+    .weekend-col {
+      width: 11.22%;
     }
 
     .day-head-date {
@@ -190,65 +187,57 @@
 
     .position-cell {
       width: var(--position-col-width);
-      font-size: 11px;
-      font-weight: 900;
-      line-height: 1.1;
       text-align: center;
-      padding: 8px 6px;
+      vertical-align: middle;
+      padding: 0;
       border-left-width: 8px;
       border-left-style: solid;
+    }
+
+    .position-label {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 3px 2px;
+      font-size: 11px;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      font-weight: 900;
+      line-height: 1.02;
+      letter-spacing: 0;
+      color: #17324a;
     }
 
     .shift-cell {
       width: var(--shift-col-width);
       background: #1d5ea4;
       color: #ffffff;
-      font-size: 10px;
+      font-size: 8px;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
       font-weight: 900;
+      vertical-align: middle;
+      padding: 1px 2px;
     }
 
     .day-cell {
       background: #ffffff;
-      padding: 3px 2px;
-    }
-
-    .cell-content {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-      text-align: center;
-      overflow: hidden;
-    }
-
-    .entry-row {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      font-size: var(--cell-font-size);
-      line-height: 1.05;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .entry-name {
       color: #1a1a1a;
-      font-weight: 700;
+      font-weight: 800;
     }
 
-    .entry-name.h12 {
-      color: #c0392b;
+    .cell {
+      font-size: 14px;
+      font-family: "Bahnschrift SemiCondensed", "Arial Narrow", "Segoe UI", sans-serif;
+      line-height: 1.08;
+      padding: 2px 3px;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: break-word;
+      text-align: left;
+      letter-spacing: -0.15px;
       font-weight: 900;
-    }
-
-    .entry-separator {
-      color: #7a8fa7;
-      font-weight: 700;
     }
 
     .entry-empty {
@@ -301,17 +290,17 @@
   </header>
 
   <div id="subhead">
-    <div><span class="subhead-value">Departament:</span> <span id="department-label" class="subhead-value">Magazie + Bucle</span></div>
+    <div><span class="subhead-value">Departament:</span> <span id="department-label" class="subhead-value">Magazie</span></div>
     <div><span id="week-label" class="subhead-value">—</span></div>
   </div>
 
   <main id="main">
-    <div id="board-wrap" aria-live="polite"></div>
+    <div id="tv-root" aria-live="polite"></div>
   </main>
 
   <footer id="footer">
     <div>Ultima actualizare: <span id="footer-last-update">—</span></div>
-    <div id="page-indicator">Toate pozițiile afișate</div>
+    <div id="page-indicator">Pagina 1 / 2</div>
     <div>Status: <span id="footer-status">Conectat</span></div>
   </footer>
 
@@ -322,6 +311,9 @@
     const VERSION_URL = '/tv/version';
     const SHIFT_KEYS = ['Sch1', 'Sch2', 'Sch3'];
     const SHIFT_LABELS = { Sch1: 'Sch1', Sch2: 'Sch2', Sch3: 'Sch3' };
+    const pages = ['Magazie', 'Bucle'];
+    const PAGE_SWITCH_MS = 10000;
+    const PAGE_CYCLE_KEY = 'tvPageCycleStartedAt';
     const MAGAZIE_LAYOUT = [
       { key: 'Sef schimb', label: 'Șef schimb', accent: '#5B9BD5', surface: '#e7f0fb' },
       { key: 'Receptii', label: 'Recepții', accent: '#4472C4', surface: '#dfe8fb' },
@@ -341,6 +333,8 @@
     ];
 
     let currentVersion = 0;
+    let currentPayload = null;
+    let currentPage = 0;
 
     function createElement(tag, className, text) {
       const element = document.createElement(tag);
@@ -367,6 +361,15 @@
       });
     }
 
+    function getAutoPageIndex() {
+      let cycleStartedAt = Number(localStorage.getItem(PAGE_CYCLE_KEY) || 0);
+      if (!Number.isFinite(cycleStartedAt) || cycleStartedAt <= 0) {
+        cycleStartedAt = Date.now();
+        localStorage.setItem(PAGE_CYCLE_KEY, String(cycleStartedAt));
+      }
+      return Math.floor((Date.now() - cycleStartedAt) / PAGE_SWITCH_MS) % pages.length;
+    }
+
     function getDayInfo(day, payload) {
       const shortNames = {
         Luni: 'Lu',
@@ -383,32 +386,13 @@
       };
     }
 
-    function splitEntriesAcrossRows(entries) {
-      if (entries.length <= 2) return [entries];
-      const firstRowCount = Math.min(3, Math.ceil(entries.length / 2));
-      return [entries.slice(0, firstRowCount), entries.slice(firstRowCount, 5)];
-    }
-
-    function appendEntryRow(container, entries) {
-      const row = createElement('div', 'entry-row');
-      entries.forEach((entry, index) => {
-        row.appendChild(createElement('span', `entry-name${entry.hours12 ? ' h12' : ''}`, String(entry.name || '—')));
-        if (index < entries.length - 1) {
-          row.appendChild(createElement('span', 'entry-separator', '•'));
-        }
-      });
-      container.appendChild(row);
-    }
-
-    function buildCellContent(entries) {
-      const wrapper = createElement('div', 'cell-content');
-      if (!entries.length) {
-        wrapper.appendChild(createElement('div', 'entry-empty', '—'));
-        return wrapper;
-      }
-
-      splitEntriesAcrossRows(entries.slice(0, 5)).forEach(rowEntries => appendEntryRow(wrapper, rowEntries));
-      return wrapper;
+    function formatCellText(entries) {
+      if (!entries.length) return '—';
+      return entries
+        .slice(0, 8)
+        .map(entry => String(entry.name || '').trim())
+        .filter(Boolean)
+        .join(' / ') || '—';
     }
 
     function getShiftEntries(payload, modeName, departmentKeys, day, shift) {
@@ -423,11 +407,28 @@
     }
 
     function buildDepartmentTable(modeName, definitions, panelTitle, payload) {
-      const panel = createElement('section', 'department-panel');
-      panel.appendChild(createElement('div', 'department-title', panelTitle));
+      const panel = createElement('section', 'tv-page');
+      panel.style.setProperty('--row-count', String(definitions.length * SHIFT_KEYS.length));
 
       const wrap = createElement('div', 'department-table-wrap');
       const table = createElement('table', 'department-table');
+      const colgroup = document.createElement('colgroup');
+      const positionCol = document.createElement('col');
+      positionCol.style.width = 'var(--position-col-width)';
+      colgroup.appendChild(positionCol);
+      const shiftCol = document.createElement('col');
+      shiftCol.style.width = 'var(--shift-col-width)';
+      colgroup.appendChild(shiftCol);
+      (payload.display_days || []).forEach(day => {
+        const col = document.createElement('col');
+        if (day === 'Sambata' || day === 'Duminica') {
+          col.className = 'weekend-col';
+        } else {
+          col.className = 'weekday-col';
+        }
+        colgroup.appendChild(col);
+      });
+      table.appendChild(colgroup);
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
       headRow.appendChild(createElement('th', 'corner-cell', 'Poziție'));
@@ -447,18 +448,20 @@
         SHIFT_KEYS.forEach((shift, shiftIndex) => {
           const row = document.createElement('tr');
           if (shiftIndex === 0) {
-            const positionCell = createElement('td', 'position-cell', definition.label);
+            const positionCell = createElement('td', 'position-cell');
             positionCell.rowSpan = SHIFT_KEYS.length;
             positionCell.style.background = definition.surface;
             positionCell.style.borderLeftColor = definition.accent;
+            positionCell.appendChild(createElement('div', 'position-label', definition.label));
             row.appendChild(positionCell);
           }
 
           row.appendChild(createElement('td', 'shift-cell', SHIFT_LABELS[shift]));
           (payload.display_days || []).forEach(day => {
-            const entries = getShiftEntries(payload, modeName, definition.keys || [definition.key], day, shift);
-            const td = createElement('td', 'day-cell');
-            td.appendChild(buildCellContent(entries));
+            const departmentKeys = definition.keys || [definition.key];
+            const entries = getShiftEntries(payload, modeName, departmentKeys, day, shift);
+            const td = createElement('td', 'day-cell cell');
+            td.textContent = formatCellText(entries);
             row.appendChild(td);
           });
           tbody.appendChild(row);
@@ -479,27 +482,43 @@
     }
 
     function renderEmpty(message) {
-      const wrap = document.getElementById('board-wrap');
+      const wrap = document.getElementById('tv-root');
       wrap.innerHTML = '';
       const empty = createElement('div', 'empty-board', message || 'Nu există date publicate');
-      empty.style.gridColumn = '1 / -1';
       wrap.appendChild(empty);
+      document.getElementById('department-label').textContent = '—';
       document.getElementById('week-label').textContent = message || 'Nu există date publicate';
+      document.getElementById('page-indicator').textContent = 'Pagina —';
     }
 
-    function render(payload) {
-      if (!payload || payload.has_data === false) {
-        renderEmpty(payload?.message || 'Nu există date publicate');
+    function renderPage(department) {
+      if (!currentPayload || currentPayload.has_data === false) {
+        renderEmpty(currentPayload?.message || 'Nu există date publicate');
         return;
       }
 
-      const wrap = document.getElementById('board-wrap');
+      const wrap = document.getElementById('tv-root');
       wrap.innerHTML = '';
-      wrap.appendChild(render_magazie_layout(payload));
-      wrap.appendChild(render_bucle_layout(payload));
-      document.getElementById('department-label').textContent = 'Magazie + Bucle';
-      document.getElementById('week-label').textContent = [payload.week_label || '', payload.week_range ? `(${payload.week_range})` : ''].filter(Boolean).join(' ');
-      document.getElementById('page-indicator').textContent = 'Toate pozițiile afișate';
+      if (department === 'Magazie') {
+        wrap.appendChild(render_magazie_layout(currentPayload));
+      } else {
+        wrap.appendChild(render_bucle_layout(currentPayload));
+      }
+
+      document.getElementById('department-label').textContent = 'Magazie';
+      document.getElementById('week-label').textContent = [currentPayload.week_label || '', currentPayload.week_range ? `(${currentPayload.week_range})` : ''].filter(Boolean).join(' ');
+      document.getElementById('page-indicator').textContent = `Pagina ${currentPage + 1} / ${pages.length}`;
+      sessionStorage.setItem('tvCurrentPage', String(currentPage));
+    }
+
+    function renderCurrentPage() {
+      currentPage = getAutoPageIndex();
+      renderPage(pages[currentPage]);
+    }
+
+    function switchPage() {
+      currentPage = getAutoPageIndex();
+      renderCurrentPage();
     }
 
     async function loadTvData() {
@@ -509,10 +528,12 @@
         const payload = await response.json();
         if (!payload || payload.error || !payload.data) throw new Error(payload?.error || 'No data');
         currentVersion = Number(payload.data.tv_version || 0);
+        currentPayload = payload.data;
         document.getElementById('footer-last-update').textContent = formatPublishTime(payload.last_publish_time);
         document.getElementById('footer-status').textContent = 'Conectat';
-        render(payload.data);
+        renderCurrentPage();
       } catch (_error) {
+        currentPayload = null;
         document.getElementById('footer-status').textContent = 'Deconectat';
         renderEmpty('Nu există date publicate');
       }
@@ -537,6 +558,7 @@
       setClock();
       loadTvData();
       setInterval(setClock, 1000);
+      setInterval(switchPage, PAGE_SWITCH_MS);
       setInterval(checkUpdate, 2000);
       setInterval(() => location.reload(), 5000);
     }
