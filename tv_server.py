@@ -28,6 +28,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from logic.app_config import get_config
+from logic.app_logger import log_warning
 from logic.app_paths import BACKUP_DIR
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
@@ -58,6 +59,84 @@ _CACHED_DATA: dict | None = None
 
 def _week_start(d: date) -> date:
     return d - timedelta(days=d.weekday())
+
+
+def _iter_weeks(data: dict) -> list[tuple[date, dict]]:
+    weeks = data.get("weeks", {})
+    if not isinstance(weeks, dict):
+        return []
+
+    items: list[tuple[date, dict]] = []
+    for week_key, week_record in weeks.items():
+        if not isinstance(week_record, dict):
+            continue
+        week_start_value = week_record.get("week_start")
+        if not isinstance(week_start_value, str) or not week_start_value:
+            week_start_value = week_key if isinstance(week_key, str) else ""
+        try:
+            week_start_date = date.fromisoformat(week_start_value)
+        except ValueError:
+            continue
+        items.append((week_start_date, week_record))
+
+    items.sort(key=lambda item: item[0])
+    return items
+
+
+def _latest_published_week(data: dict) -> tuple[date, dict] | None:
+    published_candidates: list[tuple[str, date, dict]] = []
+    for week_start_date, week_record in _iter_weeks(data):
+        published_at = week_record.get("published_at")
+        if isinstance(published_at, str) and published_at:
+            published_candidates.append((published_at, week_start_date, week_record))
+
+    if not published_candidates:
+        return None
+
+    _, week_start_date, week_record = max(
+        published_candidates,
+        key=lambda item: (item[0], item[1].isoformat()),
+    )
+    return week_start_date, week_record
+
+
+def _select_reference_week(data: dict, today: date) -> tuple[date | None, dict]:
+    latest_published = _latest_published_week(data)
+    if latest_published is not None:
+        return latest_published
+
+    week_items = _iter_weeks(data)
+    if not week_items:
+        return None, {}
+
+    current_week_start = _week_start(today)
+    for week_start_date, week_record in week_items:
+        if week_start_date == current_week_start:
+            return week_start_date, week_record
+
+    for week_start_date, week_record in week_items:
+        if week_start_date >= current_week_start:
+            return week_start_date, week_record
+
+    return week_items[-1]
+
+
+def _get_week_by_start(data: dict, week_start_date: date | None) -> dict:
+    if week_start_date is None:
+        return {}
+    return data.get("weeks", {}).get(week_start_date.isoformat()) or {}
+
+
+def _resolve_display_window(data: dict, today: date) -> tuple[dict, dict, list[str]]:
+    reference_week_start, reference_week = _select_reference_week(data, today)
+    if not reference_week:
+        return {}, {}, []
+
+    next_week = _get_week_by_start(data, reference_week_start + timedelta(days=7) if reference_week_start else None)
+    if _has_weekend_data(reference_week) and next_week:
+        return reference_week, next_week, ["Sambata", "Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri"]
+
+    return reference_week, {}, ["Luni", "Marti", "Miercuri", "Joi", "Vineri"]
 
 
 def _load_schedule() -> dict:
@@ -155,19 +234,18 @@ def _get_display_days(current_week: dict, next_week: dict) -> list[str]:
 
 def _build_tv_data() -> dict:
     config = get_config()
-    raw          = _load_schedule()
-    today        = date.today()
-    current_week = _get_week(raw, today)
-    next_week    = _get_week(raw, today + timedelta(days=7))
-
-    display_days = _get_display_days(current_week, next_week)
-    has_weekend = display_days[0] == "Sambata" if display_days else False
+    raw = _load_schedule()
+    today = date.today()
+    current_week, next_week, display_days = _resolve_display_window(raw, today)
+    has_weekend = bool(display_days) and display_days[0] == "Sambata"
 
     # Fiecare zi afisata se mapeaza la saptamana din care face parte
     data_map: dict[str, dict] = {
         d: (current_week if d in WEEKEND_DAYS else next_week)
         for d in display_days
     }
+    if not next_week:
+        data_map = {d: current_week for d in display_days}
 
     # Calculeaza etichetele de data afisata pentru fiecare zi
     day_dates: dict[str, str]     = {}
@@ -185,11 +263,12 @@ def _build_tv_data() -> dict:
             day_dates_iso[day_name] = ""
 
     # Eticheta intervalului de saptamana (din saptamana urmatoare)
-    week_label = next_week.get("week_label", "") if next_week else ""
+    primary_week = next_week or current_week
+    week_label = primary_week.get("week_label", "") if primary_week else ""
     week_range = ""
     try:
-        ws_str = next_week.get("week_start", "") if next_week else ""
-        we_str = next_week.get("week_end",   "") if next_week else ""
+        ws_str = primary_week.get("week_start", "") if primary_week else ""
+        we_str = primary_week.get("week_end", "") if primary_week else ""
         if ws_str and we_str:
             ws = date.fromisoformat(ws_str)
             we = date.fromisoformat(we_str)
@@ -206,8 +285,8 @@ def _build_tv_data() -> dict:
     schedule: dict[str, dict]     = {}
 
     for mode_name in MODE_NAMES:
-        mode_rec_nxt  = next_week.get("modes", {}).get(mode_name, {}) if next_week else {}
-        depts_list    = mode_rec_nxt.get("departments", [])
+        mode_rec_primary = primary_week.get("modes", {}).get(mode_name, {}) if primary_week else {}
+        depts_list = mode_rec_primary.get("departments", [])
         mode_schedule: dict[str, dict] = {}
 
         for dept in depts_list:
@@ -239,7 +318,7 @@ def _build_tv_data() -> dict:
         departments[mode_name] = depts_list
         schedule[mode_name]    = mode_schedule
 
-    return {
+    payload = {
         "has_weekend":    has_weekend,
         "display_days":   display_days,
         "day_dates":      day_dates,
@@ -254,7 +333,18 @@ def _build_tv_data() -> dict:
         "week_range":     week_range,
         "departments":    departments,
         "schedule":       schedule,
+        "published_week_start": current_week.get("week_start", "") if current_week else "",
+        "has_data": False,
+        "message": "No data published",
     }
+
+    has_departments = _count_departments(payload) > 0
+    has_entries = _count_all_employees(payload) > 0
+    payload["has_data"] = has_departments or has_entries
+    if payload["has_data"]:
+        payload["message"] = ""
+
+    return payload
 
 
 def _extract_last_publish_time(raw: dict) -> str | None:
@@ -311,6 +401,8 @@ async def tv_data() -> JSONResponse:
     try:
         raw = _load_schedule()
         payload = _build_tv_data()
+        entries = _count_all_employees(payload)
+        log_warning("TV DATA LOADED: %s entries", entries)
         return JSONResponse(
             content={
                 "server_time": int(time.time() * 1000),

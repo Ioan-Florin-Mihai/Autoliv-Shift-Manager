@@ -47,8 +47,8 @@ html, body {
   font-family: Arial, Helvetica, sans-serif;
   background: var(--blue-light);
   cursor: none;
-  user-select: none;
   -webkit-user-select: none;
+  user-select: none;
 }
 
 
@@ -128,6 +128,31 @@ html, body {
 
 #grid-wrap.fading {
   opacity: 0;
+}
+
+.grid-empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 32px;
+  border: 3px dashed var(--blue);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(238, 243, 251, 0.98));
+  box-shadow: inset 0 0 0 2px rgba(10, 77, 155, 0.08);
+}
+
+.grid-empty-title {
+  max-width: min(80vw, 1100px);
+  text-align: center;
+  font-size: clamp(28px, 3.2vw, 52px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  color: var(--navy);
+  text-transform: uppercase;
 }
 
 

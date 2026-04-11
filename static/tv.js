@@ -66,6 +66,21 @@ function formatPublishTime(value) {
   return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
 }
 
+function renderEmptyState(message) {
+  const text = message || 'No data published';
+  document.getElementById('topbar-dept').textContent = '—';
+  document.getElementById('topbar-week').textContent = text;
+  document.getElementById('footer-mode').textContent = '—';
+  const dotsEl = document.getElementById('dept-dots');
+  dotsEl.innerHTML = '';
+
+  const wrap = document.getElementById('grid-wrap');
+  wrap.innerHTML = '';
+  const empty = el('div', 'grid-empty');
+  empty.appendChild(el('span', 'grid-empty-title', text));
+  wrap.appendChild(empty);
+}
+
 function updateStaleWarning(nowMs = Date.now()) {
   const statusEl = document.getElementById('footer-status');
   const lastEl = document.getElementById('footer-last-update');
@@ -218,9 +233,17 @@ function buildGrid(deptName) {
 function render() {
   if (!_data) return;
 
+  if (_data.has_data === false) {
+    renderEmptyState(_data.message);
+    return;
+  }
+
   const depts     = currentDepts();
   const deptCount = depts.length;
-  if (deptCount === 0) return;
+  if (deptCount === 0) {
+    renderEmptyState(_data.message);
+    return;
+  }
 
   _deptIdx = computeSyncedDeptIndex(Date.now(), deptCount);
 

@@ -91,6 +91,75 @@ def test_tv_endpoints_health_and_data(monkeypatch, tmp_path):
     assert isinstance(payload.get("data"), dict)
 
 
+def test_tv_uses_latest_published_week_when_calendar_window_misses(monkeypatch, tmp_path):
+    live_path = tmp_path / "schedule_live.json"
+    live_payload = {
+        "weeks": {
+            "2026-05-04": {
+                "week_start": "2026-05-04",
+                "week_end": "2026-05-10",
+                "week_label": "Saptamana 19",
+                "published_at": "2026-04-11T12:00:00",
+                "modes": {
+                    "Magazie": {
+                        "departments": ["Receptii"],
+                        "schedule": {
+                            "Receptii": {
+                                "Luni": {"Sch1": {"employees": ["Ion Pop"]}},
+                                "Marti": {"Sch1": {"employees": []}},
+                                "Miercuri": {"Sch1": {"employees": []}},
+                                "Joi": {"Sch1": {"employees": []}},
+                                "Vineri": {"Sch1": {"employees": []}},
+                                "Sambata": {"Sch1": {"employees": []}},
+                                "Duminica": {"Sch1": {"employees": []}},
+                            }
+                        },
+                    },
+                    "Bucle": {
+                        "departments": [],
+                        "schedule": {},
+                    },
+                },
+            }
+        }
+    }
+    live_path.write_text(json.dumps(live_payload), encoding="utf-8")
+
+    monkeypatch.setattr(tv_server, "DATA_FILE", live_path)
+    monkeypatch.setattr(tv_server, "DRAFT_FILE", tmp_path / "schedule_draft.json")
+    monkeypatch.setattr(tv_server, "BACKUP_DIR", tmp_path / "backups")
+    tv_server._CACHED_DATA = None
+    tv_server._LAST_MTIME = 0.0
+
+    client = TestClient(tv_server.app)
+
+    data_resp = client.get("/api/tv-data")
+    assert data_resp.status_code == 200
+    payload = data_resp.json()["data"]
+    assert payload["published_week_start"] == "2026-05-04"
+    assert payload["departments"]["Magazie"] == ["Receptii"]
+    assert payload["has_data"] is True
+
+
+def test_tv_returns_no_data_message_for_empty_live_snapshot(monkeypatch, tmp_path):
+    live_path = tmp_path / "schedule_live.json"
+    live_path.write_text(json.dumps({"weeks": {}}), encoding="utf-8")
+
+    monkeypatch.setattr(tv_server, "DATA_FILE", live_path)
+    monkeypatch.setattr(tv_server, "DRAFT_FILE", tmp_path / "schedule_draft.json")
+    monkeypatch.setattr(tv_server, "BACKUP_DIR", tmp_path / "backups")
+    tv_server._CACHED_DATA = None
+    tv_server._LAST_MTIME = 0.0
+
+    client = TestClient(tv_server.app)
+
+    data_resp = client.get("/api/tv-data")
+    assert data_resp.status_code == 200
+    payload = data_resp.json()["data"]
+    assert payload["has_data"] is False
+    assert payload["message"] == "No data published"
+
+
 def test_config_invalid_values_are_sanitized(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
     monkeypatch.setattr(app_config, "CONFIG_PATH", config_path)
