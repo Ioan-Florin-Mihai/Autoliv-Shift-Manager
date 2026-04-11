@@ -139,11 +139,7 @@ def _resolve_display_window(data: dict, today: date) -> tuple[dict, dict, list[s
     if not reference_week:
         return {}, {}, []
 
-    next_week = _get_week_by_start(data, reference_week_start + timedelta(days=7) if reference_week_start else None)
-    if _has_weekend_data(reference_week) and next_week:
-        return reference_week, next_week, ["Sambata", "Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri"]
-
-    return reference_week, {}, ["Luni", "Marti", "Miercuri", "Joi", "Vineri"]
+    return reference_week, {}, ["Luni", "Marti", "Miercuri", "Joi", "Vineri", "Sambata", "Duminica"]
 
 
 def _load_schedule() -> dict:
@@ -198,11 +194,6 @@ def _restore_live_from_sources() -> bool:
     return False
 
 
-def _get_week(data: dict, d: date) -> dict:
-    key = _week_start(d).isoformat()
-    return data.get("weeks", {}).get(key) or {}
-
-
 def _is_active(name: str) -> bool:
     return name.strip().upper() not in ABSENCE_NAMES
 
@@ -215,30 +206,6 @@ def _is_12h(colors: dict, employee: str) -> bool:
     return False
 
 
-def _has_weekend_data(week: dict) -> bool:
-    """Returneaza True daca exista cel putin un angajat activ planificat Sambata sau Duminica."""
-    for mode_rec in week.get("modes", {}).values():
-        for dept_sched in mode_rec.get("schedule", {}).values():
-            for day_name in ("Sambata", "Duminica"):
-                for shift in SHIFTS:
-                    cell = dept_sched.get(day_name, {}).get(shift, {})
-                    for emp in cell.get("employees", []):
-                        if _is_active(emp):
-                            return True
-    return False
-
-
-def _get_display_days(current_week: dict, next_week: dict) -> list[str]:
-    """
-    CAZ 1 (normal): saptamana urmatoare Luni-Vineri.
-    CAZ 2 (weekend publicat): saptamana curenta Sambata-Duminica + saptamana urmatoare Luni-Vineri.
-    """
-    has_weekend = _has_weekend_data(current_week) if current_week else False
-    if has_weekend:
-        return ["Sambata", "Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri"]
-    return ["Luni", "Marti", "Miercuri", "Joi", "Vineri"]
-
-
 # ─── Main data builder ────────────────────────────────────────────────────────
 
 def _build_tv_data() -> dict:
@@ -246,15 +213,9 @@ def _build_tv_data() -> dict:
     raw = _load_schedule()
     today = date.today()
     current_week, next_week, display_days = _resolve_display_window(raw, today)
-    has_weekend = bool(display_days) and display_days[0] == "Sambata"
 
     # Fiecare zi afisata se mapeaza la saptamana din care face parte
-    data_map: dict[str, dict] = {
-        d: (current_week if d in WEEKEND_DAYS else next_week)
-        for d in display_days
-    }
-    if not next_week:
-        data_map = {d: current_week for d in display_days}
+    data_map: dict[str, dict] = {d: current_week for d in display_days}
 
     # Calculeaza etichetele de data afisata pentru fiecare zi
     day_dates: dict[str, str]     = {}
@@ -271,8 +232,8 @@ def _build_tv_data() -> dict:
             day_dates[day_name]     = day_name
             day_dates_iso[day_name] = ""
 
-    # Eticheta intervalului de saptamana (din saptamana urmatoare)
-    primary_week = next_week or current_week
+    # Eticheta intervalului de saptamana publicate
+    primary_week = current_week
     week_label = primary_week.get("week_label", "") if primary_week else ""
     week_range = ""
     try:
@@ -282,10 +243,6 @@ def _build_tv_data() -> dict:
             ws = date.fromisoformat(ws_str)
             we = date.fromisoformat(we_str)
             week_range = f"{ws.strftime('%d %b')} – {we.strftime('%d %b')}"
-        if has_weekend and current_week.get("week_start"):
-            cws = date.fromisoformat(current_week["week_start"])
-            sat = cws + timedelta(days=5)
-            week_range = f"Weekend {sat.strftime('%d %b')} + {week_range}"
     except Exception:  # noqa: BLE001
         pass
 
@@ -328,13 +285,11 @@ def _build_tv_data() -> dict:
         schedule[mode_name]    = mode_schedule
 
     payload = {
-        "has_weekend":    has_weekend,
         "display_days":   display_days,
         "day_dates":      day_dates,
         "day_dates_iso":  day_dates_iso,
         "today_iso":      today.isoformat(),
         "server_time_ms": int(time.time() * 1000),
-        "rotation_step_ms": int(config.get("rotation_interval", 10)) * 1000,
         "refresh_interval_ms": int(config.get("refresh_interval", 5)) * 1000,
         "tv_stale_ms": int(config.get("tv_stale_seconds", 15)) * 1000,
         "last_update_ms": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,

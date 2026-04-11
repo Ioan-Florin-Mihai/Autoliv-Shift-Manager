@@ -14,28 +14,25 @@
     :root {
       --bg: #eef3f8;
       --surface: #ffffff;
-      --line: #b8c6d6;
-      --line-strong: #8ea3b8;
+      --line: #c7d3df;
+      --line-strong: #9fb2c4;
       --head: #123e6b;
       --head-text: #ffffff;
-      --text: #17324b;
-      --muted: #5c728a;
-      --filled: #dcecff;
-      --filled-12h: #ffe2bf;
-      --empty: #eef2f6;
-      --today: #fff4bf;
-      --weekend: #f4f6f8;
-      --accent: #0c549f;
-      --ok: #1d7d45;
-      --danger: #b54a1d;
-      --title: #23496e;
-      --header-height: 44px;
-      --subhead-height: 24px;
-      --footer-height: 20px;
-      --font-size: 11px;
-      --row-height: 54px;
-      --cell-pad: 3px;
-      --position-fg: #17324b;
+      --muted: #60768d;
+      --text: #16304a;
+      --today: #fff2c4;
+      --weekend: #f3f6f9;
+      --filled: #eef6ff;
+      --filled-12h: #fff0d9;
+      --position-accent: #2f6db2;
+      --position-bg: #edf4fb;
+      --header-height: 34px;
+      --subhead-height: 20px;
+      --footer-height: 18px;
+      --font-size: 9px;
+      --header-font-size: 10px;
+      --row-height: 14px;
+      --cell-pad: 1px;
     }
 
     html, body {
@@ -53,65 +50,69 @@
     body {
       display: grid;
       grid-template-rows: var(--header-height) var(--subhead-height) 1fr var(--footer-height);
-      padding: 3px;
       gap: 2px;
+      padding: 2px;
     }
 
     #topbar {
       display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
+      padding: 0 10px;
       background: var(--head);
       color: var(--head-text);
-      padding: 0 10px;
       overflow: hidden;
     }
 
     #topbar-logo {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 900;
-      letter-spacing: 3px;
+      letter-spacing: 2px;
       white-space: nowrap;
     }
 
     #topbar-title {
-      font-size: 18px;
+      font-size: 14px;
       font-weight: 800;
-      color: #eaf2fb;
+      color: #e7f0fb;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     #topbar-clock {
-      font-size: 16px;
+      justify-self: end;
+      font-size: 13px;
       font-weight: 700;
       white-space: nowrap;
       font-variant-numeric: tabular-nums;
-      justify-self: end;
     }
 
-    #main-head {
+    #subhead {
       display: flex;
       align-items: center;
       justify-content: flex-start;
-      flex-wrap: wrap;
-      gap: 22px;
-      padding: 0 2px;
-      font-size: 10px;
-      color: var(--muted);
-      min-height: 15px;
-      background: var(--surface);
-      border: 1px solid var(--line);
+      gap: 18px;
       padding: 0 8px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 9px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .subhead-value {
+      font-weight: 800;
+      color: var(--text);
     }
 
     #main {
       min-height: 0;
       overflow: hidden;
-      background: var(--surface);
       border: 1px solid var(--line-strong);
+      background: var(--surface);
     }
 
     #table-wrap {
@@ -128,53 +129,45 @@
       font-size: var(--font-size);
     }
 
-    th,
-    td {
-      padding: var(--cell-pad);
-      border: 1px solid var(--line);
+    th, td {
+      border: 1px solid #ccc;
+      padding: 2px;
       text-align: center;
       vertical-align: middle;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     thead th {
       background: var(--head);
       color: var(--head-text);
-      font-size: var(--font-size);
+      font-size: var(--header-font-size);
       font-weight: 800;
+      line-height: 1.05;
     }
 
     tbody tr {
-      height: var(--row-height);
-    }
-
-    tbody tr:nth-child(even) td {
-      background: #fafcff;
+      height: 24px;
     }
 
     .col-position {
-      width: 24%;
+      width: 18%;
       text-align: left;
-      font-weight: 700;
     }
 
     .col-shift {
-      width: 7%;
-      font-weight: 700;
+      width: 6%;
     }
 
     .col-day {
-      width: 13.8%;
+      width: 10.85%;
     }
 
     .day-head {
       display: flex;
       flex-direction: column;
-      gap: 1px;
       align-items: center;
       justify-content: center;
+      gap: 1px;
     }
 
     .day-title {
@@ -182,53 +175,47 @@
     }
 
     .day-date {
-      font-size: 9px;
-      color: #dfe9f5;
+      font-size: 8px;
+      color: #dbe8f5;
     }
 
     .position-cell {
-      text-align: left;
-      font-weight: 700;
-      color: var(--position-fg);
-      background: linear-gradient(180deg, #f7fafe 0%, #edf4fb 100%);
-      white-space: normal;
-      line-height: 1.05;
       padding: 0;
-      overflow: hidden;
+      background: var(--position-bg);
+      text-align: left;
+      white-space: normal;
     }
 
-    .position-card {
+    .position-tag {
       min-height: 100%;
       display: grid;
-      grid-template-columns: 6px 1fr;
-      align-items: stretch;
+      grid-template-columns: 5px 1fr;
     }
 
-    .position-accent {
-      min-width: 6px;
-      height: 100%;
+    .position-tag-accent {
+      background: var(--position-accent);
     }
 
-    .position-content {
-      min-width: 0;
+    .position-tag-text {
       display: flex;
       align-items: center;
-      padding: 4px 6px;
+      padding: 1px 4px;
       font-weight: 800;
-      letter-spacing: 0.01em;
-      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+      line-height: 1.05;
+      color: var(--text);
+      background: linear-gradient(180deg, #f6faff 0%, #e9f1f9 100%);
     }
 
     .shift-cell {
       font-weight: 800;
-      color: #ffffff;
-      background: var(--accent);
-      letter-spacing: 0.02em;
+      color: #fff;
+      background: #0c549f;
+      white-space: nowrap;
     }
 
     .people-cell {
-      padding: 1px 3px;
-      background: var(--empty);
+      background: #f7f9fb;
+      padding: 0 2px;
     }
 
     .people-cell.filled {
@@ -240,69 +227,39 @@
     }
 
     .people-cell.today {
-      box-shadow: inset 0 0 0 9999px rgba(255, 244, 191, 0.5);
+      box-shadow: inset 0 0 0 9999px rgba(255, 242, 196, 0.6);
     }
 
     .people-cell.weekend {
-      box-shadow: inset 0 0 0 9999px rgba(244, 246, 248, 0.55);
+      box-shadow: inset 0 0 0 9999px rgba(243, 246, 249, 0.72);
     }
 
-    .people-list {
+    .people-lines {
+      width: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
-      gap: 1px;
-      min-height: 100%;
+      justify-content: center;
+      gap: 0;
+      line-height: 1;
     }
 
-    .person-slot {
-      min-height: 9px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 0 2px;
-      border-radius: 2px;
-      background: rgba(255, 255, 255, 0.35);
-      overflow: hidden;
-    }
-
-    .person-slot.filled {
-      background: rgba(255, 255, 255, 0.72);
-    }
-
-    .meta-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding-right: 6px;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .meta-value {
-      font-weight: 800;
-      color: var(--title);
-    }
-
-    .person {
-      font-size: var(--font-size);
-      font-weight: 700;
-      color: var(--text);
-      line-height: 1.05;
+    .person-line {
+      width: 100%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      width: 100%;
+      font-size: var(--font-size);
+      font-weight: 700;
     }
 
-    .person.h12 {
-      color: var(--danger);
+    .person-line.h12 {
+      color: #b54a1d;
     }
 
     .empty-mark {
-      font-size: calc(var(--font-size) - 1px);
+      color: #7a8fa7;
       font-weight: 600;
-      color: var(--muted);
+      font-size: 8px;
     }
 
     .empty-board {
@@ -311,48 +268,38 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--surface);
-      padding: 16px;
-      text-align: center;
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 800;
-      color: var(--accent);
+      color: #0c549f;
     }
 
     #footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
-      min-width: 0;
-      background: var(--surface);
-      border: 1px solid var(--line);
+      gap: 10px;
       padding: 0 6px;
-      font-size: 9px;
+      border: 1px solid var(--line);
+      background: var(--surface);
       color: var(--muted);
+      font-size: 8px;
+      white-space: nowrap;
       overflow: hidden;
     }
 
-    #footer-right {
-      color: var(--ok);
-      font-weight: 700;
-    }
-
-    #page-indicator {
-      color: var(--title);
+    #footer-status {
+      color: #1d7d45;
       font-weight: 700;
     }
 
     body.compact-13 {
-      --font-size: 10px;
-      --row-height: 48px;
-      --cell-pad: 2px;
+      --font-size: 8px;
+      --header-font-size: 9px;
     }
 
-    body.compact-16 {
-      --font-size: 9px;
-      --row-height: 44px;
-      --cell-pad: 1px;
+    body.compact-18 {
+      --font-size: 7px;
+      --header-font-size: 8px;
     }
   </style>
 </head>
@@ -363,9 +310,9 @@
     <div id="topbar-clock">00:00:00</div>
   </header>
 
-  <div id="main-head">
-    <div class="meta-pill">Departament: <span id="department-label" class="meta-value">—</span></div>
-    <div class="meta-pill"><span id="week-label" class="meta-value">—</span></div>
+  <div id="subhead">
+    <div>Departamente: <span id="department-label" class="subhead-value">—</span></div>
+    <div><span id="week-label" class="subhead-value">—</span></div>
   </div>
 
   <main id="main">
@@ -374,39 +321,31 @@
 
   <footer id="footer">
     <div>Ultima actualizare: <span id="footer-last-update">—</span></div>
-    <div id="page-indicator">Pagina 1 / 1</div>
-    <div id="footer-right">Status: <span id="footer-status">Conectat</span></div>
+    <div>Status: <span id="footer-status">Conectat</span></div>
   </footer>
 
   <script>
     'use strict';
 
     const DATA_URL = '/api/tv-data';
-    const PAGE_TURN_MS = 6000;
-    const DATA_REFRESH_MS = 30000;
-    const CELL_SLOT_COUNT = 5;
+    const RELOAD_MS = 5000;
     const SHIFT_LABELS = { Sch1: 'Sch1', Sch2: 'Sch2', Sch3: 'Sch3' };
     const POSITION_PALETTE = [
-      { accent: '#2f6db2', bg: 'linear-gradient(180deg, #eef5ff 0%, #dceaff 100%)', text: '#17385e' },
-      { accent: '#3d8f58', bg: 'linear-gradient(180deg, #eefaf1 0%, #daf0df 100%)', text: '#18492a' },
-      { accent: '#b57b22', bg: 'linear-gradient(180deg, #fff7e8 0%, #f8e0b7 100%)', text: '#5e3d09' },
-      { accent: '#8d5db7', bg: 'linear-gradient(180deg, #f7efff 0%, #eadbfd 100%)', text: '#47246c' },
-      { accent: '#c75b4a', bg: 'linear-gradient(180deg, #fff0ec 0%, #f7d3cb 100%)', text: '#69261d' },
-      { accent: '#2f8a8a', bg: 'linear-gradient(180deg, #ecfbfb 0%, #d4f0f0 100%)', text: '#184848' },
-      { accent: '#6a78c2', bg: 'linear-gradient(180deg, #eef1ff 0%, #dde2fb 100%)', text: '#29376d' },
-      { accent: '#b34f86', bg: 'linear-gradient(180deg, #fff0f8 0%, #f5d9e8 100%)', text: '#5d1f41' }
+      '#2f6db2', '#3d8f58', '#b57b22', '#8d5db7', '#c75b4a', '#2f8a8a', '#6a78c2', '#b34f86'
     ];
     const WEEKEND_DAYS = new Set(['Sambata', 'Duminica']);
-    let lastPublishTime = null;
-    let currentPageIndex = 0;
-    let pageTimer = null;
+
+    function createElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined) element.textContent = text;
+      return element;
+    }
 
     function setClock() {
       const now = new Date();
       const pad = value => String(value).padStart(2, '0');
-      const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-      const dateText = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
-      document.getElementById('topbar-clock').textContent = `${time} ${dateText}`;
+      document.getElementById('topbar-clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
     }
 
     function formatPublishTime(value) {
@@ -421,78 +360,43 @@
       });
     }
 
-    function createElement(tag, className, text) {
-      const element = document.createElement(tag);
-      if (className) element.className = className;
-      if (text !== undefined) element.textContent = text;
-      return element;
-    }
-
-    function collectDepartments(data) {
+    function collectItems(data) {
       const items = [];
-      const modes = Object.keys(data.departments || {});
-      modes.forEach(modeName => {
-        const departments = data.departments[modeName] || [];
-        departments.forEach(department => {
+      Object.entries(data.departments || {}).forEach(([modeName, departments]) => {
+        (departments || []).forEach(department => {
           items.push({ modeName, department });
         });
       });
       return items;
     }
 
+    function collectDepartmentNames(items) {
+      return [...new Set(items.map(item => item.modeName).filter(Boolean))];
+    }
+
     function applyDensity(positionCount) {
-      document.body.classList.remove('compact-13', 'compact-16');
-      if (positionCount >= 16) {
-        document.body.classList.add('compact-16');
+      document.body.classList.remove('compact-13', 'compact-18');
+      if (positionCount >= 18) {
+        document.body.classList.add('compact-18');
       } else if (positionCount >= 13) {
         document.body.classList.add('compact-13');
       }
     }
 
-    function collectDepartmentNames(items) {
-      return [...new Set(items.map(item => item.modeName).filter(Boolean))];
-    }
-
-    function paletteForPosition(positionName) {
+    function colorForPosition(positionName) {
       let hash = 0;
-      const normalized = String(positionName || '').toLowerCase();
-      for (const char of normalized) {
+      for (const char of String(positionName || '').toLowerCase()) {
         hash = ((hash << 5) - hash) + char.charCodeAt(0);
         hash |= 0;
       }
       return POSITION_PALETTE[Math.abs(hash) % POSITION_PALETTE.length];
     }
 
-    function estimatePositionsPerPage() {
-      const wrap = document.getElementById('table-wrap');
-      const wrapHeight = wrap ? wrap.clientHeight : 0;
-      const rootStyles = getComputedStyle(document.documentElement);
-      const rowHeight = parseInt(rootStyles.getPropertyValue('--row-height'), 10) || 54;
-      const headerAllowance = 34;
-      const usableHeight = Math.max(0, wrapHeight - headerAllowance);
-      const rowsPerPosition = 3;
-      const positions = Math.floor(usableHeight / (rowHeight * rowsPerPosition));
-      return Math.max(1, positions);
-    }
-
-    function splitIntoPages(items) {
-      const positionsPerPage = estimatePositionsPerPage();
-      const pages = [];
-      for (let index = 0; index < items.length; index += positionsPerPage) {
-        pages.push(items.slice(index, index + positionsPerPage));
-      }
-      return pages.length ? pages : [items];
-    }
-
     function buildHeaderRow(displayDays, data) {
       const thead = document.createElement('thead');
       const row = document.createElement('tr');
-
-      const positionHead = createElement('th', 'col-position', 'Poziție');
-      row.appendChild(positionHead);
-
-      const shiftHead = createElement('th', 'col-shift', 'Schimb');
-      row.appendChild(shiftHead);
+      row.appendChild(createElement('th', 'col-position', 'Poziție / Departament'));
+      row.appendChild(createElement('th', 'col-shift', 'Schimb'));
 
       displayDays.forEach(day => {
         const head = createElement('th', 'col-day');
@@ -515,19 +419,15 @@
       if (entries.length) cell.classList.add('filled');
       if (entries.some(entry => entry.hours12)) cell.classList.add('h12');
 
-      const list = createElement('div', 'people-list');
-      const visibleEntries = entries.slice(0, CELL_SLOT_COUNT);
-      for (let index = 0; index < CELL_SLOT_COUNT; index += 1) {
-        const slot = createElement('div', `person-slot${visibleEntries[index] ? ' filled' : ''}`);
-        const entry = visibleEntries[index];
-        if (entry) {
-          slot.appendChild(createElement('div', `person${entry.hours12 ? ' h12' : ''}`, entry.name || '—'));
-        } else {
-          slot.appendChild(createElement('div', 'empty-mark', '—'));
-        }
-        list.appendChild(slot);
+      const lines = createElement('div', 'people-lines');
+      if (!entries.length) {
+        lines.appendChild(createElement('div', 'empty-mark', '—'));
+      } else {
+        entries.forEach(entry => {
+          lines.appendChild(createElement('div', `person-line${entry.hours12 ? ' h12' : ''}`, entry.name || '—'));
+        });
       }
-      cell.appendChild(list);
+      cell.appendChild(lines);
       return cell;
     }
 
@@ -541,16 +441,13 @@
           if (index === 0) {
             const positionCell = createElement('td', 'position-cell');
             positionCell.rowSpan = 3;
-            const palette = paletteForPosition(item.department);
-            const positionCard = createElement('div', 'position-card');
-            const accent = createElement('div', 'position-accent');
-            accent.style.background = palette.accent;
-            const content = createElement('div', 'position-content', item.department);
-            content.style.background = palette.bg;
-            content.style.color = palette.text;
-            positionCard.appendChild(accent);
-            positionCard.appendChild(content);
-            positionCell.appendChild(positionCard);
+            const tag = createElement('div', 'position-tag');
+            const accent = createElement('div', 'position-tag-accent');
+            accent.style.background = colorForPosition(item.department);
+            const label = createElement('div', 'position-tag-text', `${item.department} / ${item.modeName}`);
+            tag.appendChild(accent);
+            tag.appendChild(label);
+            positionCell.appendChild(tag);
             row.appendChild(positionCell);
           }
 
@@ -572,62 +469,28 @@
       const wrap = document.getElementById('table-wrap');
       wrap.innerHTML = '';
       wrap.appendChild(createElement('div', 'empty-board', message || 'Nu există date publicate'));
-      document.getElementById('week-label').textContent = message || 'Nu există date publicate';
       document.getElementById('department-label').textContent = '—';
-      document.getElementById('page-indicator').textContent = 'Pagina 1 / 1';
+      document.getElementById('week-label').textContent = message || 'Nu există date publicate';
     }
 
-    function renderTablePage(data, pageItems, pageIndex, totalPages) {
-      const wrap = document.getElementById('table-wrap');
-      wrap.innerHTML = '';
-      const displayDays = data.display_days || [];
-      const table = document.createElement('table');
-      table.appendChild(buildHeaderRow(displayDays, data));
-      table.appendChild(buildBodyRows(pageItems, displayDays, data));
-      wrap.appendChild(table);
-      document.getElementById('page-indicator').textContent = `Pagina ${pageIndex + 1} / ${totalPages}`;
-    }
-
-    function startPageRotation(data, pages) {
-      if (pageTimer) {
-        clearInterval(pageTimer);
-        pageTimer = null;
-      }
-
-      currentPageIndex = Math.min(currentPageIndex, pages.length - 1);
-      renderTablePage(data, pages[currentPageIndex], currentPageIndex, pages.length);
-
-      if (pages.length <= 1) {
-        return;
-      }
-
-      pageTimer = setInterval(() => {
-        currentPageIndex = (currentPageIndex + 1) % pages.length;
-        renderTablePage(data, pages[currentPageIndex], currentPageIndex, pages.length);
-      }, PAGE_TURN_MS);
-    }
-
-    function render(data) {
-      const items = collectDepartments(data);
-      if (!items.length || data.has_data === false) {
-        renderEmpty(data.message || 'Nu există date publicate');
+    function render(payload) {
+      const items = collectItems(payload);
+      if (!items.length || payload.has_data === false) {
+        renderEmpty(payload.message || 'Nu există date publicate');
         return;
       }
 
       applyDensity(items.length);
-      const pages = splitIntoPages(items);
+      const wrap = document.getElementById('table-wrap');
+      wrap.innerHTML = '';
+      const table = document.createElement('table');
+      const displayDays = payload.display_days || [];
+      table.appendChild(buildHeaderRow(displayDays, payload));
+      table.appendChild(buildBodyRows(items, displayDays, payload));
+      wrap.appendChild(table);
 
-      const departmentNames = collectDepartmentNames(items);
-      const weekText = [data.week_label || '', data.week_range ? `(${data.week_range})` : '']
-        .filter(Boolean)
-        .join(' ');
-      document.getElementById('week-label').textContent = weekText || 'Planificare curentă';
-      document.getElementById('department-label').textContent = departmentNames[0] || '—';
-      startPageRotation(data, pages);
-    }
-
-    function rerenderIfNeeded() {
-      loadTvData();
+      document.getElementById('department-label').textContent = collectDepartmentNames(items).join(' + ') || '—';
+      document.getElementById('week-label').textContent = [payload.week_label || '', payload.week_range ? `(${payload.week_range})` : ''].filter(Boolean).join(' ') || 'Planificare curentă';
     }
 
     async function loadTvData() {
@@ -637,8 +500,7 @@
         const payload = await response.json();
         if (!payload || payload.error || !payload.data) throw new Error(payload?.error || 'No data');
 
-        lastPublishTime = payload.last_publish_time || lastPublishTime;
-        document.getElementById('footer-last-update').textContent = formatPublishTime(lastPublishTime);
+        document.getElementById('footer-last-update').textContent = formatPublishTime(payload.last_publish_time);
         document.getElementById('footer-status').textContent = 'Conectat';
         render(payload.data);
       } catch (_error) {
@@ -651,8 +513,9 @@
       setClock();
       loadTvData();
       setInterval(setClock, 1000);
-      setInterval(loadTvData, DATA_REFRESH_MS);
-      window.addEventListener('resize', rerenderIfNeeded);
+      setInterval(() => {
+        location.reload();
+      }, RELOAD_MS);
     }
 
     document.addEventListener('DOMContentLoaded', init);
