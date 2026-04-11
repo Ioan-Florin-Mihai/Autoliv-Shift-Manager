@@ -12,6 +12,5 @@
   "browser_restart_delay": 3,
   "server_restart_delay": 5,
   "log_max_bytes": 5242880,
-  "log_backup_count": 5,
-  "app_password_hash": "$2b$12$6Z/FpUJQWSBanOtVHCq2p.zItXw9jP.SrLd9OSnP/9yNHLp2zzWHa"
+  "log_backup_count": 5
 }
