@@ -5,14 +5,14 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta
 
 from logic.app_config import get_config
-from logic.app_logger import log_exception, log_warning
-from logic.app_paths import BACKUP_DIR, BASE_DIR
+from logic.app_logger import log_exception, log_info, log_warning
+from logic.app_paths import BACKUP_DIR, SCHEDULE_DRAFT, SCHEDULE_LEGACY, SCHEDULE_LIVE
 from logic.audit_logger import log_event
 from logic.auth import is_admin as auth_is_admin
 
-DRAFT_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_draft.json"
-LIVE_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_live.json"
-LEGACY_SCHEDULE_PATH = BASE_DIR / "data" / "schedule_data.json"
+DRAFT_SCHEDULE_PATH = SCHEDULE_DRAFT
+LIVE_SCHEDULE_PATH = SCHEDULE_LIVE
+LEGACY_SCHEDULE_PATH = SCHEDULE_LEGACY
 
 # Alias de compatibilitate inversa folosit de teste si importuri legacy.
 SCHEDULE_PATH = DRAFT_SCHEDULE_PATH
@@ -27,6 +27,7 @@ def _write_empty_schedule(path):
 
 def _write_json_atomic(path, payload: dict):
     path.parent.mkdir(parents=True, exist_ok=True)
+    log_info("[STORE] Writing data to: %s", path)
     fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as tmp:
@@ -202,7 +203,7 @@ def _ensure_mode_schedule_structure(mode_name: str, mode_record: dict):
         schedule = {}
         mode_record["schedule"] = schedule
 
-    aliased_schedule = {}
+    aliased_schedule: dict[str, dict] = {}
     for department, department_schedule in list(schedule.items()):
         if not isinstance(department, str):
             continue
@@ -290,7 +291,7 @@ class ScheduleStore:
             raise ValueError("Săptămâna este publicată (read-only). Deblocă înainte de a edita.")
 
     def is_admin(self, user: str | None) -> bool:
-        return bool(user) and auth_is_admin(user)
+        return bool(user) and auth_is_admin(str(user))
 
     def _require_admin(self, user: str | None) -> None:
         if not self.is_admin(user):
@@ -521,6 +522,11 @@ class ScheduleStore:
             self.save()
             # Live write (atomic)
             self._save_live_snapshot()
+            live_payload = json.loads(LIVE_SCHEDULE_PATH.read_text(encoding="utf-8"))
+            if isinstance(live_payload, dict) and isinstance(live_payload.get("weeks", {}), dict) and week_key in live_payload.get("weeks", {}):
+                log_info("[PUBLISH] OK - data written")
+            else:
+                log_warning("[PUBLISH] Live snapshot missing published week %s", week_key)
         except Exception:
             self.data = previous_data
             self.save()

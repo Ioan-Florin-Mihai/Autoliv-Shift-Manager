@@ -20,7 +20,6 @@ import logging
 import socket
 import time
 from datetime import date, timedelta
-from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -28,15 +27,23 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from logic.app_config import get_config
-from logic.app_logger import log_warning
-from logic.app_paths import BACKUP_DIR
+from logic.app_logger import log_error, log_info
+from logic.app_paths import (
+    BACKUP_DIR,
+    BASE_DIR,
+    BUNDLE_DIR,
+    RUNTIME_FILE,
+    SCHEDULE_DRAFT,
+    SCHEDULE_LIVE,
+    bootstrap_runtime_root,
+)
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-ROOT       = Path(__file__).parent
-DATA_FILE  = ROOT / "data" / "schedule_live.json"
-DRAFT_FILE = ROOT / "data" / "schedule_draft.json"
-STATIC_DIR = ROOT / "static"
-TPL_DIR    = ROOT / "templates"
+RESOURCE_ROOT = BUNDLE_DIR if (BUNDLE_DIR / "templates").exists() else BASE_DIR
+DATA_FILE  = SCHEDULE_LIVE
+DRAFT_FILE = SCHEDULE_DRAFT
+STATIC_DIR = RESOURCE_ROOT / "static"
+TPL_DIR    = RESOURCE_ROOT / "templates"
 
 # ─── Constante domeniu (oglindite din schedule_store, fara import ca serverul
 #     sa ramana fara dependinte si utilizabil cu --tv-web fara incarcarea aplicatiei complete) ──
@@ -142,6 +149,8 @@ def _resolve_display_window(data: dict, today: date) -> tuple[dict, dict, list[s
 def _load_schedule() -> dict:
     """Citeste schedule_live.json cu cache pe mtime pentru throughput stabil pe mai multe TV-uri."""
     global _LAST_MTIME, _CACHED_DATA
+    if _CACHED_DATA is None:
+        log_info("[TV] Loading data from: %s", DATA_FILE)
     if not DATA_FILE.exists():
         restored = _restore_live_from_sources()
         if not restored:
@@ -335,7 +344,7 @@ def _build_tv_data() -> dict:
         "schedule":       schedule,
         "published_week_start": current_week.get("week_start", "") if current_week else "",
         "has_data": False,
-        "message": "No data published",
+        "message": "Nu există date publicate",
     }
 
     has_departments = _count_departments(payload) > 0
@@ -402,7 +411,7 @@ async def tv_data() -> JSONResponse:
         raw = _load_schedule()
         payload = _build_tv_data()
         entries = _count_all_employees(payload)
-        log_warning("TV DATA LOADED: %s entries", entries)
+        log_info("[TV] Loaded %s entries", entries)
         return JSONResponse(
             content={
                 "server_time": int(time.time() * 1000),
@@ -421,6 +430,9 @@ async def health() -> JSONResponse:
             "status": "ok",
             "last_update": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
             "data_loaded": _CACHED_DATA is not None,
+            "base_dir": str(BASE_DIR),
+            "data_path": str(DATA_FILE),
+            "runtime_root": str(RUNTIME_FILE),
         }
     )
 
@@ -455,9 +467,14 @@ def _local_ip() -> str:
 
 def start_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     """Apelata din main.py cand este prezent flag-ul --tv-web."""
+    mismatch = bootstrap_runtime_root("tv_server")
     logger = logging.getLogger("tv_server")
     ip = _local_ip()
     sep = "=" * 56
+    log_info("[TV] BASE_DIR=%s", BASE_DIR)
+    log_info("[TV] DATA_PATH=%s", DATA_FILE)
+    if mismatch:
+        log_error(mismatch)
     logger.warning("\n%s", sep)
     logger.warning("  AUTOLIV TV SERVER - pornit")
     logger.warning("  Local :  http://127.0.0.1:%s/tv", port)

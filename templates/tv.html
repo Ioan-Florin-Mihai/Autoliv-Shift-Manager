@@ -28,11 +28,14 @@
       --accent: #0c549f;
       --ok: #1d7d45;
       --danger: #b54a1d;
+      --title: #23496e;
       --header-height: 44px;
+      --subhead-height: 24px;
       --footer-height: 20px;
       --font-size: 11px;
-      --row-height: 24px;
+      --row-height: 54px;
       --cell-pad: 3px;
+      --position-fg: #17324b;
     }
 
     html, body {
@@ -49,15 +52,15 @@
 
     body {
       display: grid;
-      grid-template-rows: var(--header-height) 1fr var(--footer-height);
+      grid-template-rows: var(--header-height) var(--subhead-height) 1fr var(--footer-height);
       padding: 3px;
       gap: 2px;
     }
 
     #topbar {
-      display: flex;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
       align-items: center;
-      justify-content: space-between;
       gap: 10px;
       background: var(--head);
       color: var(--head-text);
@@ -72,22 +75,36 @@
       white-space: nowrap;
     }
 
+    #topbar-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #eaf2fb;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     #topbar-clock {
       font-size: 16px;
       font-weight: 700;
       white-space: nowrap;
       font-variant-numeric: tabular-nums;
+      justify-self: end;
     }
 
     #main-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 22px;
       padding: 0 2px;
       font-size: 10px;
       color: var(--muted);
       min-height: 15px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      padding: 0 8px;
     }
 
     #main {
@@ -138,18 +155,18 @@
     }
 
     .col-position {
-      width: 18%;
+      width: 24%;
       text-align: left;
       font-weight: 700;
     }
 
     .col-shift {
-      width: 6%;
+      width: 7%;
       font-weight: 700;
     }
 
     .col-day {
-      width: 10.8%;
+      width: 13.8%;
     }
 
     .day-head {
@@ -172,18 +189,45 @@
     .position-cell {
       text-align: left;
       font-weight: 700;
-      color: var(--text);
-      background: #f7fafe;
+      color: var(--position-fg);
+      background: linear-gradient(180deg, #f7fafe 0%, #edf4fb 100%);
+      white-space: normal;
+      line-height: 1.05;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .position-card {
+      min-height: 100%;
+      display: grid;
+      grid-template-columns: 6px 1fr;
+      align-items: stretch;
+    }
+
+    .position-accent {
+      min-width: 6px;
+      height: 100%;
+    }
+
+    .position-content {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      padding: 4px 6px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
     }
 
     .shift-cell {
       font-weight: 800;
-      color: var(--accent);
-      background: #f3f7fb;
+      color: #ffffff;
+      background: var(--accent);
+      letter-spacing: 0.02em;
     }
 
     .people-cell {
-      padding: 2px 4px;
+      padding: 1px 3px;
       background: var(--empty);
     }
 
@@ -206,9 +250,38 @@
     .people-list {
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 1px;
       min-height: 100%;
+    }
+
+    .person-slot {
+      min-height: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 2px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.35);
+      overflow: hidden;
+    }
+
+    .person-slot.filled {
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding-right: 6px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .meta-value {
+      font-weight: 800;
+      color: var(--title);
     }
 
     .person {
@@ -216,6 +289,10 @@
       font-weight: 700;
       color: var(--text);
       line-height: 1.05;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
     }
 
     .person.h12 {
@@ -261,15 +338,20 @@
       font-weight: 700;
     }
 
+    #page-indicator {
+      color: var(--title);
+      font-weight: 700;
+    }
+
     body.compact-13 {
       --font-size: 10px;
-      --row-height: 22px;
+      --row-height: 48px;
       --cell-pad: 2px;
     }
 
     body.compact-16 {
       --font-size: 9px;
-      --row-height: 20px;
+      --row-height: 44px;
       --cell-pad: 1px;
     }
   </style>
@@ -277,12 +359,13 @@
 <body>
   <header id="topbar">
     <div id="topbar-logo">AUTOLIV</div>
+    <div id="topbar-title">Shift Dashboard</div>
     <div id="topbar-clock">00:00:00</div>
   </header>
 
   <div id="main-head">
-    <div id="week-label">—</div>
-    <div id="position-count">—</div>
+    <div class="meta-pill">Departament: <span id="department-label" class="meta-value">—</span></div>
+    <div class="meta-pill"><span id="week-label" class="meta-value">—</span></div>
   </div>
 
   <main id="main">
@@ -291,6 +374,7 @@
 
   <footer id="footer">
     <div>Ultima actualizare: <span id="footer-last-update">—</span></div>
+    <div id="page-indicator">Pagina 1 / 1</div>
     <div id="footer-right">Status: <span id="footer-status">Conectat</span></div>
   </footer>
 
@@ -298,10 +382,24 @@
     'use strict';
 
     const DATA_URL = '/api/tv-data';
-    const RELOAD_MS = 5000;
+    const PAGE_TURN_MS = 6000;
+    const DATA_REFRESH_MS = 30000;
+    const CELL_SLOT_COUNT = 5;
     const SHIFT_LABELS = { Sch1: 'Sch1', Sch2: 'Sch2', Sch3: 'Sch3' };
+    const POSITION_PALETTE = [
+      { accent: '#2f6db2', bg: 'linear-gradient(180deg, #eef5ff 0%, #dceaff 100%)', text: '#17385e' },
+      { accent: '#3d8f58', bg: 'linear-gradient(180deg, #eefaf1 0%, #daf0df 100%)', text: '#18492a' },
+      { accent: '#b57b22', bg: 'linear-gradient(180deg, #fff7e8 0%, #f8e0b7 100%)', text: '#5e3d09' },
+      { accent: '#8d5db7', bg: 'linear-gradient(180deg, #f7efff 0%, #eadbfd 100%)', text: '#47246c' },
+      { accent: '#c75b4a', bg: 'linear-gradient(180deg, #fff0ec 0%, #f7d3cb 100%)', text: '#69261d' },
+      { accent: '#2f8a8a', bg: 'linear-gradient(180deg, #ecfbfb 0%, #d4f0f0 100%)', text: '#184848' },
+      { accent: '#6a78c2', bg: 'linear-gradient(180deg, #eef1ff 0%, #dde2fb 100%)', text: '#29376d' },
+      { accent: '#b34f86', bg: 'linear-gradient(180deg, #fff0f8 0%, #f5d9e8 100%)', text: '#5d1f41' }
+    ];
     const WEEKEND_DAYS = new Set(['Sambata', 'Duminica']);
     let lastPublishTime = null;
+    let currentPageIndex = 0;
+    let pageTimer = null;
 
     function setClock() {
       const now = new Date();
@@ -351,11 +449,46 @@
       }
     }
 
+    function collectDepartmentNames(items) {
+      return [...new Set(items.map(item => item.modeName).filter(Boolean))];
+    }
+
+    function paletteForPosition(positionName) {
+      let hash = 0;
+      const normalized = String(positionName || '').toLowerCase();
+      for (const char of normalized) {
+        hash = ((hash << 5) - hash) + char.charCodeAt(0);
+        hash |= 0;
+      }
+      return POSITION_PALETTE[Math.abs(hash) % POSITION_PALETTE.length];
+    }
+
+    function estimatePositionsPerPage() {
+      const wrap = document.getElementById('table-wrap');
+      const wrapHeight = wrap ? wrap.clientHeight : 0;
+      const rootStyles = getComputedStyle(document.documentElement);
+      const rowHeight = parseInt(rootStyles.getPropertyValue('--row-height'), 10) || 54;
+      const headerAllowance = 34;
+      const usableHeight = Math.max(0, wrapHeight - headerAllowance);
+      const rowsPerPosition = 3;
+      const positions = Math.floor(usableHeight / (rowHeight * rowsPerPosition));
+      return Math.max(1, positions);
+    }
+
+    function splitIntoPages(items) {
+      const positionsPerPage = estimatePositionsPerPage();
+      const pages = [];
+      for (let index = 0; index < items.length; index += positionsPerPage) {
+        pages.push(items.slice(index, index + positionsPerPage));
+      }
+      return pages.length ? pages : [items];
+    }
+
     function buildHeaderRow(displayDays, data) {
       const thead = document.createElement('thead');
       const row = document.createElement('tr');
 
-      const positionHead = createElement('th', 'col-position', 'Poziție / Departament');
+      const positionHead = createElement('th', 'col-position', 'Poziție');
       row.appendChild(positionHead);
 
       const shiftHead = createElement('th', 'col-shift', 'Schimb');
@@ -383,13 +516,16 @@
       if (entries.some(entry => entry.hours12)) cell.classList.add('h12');
 
       const list = createElement('div', 'people-list');
-      if (entries.length) {
-        entries.forEach(entry => {
-          const person = createElement('div', `person${entry.hours12 ? ' h12' : ''}`, entry.name || '—');
-          list.appendChild(person);
-        });
-      } else {
-        list.appendChild(createElement('div', 'empty-mark', '—'));
+      const visibleEntries = entries.slice(0, CELL_SLOT_COUNT);
+      for (let index = 0; index < CELL_SLOT_COUNT; index += 1) {
+        const slot = createElement('div', `person-slot${visibleEntries[index] ? ' filled' : ''}`);
+        const entry = visibleEntries[index];
+        if (entry) {
+          slot.appendChild(createElement('div', `person${entry.hours12 ? ' h12' : ''}`, entry.name || '—'));
+        } else {
+          slot.appendChild(createElement('div', 'empty-mark', '—'));
+        }
+        list.appendChild(slot);
       }
       cell.appendChild(list);
       return cell;
@@ -403,8 +539,18 @@
           const row = document.createElement('tr');
 
           if (index === 0) {
-            const positionCell = createElement('td', 'position-cell', `${item.department} / ${item.modeName}`);
+            const positionCell = createElement('td', 'position-cell');
             positionCell.rowSpan = 3;
+            const palette = paletteForPosition(item.department);
+            const positionCard = createElement('div', 'position-card');
+            const accent = createElement('div', 'position-accent');
+            accent.style.background = palette.accent;
+            const content = createElement('div', 'position-content', item.department);
+            content.style.background = palette.bg;
+            content.style.color = palette.text;
+            positionCard.appendChild(accent);
+            positionCard.appendChild(content);
+            positionCell.appendChild(positionCard);
             row.appendChild(positionCell);
           }
 
@@ -427,7 +573,38 @@
       wrap.innerHTML = '';
       wrap.appendChild(createElement('div', 'empty-board', message || 'Nu există date publicate'));
       document.getElementById('week-label').textContent = message || 'Nu există date publicate';
-      document.getElementById('position-count').textContent = '0 poziții';
+      document.getElementById('department-label').textContent = '—';
+      document.getElementById('page-indicator').textContent = 'Pagina 1 / 1';
+    }
+
+    function renderTablePage(data, pageItems, pageIndex, totalPages) {
+      const wrap = document.getElementById('table-wrap');
+      wrap.innerHTML = '';
+      const displayDays = data.display_days || [];
+      const table = document.createElement('table');
+      table.appendChild(buildHeaderRow(displayDays, data));
+      table.appendChild(buildBodyRows(pageItems, displayDays, data));
+      wrap.appendChild(table);
+      document.getElementById('page-indicator').textContent = `Pagina ${pageIndex + 1} / ${totalPages}`;
+    }
+
+    function startPageRotation(data, pages) {
+      if (pageTimer) {
+        clearInterval(pageTimer);
+        pageTimer = null;
+      }
+
+      currentPageIndex = Math.min(currentPageIndex, pages.length - 1);
+      renderTablePage(data, pages[currentPageIndex], currentPageIndex, pages.length);
+
+      if (pages.length <= 1) {
+        return;
+      }
+
+      pageTimer = setInterval(() => {
+        currentPageIndex = (currentPageIndex + 1) % pages.length;
+        renderTablePage(data, pages[currentPageIndex], currentPageIndex, pages.length);
+      }, PAGE_TURN_MS);
     }
 
     function render(data) {
@@ -438,19 +615,19 @@
       }
 
       applyDensity(items.length);
-      const wrap = document.getElementById('table-wrap');
-      wrap.innerHTML = '';
-      const displayDays = data.display_days || [];
-      const table = document.createElement('table');
-      table.appendChild(buildHeaderRow(displayDays, data));
-      table.appendChild(buildBodyRows(items, displayDays, data));
-      wrap.appendChild(table);
+      const pages = splitIntoPages(items);
 
+      const departmentNames = collectDepartmentNames(items);
       const weekText = [data.week_label || '', data.week_range ? `(${data.week_range})` : '']
         .filter(Boolean)
         .join(' ');
       document.getElementById('week-label').textContent = weekText || 'Planificare curentă';
-      document.getElementById('position-count').textContent = `${items.length} poziții`; 
+      document.getElementById('department-label').textContent = departmentNames[0] || '—';
+      startPageRotation(data, pages);
+    }
+
+    function rerenderIfNeeded() {
+      loadTvData();
     }
 
     async function loadTvData() {
@@ -474,9 +651,8 @@
       setClock();
       loadTvData();
       setInterval(setClock, 1000);
-      setInterval(() => {
-        location.reload();
-      }, RELOAD_MS);
+      setInterval(loadTvData, DATA_REFRESH_MS);
+      window.addEventListener('resize', rerenderIfNeeded);
     }
 
     document.addEventListener('DOMContentLoaded', init);

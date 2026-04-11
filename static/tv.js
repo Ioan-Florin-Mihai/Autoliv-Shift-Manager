@@ -67,7 +67,7 @@ function formatPublishTime(value) {
 }
 
 function renderEmptyState(message) {
-  const text = message || 'No data published';
+  const text = message || 'Nu există date publicate';
   document.getElementById('topbar-dept').textContent = '—';
   document.getElementById('topbar-week').textContent = text;
   document.getElementById('footer-mode').textContent = '—';

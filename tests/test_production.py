@@ -5,6 +5,7 @@ import bcrypt
 from fastapi.testclient import TestClient
 
 import logic.app_config as app_config
+import logic.app_paths as app_paths
 import logic.audit_logger as audit_logger
 import logic.auth as auth_module
 import logic.schedule_store as schedule_store_module
@@ -82,6 +83,8 @@ def test_tv_endpoints_health_and_data(monkeypatch, tmp_path):
     health = client.get("/health")
     assert health.status_code == 200
     assert health.json().get("status") == "ok"
+    assert "base_dir" in health.json()
+    assert "data_path" in health.json()
 
     data_resp = client.get("/api/tv-data")
     assert data_resp.status_code == 200
@@ -157,7 +160,32 @@ def test_tv_returns_no_data_message_for_empty_live_snapshot(monkeypatch, tmp_pat
     assert data_resp.status_code == 200
     payload = data_resp.json()["data"]
     assert payload["has_data"] is False
-    assert payload["message"] == "No data published"
+    assert payload["message"] == "Nu există date publicate"
+
+
+def test_tv_server_uses_shared_runtime_data_paths():
+    assert tv_server.DATA_FILE == app_paths.SCHEDULE_LIVE
+    assert tv_server.DRAFT_FILE == app_paths.SCHEDULE_DRAFT
+
+
+def test_bootstrap_runtime_root_detects_shared_marker_mismatch(monkeypatch, tmp_path):
+    current_root = tmp_path / "current"
+    runtime_file = tmp_path / "current" / "data" / "runtime_root.txt"
+    shared_marker = tmp_path / "shared" / "runtime_root.txt"
+    current_root.mkdir(parents=True, exist_ok=True)
+    runtime_file.parent.mkdir(parents=True, exist_ok=True)
+    shared_marker.parent.mkdir(parents=True, exist_ok=True)
+    runtime_file.write_text(str(tmp_path / "other"), encoding="utf-8")
+
+    monkeypatch.setattr(app_paths, "BASE_DIR", current_root)
+    monkeypatch.setattr(app_paths, "RUNTIME_FILE", runtime_file)
+    monkeypatch.setattr(app_paths, "_shared_runtime_root_path", lambda: shared_marker)
+
+    message = app_paths.bootstrap_runtime_root("planner")
+
+    assert message is not None
+    assert "Runtime mismatch detected" in message
+    assert runtime_file.read_text(encoding="utf-8") == str(current_root)
 
 
 def test_config_invalid_values_are_sanitized(monkeypatch, tmp_path):

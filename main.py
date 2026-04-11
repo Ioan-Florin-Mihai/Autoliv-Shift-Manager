@@ -25,6 +25,7 @@ from pathlib import Path
 
 from logic.app_config import get_config
 from logic.app_logger import log_error, log_exception, log_info, log_warning
+from logic.app_paths import BASE_DIR, bootstrap_runtime_root
 from logic.runtime_bootstrap import configure_tk_runtime
 
 
@@ -68,12 +69,20 @@ def _self_command(*extra_args: str) -> list[str]:
 
 
 def _run_planner() -> None:
+    log_info("[BOOT] BASE_DIR=%s", BASE_DIR)
+    mismatch = bootstrap_runtime_root("planner")
+    if mismatch:
+        log_error(mismatch)
     configure_tk_runtime()
     from ui.dashboard import run_app
     run_app()
 
 
 def _run_tv_worker() -> None:
+    log_info("[BOOT] BASE_DIR=%s", BASE_DIR)
+    mismatch = bootstrap_runtime_root("tv_server")
+    if mismatch:
+        log_error(mismatch)
     from tv_server import start_server
     config = get_config()
     start_server(

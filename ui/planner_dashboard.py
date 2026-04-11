@@ -5,12 +5,14 @@ import urllib.error
 import urllib.request
 from copy import deepcopy
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from queue import Empty, Queue
 
 import customtkinter as ctk
 
 from logic.app_config import get_config
 from logic.app_logger import log_exception
+from logic.app_paths import BASE_DIR, RUNTIME_FILE
 from logic.audit_logger import log_event
 from logic.employee_store import EmployeeStore
 from logic.remote_control import RemoteChecker, RemoteControlService
@@ -191,6 +193,7 @@ class PlannerDashboard(ctk.CTkFrame):
         self.selected_day = DAY_NAMES[0]
         self.selected_shift = SHIFTS[0]
         self.status_var = ctk.StringVar(value="Planner pregatit.")
+        self.runtime_warning_var = ctk.StringVar(value="")
         self.week_var = ctk.StringVar()
         self.day_view_mode = ctk.StringVar(value="weekdays")
         self.employee_search_var = ctk.StringVar()
@@ -213,6 +216,7 @@ class PlannerDashboard(ctk.CTkFrame):
 
         self._build_ui()
         self.refresh_all()
+        self._update_runtime_warning()
         self.remote_checker.start()
         self.after(1000, self.process_remote_events)
         self.after(60000, self._auto_save)
@@ -244,11 +248,19 @@ class PlannerDashboard(ctk.CTkFrame):
     def _tv_status_snapshot(self) -> dict:
         port = int(self._config.get("server_port", 8000))
         health_url = f"http://127.0.0.1:{port}/health"
-        status = {"server": "oprit", "tv": "necunoscut", "last_update": "-"}
+        status = {
+            "server": "oprit",
+            "tv": "necunoscut",
+            "last_update": "-",
+            "base_dir": "",
+            "data_path": "",
+        }
         try:
             with urllib.request.urlopen(health_url, timeout=1.5) as response:
                 payload = json.loads(response.read().decode("utf-8"))
             status["server"] = "activ" if payload.get("status") == "ok" else "eroare"
+            status["base_dir"] = str(payload.get("base_dir", "") or "")
+            status["data_path"] = str(payload.get("data_path", "") or "")
             last_update_ms = int(payload.get("last_update", 0) or 0)
             if last_update_ms:
                 status["last_update"] = datetime.fromtimestamp(last_update_ms / 1000).strftime("%d.%m.%Y %H:%M:%S")
@@ -260,6 +272,35 @@ class PlannerDashboard(ctk.CTkFrame):
         except (OSError, ValueError, urllib.error.URLError, TimeoutError):
             pass
         return status
+
+    def _update_runtime_warning(self):
+        message = ""
+        try:
+            if RUNTIME_FILE.exists():
+                runtime_root = RUNTIME_FILE.read_text(encoding="utf-8").strip()
+                if runtime_root and Path(runtime_root).resolve() != BASE_DIR.resolve():
+                    message = "⚠ TV server rulează din altă locație. Datele NU sunt sincronizate."
+        except OSError:
+            pass
+
+        tv_status = self._tv_status_snapshot()
+        tv_base_dir = tv_status.get("base_dir", "")
+        if not message and tv_base_dir:
+            try:
+                if Path(tv_base_dir).resolve() != BASE_DIR.resolve():
+                    message = "⚠ TV server rulează din altă locație. Datele NU sunt sincronizate."
+            except OSError:
+                message = "⚠ TV server rulează din altă locație. Datele NU sunt sincronizate."
+
+        self.runtime_warning_var.set(message)
+        if self.runtime_warning_label is not None:
+            if message:
+                self.runtime_warning_label.grid()
+            else:
+                self.runtime_warning_label.grid_remove()
+
+        if not self._closing and self.winfo_exists():
+            self.after(10000, self._update_runtime_warning)
 
     def open_system_status(self):
         dialog = ctk.CTkToplevel(self)
@@ -276,7 +317,10 @@ class PlannerDashboard(ctk.CTkFrame):
         tv_status = self._tv_status_snapshot()
         rows = [
             ("Utilizator activ", f"{self._username or '-'} ({self._user_role})"),
+            ("Planner BASE_DIR", str(BASE_DIR)),
             ("Server TV", tv_status["server"]),
+            ("TV BASE_DIR", tv_status.get("base_dir") or "-"),
+            ("TV data path", tv_status.get("data_path") or "-"),
             ("TV status", tv_status["tv"]),
             ("Ultima actualizare TV", tv_status["last_update"]),
             ("Ultima publicare", last_publish),
@@ -642,7 +686,7 @@ class PlannerDashboard(ctk.CTkFrame):
         frame = ctk.CTkFrame(self, fg_color=CARD_WHITE, corner_radius=18, border_width=1, border_color=LINE_BLUE)
         frame.grid(row=0, column=1, sticky="nsew", padx=(0, PANEL_GAP))
         frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(2, weight=1)
+        frame.grid_rowconfigure(3, weight=1)
 
         header_row = ctk.CTkFrame(frame, fg_color="transparent")
         header_row.grid(row=0, column=0, sticky="ew", padx=OUTER_PAD, pady=(12, 4))
@@ -666,8 +710,23 @@ class PlannerDashboard(ctk.CTkFrame):
             button.pack(side="left", padx=(0, 6) if idx == 0 else (0, 0))
             self.day_toggle_buttons[mode] = button
 
+        self.runtime_warning_label = ctk.CTkLabel(
+            frame,
+            textvariable=self.runtime_warning_var,
+            fg_color="#FDECEC",
+            text_color="#C0392B",
+            corner_radius=10,
+            anchor="w",
+            justify="left",
+            padx=12,
+            pady=8,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        self.runtime_warning_label.grid(row=1, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, 8))
+        self.runtime_warning_label.grid_remove()
+
         toolbar_row = ctk.CTkFrame(frame, fg_color="transparent")
-        toolbar_row.grid(row=1, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, 8))
+        toolbar_row.grid(row=2, column=0, sticky="ew", padx=OUTER_PAD, pady=(0, 8))
         toolbar_row.grid_columnconfigure(0, weight=1)
         self.status_label = ctk.CTkLabel(toolbar_row, textvariable=self.status_var, text_color=BODY_TEXT, anchor="w", justify="left", font=ctk.CTkFont(size=13, weight="bold"))
         self.status_label.grid(row=0, column=0, sticky="w")
@@ -681,7 +740,7 @@ class PlannerDashboard(ctk.CTkFrame):
         )
         self.editor_hint.grid(row=0, column=1, sticky="e", padx=(12, 0))
         self.grid_shell = ctk.CTkFrame(frame, fg_color=PANEL_BG, corner_radius=14, border_width=1, border_color=LINE_BLUE)
-        self.grid_shell.grid(row=2, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
+        self.grid_shell.grid(row=3, column=0, sticky="nsew", padx=OUTER_PAD, pady=(0, OUTER_PAD))
         self.grid_shell.grid_columnconfigure(0, weight=1)
         self.grid_shell.grid_rowconfigure(0, weight=1)
         self.grid_frame = ctk.CTkScrollableFrame(
