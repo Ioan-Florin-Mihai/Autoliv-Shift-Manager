@@ -31,10 +31,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-# ─── Constants ────────────────────────────────────────────────────────────────
+from logic.constants import HOURS_12_COLOR as _HOURS_12_COLOR
 
-# Must match logic/schedule_store.HOURS_12_COLOR (no # prefix, uppercase)
-_HOURS_12_COLOR: str = "C0392B"
+# ─── Constants ────────────────────────────────────────────────────────────────
 
 # Score weights — adjust here without touching the algorithm
 _W_DEPT: float = 40.0    # frequency in this department

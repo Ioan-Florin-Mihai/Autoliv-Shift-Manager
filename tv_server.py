@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import socket
+import tempfile
 import time
 from datetime import date, timedelta
 
@@ -37,6 +39,7 @@ from logic.app_paths import (
     SCHEDULE_LIVE,
     bootstrap_runtime_root,
 )
+from logic.constants import HOURS_12_COLOR as _HOURS_12_COLOR
 from logic.tv_update import load_tv_version
 from logic.tv_update import trigger_tv_update as _shared_trigger_tv_update
 
@@ -50,7 +53,7 @@ TPL_DIR    = RESOURCE_ROOT / "templates"
 # ─── Constante domeniu (oglindite din schedule_store, fara import ca serverul
 #     sa ramana fara dependinte si utilizabil cu --tv-web fara incarcarea aplicatiei complete) ──
 ABSENCE_NAMES: frozenset[str] = frozenset({"CO", "CM", "ABSENT"})
-COLOR_12H = "#C0392B"   # stocat in cell["colors"][nume_angajat]
+COLOR_12H = "#" + _HOURS_12_COLOR   # stocat in cell["colors"][nume_angajat]
 SHIFTS     = ["Sch1", "Sch2", "Sch3"]
 DAYS       = [
     ("Luni", 0), ("Marti", 1), ("Miercuri", 2),
@@ -203,7 +206,18 @@ def _restore_live_from_sources() -> bool:
                 data = json.load(file)
             if not isinstance(data, dict) or not isinstance(data.get("weeks", {}), dict):
                 continue
-            DATA_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            fd, tmp_path = tempfile.mkstemp(dir=DATA_FILE.parent, suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+                    json.dump(data, tmp, ensure_ascii=False, indent=2)
+                    tmp.write("\n")
+                os.replace(tmp_path, DATA_FILE)
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
             return True
         except (OSError, json.JSONDecodeError):
             continue

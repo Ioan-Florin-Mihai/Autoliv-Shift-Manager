@@ -1,4 +1,5 @@
 import json
+import threading
 import tkinter as tk
 import tkinter.messagebox as messagebox
 import urllib.error
@@ -14,6 +15,7 @@ from logic.app_config import get_config
 from logic.app_logger import log_exception
 from logic.app_paths import BASE_DIR, RUNTIME_FILE
 from logic.audit_logger import log_event
+from logic.constants import HOURS_12_COLOR as _HOURS_12_COLOR
 from logic.employee_store import EmployeeStore
 from logic.remote_control import RemoteChecker, RemoteControlService
 from logic.schedule_store import (
@@ -76,7 +78,7 @@ GRID_BORDER_LIGHT = "#D8E1EB"
 GRID_BORDER_DARK = "#6C88A6"
 GRID_HOVER_LIGHT = "#98B8D9"
 GRID_HOVER_DARK = "#8FAFD1"
-HOURS_COLOR_MAP = {"8h": "#1A1A1A", "12h": "#C0392B"}
+HOURS_COLOR_MAP = {"8h": "#1A1A1A", "12h": "#" + _HOURS_12_COLOR}
 BADGE_WIDTH = 26
 BADGE_HEIGHT = 26
 GRID_NAME_MAX_CHARS = 16
@@ -211,6 +213,10 @@ class PlannerDashboard(ctk.CTkFrame):
         self._dirty_indicator: ctk.CTkLabel | None = None
         self._grid_cell_frames: dict = {}          # cache {(day, shift): CTkFrame}
         self._grid_cell_canvases: dict = {}        # cache {(day, shift): tk.Canvas}
+        self._cached_tv_status: dict = {           # ultima stare TV fetch-uita async
+            "server": "oprit", "tv": "necunoscut", "last_update": "-",
+            "base_dir": "", "data_path": "",
+        }
         self.ui_state_store.save_last_selected_date(self.selected_date)
         self._sync_department_state()
 
@@ -273,6 +279,19 @@ class PlannerDashboard(ctk.CTkFrame):
             pass
         return status
 
+    def _fetch_tv_status_async(self, callback) -> None:
+        """Rulează _tv_status_snapshot() într-un thread background.
+        Apelează callback(result) pe main thread prin after()."""
+        def _worker():
+            result = self._tv_status_snapshot()
+            if not self._closing:
+                try:
+                    self.after(0, lambda: callback(result))
+                except Exception:
+                    pass
+
+        threading.Thread(target=_worker, daemon=True).start()
+
     def _update_runtime_warning(self):
         message = ""
         try:
@@ -283,21 +302,37 @@ class PlannerDashboard(ctk.CTkFrame):
         except OSError:
             pass
 
-        tv_status = self._tv_status_snapshot()
-        tv_base_dir = tv_status.get("base_dir", "")
-        if not message and tv_base_dir:
-            try:
-                if Path(tv_base_dir).resolve() != BASE_DIR.resolve():
-                    message = "⚠ TV server rulează din altă locație. Datele NU sunt sincronizate."
-            except OSError:
-                message = "⚠ TV server rulează din altă locație. Datele NU sunt sincronizate."
-
+        # Aplică mesajul din RUNTIME_FILE imediat (citire locală, non-blocantă)
         self.runtime_warning_var.set(message)
         if self.runtime_warning_label is not None:
             if message:
                 self.runtime_warning_label.grid()
             else:
                 self.runtime_warning_label.grid_remove()
+
+        # Fetch TV status async — nu blochează main thread
+        def _apply_tv_status(tv_status: dict) -> None:
+            if self._closing or not self.winfo_exists():
+                return
+            tv_base_dir = tv_status.get("base_dir", "")
+            current_msg = self.runtime_warning_var.get()
+            if not current_msg and tv_base_dir:
+                try:
+                    if Path(tv_base_dir).resolve() != BASE_DIR.resolve():
+                        self.runtime_warning_var.set(
+                            "⚠ TV server rulează din altă locație. Datele NU sunt sincronizate."
+                        )
+                        if self.runtime_warning_label is not None:
+                            self.runtime_warning_label.grid()
+                except OSError:
+                    self.runtime_warning_var.set(
+                        "⚠ TV server rulează din altă locație. Datele NU sunt sincronizate."
+                    )
+                    if self.runtime_warning_label is not None:
+                        self.runtime_warning_label.grid()
+            self._cached_tv_status = tv_status
+
+        self._fetch_tv_status_async(_apply_tv_status)
 
         if not self._closing and self.winfo_exists():
             self.after(10000, self._update_runtime_warning)
@@ -314,7 +349,7 @@ class PlannerDashboard(ctk.CTkFrame):
         content.grid_columnconfigure(1, weight=1)
 
         last_publish = self.week_record.get("published_at", "Niciodata") or "Niciodata"
-        tv_status = self._tv_status_snapshot()
+        tv_status = self._cached_tv_status
         rows = [
             ("Utilizator activ", f"{self._username or '-'} ({self._user_role})"),
             ("Planner BASE_DIR", str(BASE_DIR)),

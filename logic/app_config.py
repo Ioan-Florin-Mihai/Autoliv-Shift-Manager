@@ -1,5 +1,7 @@
 import json
+import os
 import socket
+import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import cast
@@ -22,7 +24,6 @@ DEFAULT_CONFIG = {
     "server_restart_delay": 5,
     "log_max_bytes": 5 * 1024 * 1024,
     "log_backup_count": 5,
-    "app_password_hash": "$2b$12$6Z/FpUJQWSBanOtVHCq2p.zItXw9jP.SrLd9OSnP/9yNHLp2zzWHa",
 }
 _cached_config: dict | None = None
 
@@ -89,17 +90,31 @@ def _merge_config(raw: dict | None) -> dict:
     merged["server_restart_delay"] = _as_int(merged.get("server_restart_delay"), cast(int, DEFAULT_CONFIG["server_restart_delay"]), 1, 300)
     merged["log_max_bytes"] = _as_int(merged.get("log_max_bytes"), cast(int, DEFAULT_CONFIG["log_max_bytes"]), 1024, 100 * 1024 * 1024)
     merged["log_backup_count"] = _as_int(merged.get("log_backup_count"), cast(int, DEFAULT_CONFIG["log_backup_count"]), 1, 50)
-    merged["app_password_hash"] = str(merged.get("app_password_hash") or DEFAULT_CONFIG["app_password_hash"])
+    # app_password_hash este gestionat exclusiv in users.json — nu se stocheaza in config
+    merged.pop("app_password_hash", None)
     return merged
+
+
+def _write_config_atomic(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+            json.dump(data, tmp, ensure_ascii=False, indent=2)
+            tmp.write("\n")
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def ensure_config() -> Path:
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not CONFIG_PATH.exists():
-        CONFIG_PATH.write_text(
-            json.dumps(DEFAULT_CONFIG, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        _write_config_atomic(CONFIG_PATH, DEFAULT_CONFIG)
         return CONFIG_PATH
     try:
         raw = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -107,10 +122,7 @@ def ensure_config() -> Path:
         raw = {}
     merged = _merge_config(raw)
     if raw != merged:
-        CONFIG_PATH.write_text(
-            json.dumps(merged, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        _write_config_atomic(CONFIG_PATH, merged)
     return CONFIG_PATH
 
 

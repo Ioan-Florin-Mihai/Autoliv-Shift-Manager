@@ -9,6 +9,7 @@ from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import BACKUP_DIR, SCHEDULE_DRAFT, SCHEDULE_LEGACY, SCHEDULE_LIVE
 from logic.audit_logger import log_event
 from logic.auth import is_admin as auth_is_admin
+from logic.constants import HOURS_12_COLOR
 from logic.tv_update import trigger_tv_update
 
 DRAFT_SCHEDULE_PATH = SCHEDULE_DRAFT
@@ -20,10 +21,9 @@ SCHEDULE_PATH = DRAFT_SCHEDULE_PATH
 
 
 def _write_empty_schedule(path):
-    path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         return
-    path.write_text(json.dumps({"weeks": {}}, ensure_ascii=False, indent=2), encoding="utf-8")
+    _write_json_atomic(path, {"weeks": {}})
 
 
 def _write_json_atomic(path, payload: dict):
@@ -93,7 +93,6 @@ DAYS = [
 DAY_NAMES = [item[0] for item in DAYS]
 WEEKEND_DAYS = {"Sambata", "Duminica"}
 SHIFTS = ["Sch1", "Sch2", "Sch3"]
-HOURS_12_COLOR = "C0392B"
 
 CORE_DEPARTMENTS = [
     "Sef schimb",
@@ -368,6 +367,11 @@ class ScheduleStore:
             log_exception("schedule_store_save_live", exc)
             raise
 
+    def _publish_and_notify(self) -> None:
+        """Scrie live snapshot și incrementează versiunea TV în aceeași secvență atomică."""
+        self._save_live_snapshot()
+        trigger_tv_update()
+
     def backup(self):
         BACKUP_DIR.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -521,14 +525,8 @@ class ScheduleStore:
         try:
             # Draft write (atomic)
             self.save()
-            # Live write (atomic)
-            self._save_live_snapshot()
-            live_payload = json.loads(LIVE_SCHEDULE_PATH.read_text(encoding="utf-8"))
-            if isinstance(live_payload, dict) and isinstance(live_payload.get("weeks", {}), dict) and week_key in live_payload.get("weeks", {}):
-                log_info("[PUBLISH] OK - data written")
-                trigger_tv_update()
-            else:
-                log_warning("[PUBLISH] Live snapshot missing published week %s", week_key)
+            # Live write + TV version bump (atomic sequence)
+            self._publish_and_notify()
         except Exception:
             self.data = previous_data
             self.save()
