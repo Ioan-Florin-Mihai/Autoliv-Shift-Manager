@@ -29,6 +29,7 @@ class LoginFrame(ctk.CTkFrame):
         self.username_var = ctk.StringVar()
         self.password_var = ctk.StringVar()
         self.status_var = ctk.StringVar(value="Autentificare necesara.")
+        self.show_password = False
         self._build_ui()
         self.winfo_toplevel().bind("<Return>", self._handle_enter_key)
 
@@ -39,7 +40,7 @@ class LoginFrame(ctk.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # ── Panoul stâng: branding albastru ──
+        # Panoul stâng: branding albastru
         left = ctk.CTkFrame(self, corner_radius=0, fg_color=("#0A4D9B", "#0A3A7A"))
         left.grid(row=0, column=0, sticky="nsew")
         left.grid_columnconfigure(0, weight=1)
@@ -55,7 +56,7 @@ class LoginFrame(ctk.CTkFrame):
         sep = ctk.CTkFrame(brand, height=3, width=200, fg_color=("#4A90E2", "#4A90E2"), corner_radius=2)
         sep.pack(pady=(28, 0))
 
-        # ── Panoul drept: formular ──
+        # Panoul drept: formular
         right = ctk.CTkFrame(self, corner_radius=0, fg_color=BG_WHITE)
         right.grid(row=0, column=1, sticky="nsew")
         right.grid_columnconfigure(0, weight=1)
@@ -79,10 +80,34 @@ class LoginFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(form, text="Parola", text_color=PRIMARY_BLUE,
                      font=ctk.CTkFont(size=15, weight="bold")).grid(row=4, column=0, sticky="w", pady=(0, 6))
-        ctk.CTkEntry(form, textvariable=self.password_var, placeholder_text="Introdu parola",
-                     show="*", width=380, height=48, fg_color=ENTRY_BG, border_width=2,
-                     border_color=LINE_BLUE, text_color=BODY_TEXT,
-                     font=ctk.CTkFont(size=15)).grid(row=5, column=0, pady=(0, 32))
+        # --- Parola + buton show/hide ---
+        pw_row = 5
+        pw_frame = ctk.CTkFrame(form, fg_color="transparent")
+        pw_frame.grid(row=pw_row, column=0, pady=(0, 32), sticky="w")
+        self.password_entry = ctk.CTkEntry(pw_frame, textvariable=self.password_var, placeholder_text="Introdu parola",
+                                           show="*", width=340, height=48, fg_color=ENTRY_BG, border_width=2,
+                                           border_color=LINE_BLUE, text_color=BODY_TEXT,
+                                           font=ctk.CTkFont(size=15))
+        self.password_entry.grid(row=0, column=0, sticky="w")
+
+        def toggle_password():
+            self.show_password = not self.show_password
+            self.password_entry.configure(show="" if self.show_password else "*")
+            self.toggle_btn.configure(text="🙈" if self.show_password else "👁")
+
+        self.toggle_btn = ctk.CTkButton(
+            pw_frame,
+            text="👁",
+            width=30,
+            height=48,
+            command=toggle_password,
+            fg_color=ENTRY_BG,
+            hover_color="#e0e0e0",
+            border_width=1,
+            border_color=LINE_BLUE,
+            font=ctk.CTkFont(size=18)
+        )
+        self.toggle_btn.grid(row=0, column=1, padx=(6, 0))
 
         ctk.CTkButton(form, text="Autentificare", command=self.login,
                       width=380, height=52, fg_color=PRIMARY_BLUE, hover_color=ACCENT_BLUE,

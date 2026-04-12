@@ -84,7 +84,7 @@ def _load_users() -> list[dict]:
     except OSError as exc:
         raise OSError(f"Nu se poate citi users.json: {exc}") from exc
 
-    # Migrare automata format vechi (dict) â†’ format nou (lista)
+    # Migrare automata format vechi (dict) → format nou (lista)
     if isinstance(raw, dict):
         log_warning("auth: users.json in format vechi (dict), se migreaza automat la lista.")
         raw = [{
@@ -96,6 +96,23 @@ def _load_users() -> list[dict]:
 
     if not isinstance(raw, list):
         raise ValueError("Format invalid users.json: se asteapta o lista.")
+
+    # --- MIGRARE: elimina admin123 daca exista ---
+    changed = False
+    for user in raw:
+        if (
+            user.get("username", "").casefold() == "admin"
+            and isinstance(user.get("password_hash"), str)
+        ):
+            try:
+                if bcrypt.checkpw(b"admin123", user["password_hash"].encode("utf-8")):
+                    user["password_hash"] = bcrypt.hashpw(b"Autoliv2026!", bcrypt.gensalt(rounds=12)).decode("utf-8")
+                    user["must_change_password"] = True
+                    changed = True
+            except Exception:
+                pass
+    if changed:
+        _save_users(raw)
 
     return raw
 
