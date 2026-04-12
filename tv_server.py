@@ -17,9 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import socket
-import tempfile
 import time
 from datetime import date, timedelta
 
@@ -204,18 +202,8 @@ def _restore_live_from_sources() -> bool:
                 data = json.load(file)
             if not isinstance(data, dict) or not isinstance(data.get("weeks", {}), dict):
                 continue
-            fd, tmp_path = tempfile.mkstemp(dir=DATA_FILE.parent, suffix=".tmp")
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as tmp:
-                    json.dump(data, tmp, ensure_ascii=False, indent=2)
-                    tmp.write("\n")
-                os.replace(tmp_path, DATA_FILE)
-            except Exception:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-                raise
+            from logic.utils.io import atomic_write_json
+            atomic_write_json(DATA_FILE, data)
             return True
         except (OSError, json.JSONDecodeError):
             continue

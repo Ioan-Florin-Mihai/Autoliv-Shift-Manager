@@ -10,11 +10,10 @@
 # ============================================================
 
 import json
-import os
-import tempfile
 
 from logic.app_logger import log_exception
 from logic.app_paths import ensure_runtime_file
+from logic.utils.io import atomic_write_json
 
 # Fisierul principal cu lista de angajati
 EMPLOYEES_PATH = ensure_runtime_file("data/employees.json")
@@ -178,16 +177,7 @@ class EmployeeStore:
         """Salveaza lista curenta in employees.json (scriere atomica)."""
         EMPLOYEES_PATH.parent.mkdir(parents=True, exist_ok=True)
         try:
-            tmp_fd, tmp_path = tempfile.mkstemp(
-                dir=EMPLOYEES_PATH.parent, suffix=".tmp"
-            )
-            try:
-                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
-                    json.dump(self.data, tmp, ensure_ascii=False, indent=2)
-            except Exception:
-                os.unlink(tmp_path)
-                raise
-            os.replace(tmp_path, EMPLOYEES_PATH)
+            atomic_write_json(EMPLOYEES_PATH, self.data)
         except OSError as exc:
             log_exception("employee_store_save", exc)
             raise

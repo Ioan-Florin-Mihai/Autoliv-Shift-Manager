@@ -22,8 +22,6 @@
 # ============================================================
 
 import json
-import os
-import tempfile
 import threading
 import time
 from pathlib import Path
@@ -33,6 +31,7 @@ import bcrypt
 from logic.app_config import get_config
 from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import get_sensitive_path
+from logic.utils.io import atomic_write_json
 
 # Calea fisierului cu credentiale â€” NU este copiat din bundle
 USERS_PATH: Path = get_sensitive_path("data/users.json")
@@ -104,14 +103,7 @@ def _save_users(users: list[dict]) -> None:
     """Scrie lista de utilizatori in users.json â€” scriere atomica."""
     USERS_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
-        tmp_fd, tmp_path = tempfile.mkstemp(dir=USERS_PATH.parent, suffix=".tmp")
-        try:
-            with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
-                json.dump(users, tmp, ensure_ascii=False, indent=2)
-        except Exception:
-            os.unlink(tmp_path)
-            raise
-        os.replace(tmp_path, USERS_PATH)
+        atomic_write_json(USERS_PATH, users)
     except OSError as exc:
         log_exception("auth_save_users", exc)
         raise

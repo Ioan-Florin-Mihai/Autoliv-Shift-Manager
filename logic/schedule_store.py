@@ -1,6 +1,4 @@
 import json
-import os
-import tempfile
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
@@ -11,6 +9,7 @@ from logic.audit_logger import log_event
 from logic.auth import is_admin as auth_is_admin
 from logic.constants import HOURS_12_COLOR
 from logic.tv_update import trigger_tv_update
+from logic.utils.io import atomic_write_json
 
 DRAFT_SCHEDULE_PATH = SCHEDULE_DRAFT
 LIVE_SCHEDULE_PATH = SCHEDULE_LIVE
@@ -27,20 +26,8 @@ def _write_empty_schedule(path):
 
 
 def _write_json_atomic(path, payload: dict):
-    path.parent.mkdir(parents=True, exist_ok=True)
     log_info("[STORE] Writing data to: %s", path)
-    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as tmp:
-            json.dump(payload, tmp, ensure_ascii=False, indent=2)
-            tmp.write("\n")
-        os.replace(tmp_path, path)
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
+    atomic_write_json(path, payload)
 
 
 def _bootstrap_schedule_files():
@@ -345,16 +332,7 @@ class ScheduleStore:
         """Salveaza datele folosind scriere atomica (temp + os.replace)."""
         self.schedule_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            tmp_fd, tmp_path = tempfile.mkstemp(
-                dir=self.schedule_path.parent, suffix=".tmp"
-            )
-            try:
-                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
-                    json.dump(self.data, tmp, ensure_ascii=False, indent=2)
-            except Exception:
-                os.unlink(tmp_path)
-                raise
-            os.replace(tmp_path, self.schedule_path)
+            atomic_write_json(self.schedule_path, self.data)
         except OSError as exc:
             log_exception("schedule_store_save", exc)
             raise

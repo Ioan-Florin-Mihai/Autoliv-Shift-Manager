@@ -1,12 +1,11 @@
 import json
-import os
 import socket
-import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import cast
 
 from logic.app_paths import BASE_DIR
+from logic.utils.io import atomic_write_json
 
 CONFIG_PATH = BASE_DIR / "config.json"
 DEFAULT_CONFIG = {
@@ -96,19 +95,7 @@ def _merge_config(raw: dict | None) -> dict:
 
 
 def _write_config_atomic(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as tmp:
-            json.dump(data, tmp, ensure_ascii=False, indent=2)
-            tmp.write("\n")
-        os.replace(tmp_path, path)
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
+    atomic_write_json(path, data)
 
 
 def ensure_config() -> Path:

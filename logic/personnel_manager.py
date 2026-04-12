@@ -44,20 +44,10 @@ class PersonnelManager:
 
     def save_cache(self):
         """Scrie lista curenta de inregistrari in cache.json (scriere atomica)."""
-        import os
-        import tempfile
+        from logic.utils.io import atomic_write_json
         CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         try:
-            tmp_fd, tmp_path = tempfile.mkstemp(
-                dir=CACHE_PATH.parent, suffix=".tmp"
-            )
-            try:
-                with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
-                    json.dump(self.records, tmp, ensure_ascii=False, indent=2)
-            except Exception:
-                os.unlink(tmp_path)
-                raise
-            os.replace(tmp_path, CACHE_PATH)
+            atomic_write_json(CACHE_PATH, self.records)
         except OSError as exc:
             log_exception("personnel_save_cache", exc)
 

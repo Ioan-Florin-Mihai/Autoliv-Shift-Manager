@@ -1,10 +1,9 @@
 import json
-import os
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
 from logic.app_paths import BASE_DIR
+from logic.utils.io import atomic_write_json
 
 AUDIT_LOG_PATH = BASE_DIR / "data" / "audit_log.json"
 MAX_AUDIT_ENTRIES = 1000
@@ -28,19 +27,7 @@ def _read_events(path: Path) -> list[dict]:
 
 
 def _atomic_write(path: Path, payload: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as tmp:
-            json.dump(payload, tmp, ensure_ascii=False, indent=2)
-            tmp.write("\n")
-        os.replace(tmp_path, path)
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
+    atomic_write_json(path, payload)
 
 
 def log_event(action: str, user: str, week: str, details: dict | None = None):
