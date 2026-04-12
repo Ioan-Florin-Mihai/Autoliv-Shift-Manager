@@ -9,7 +9,7 @@ from logic.utils.io import atomic_write_json
 
 CONFIG_PATH = BASE_DIR / "config.json"
 DEFAULT_CONFIG = {
-    "server_host": "0.0.0.0",
+    "server_host": "127.0.0.1",
     "server_ip": "AUTO",
     "server_port": 8000,
     "rotation_interval": 10,

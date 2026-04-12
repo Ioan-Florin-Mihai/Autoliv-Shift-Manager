@@ -22,7 +22,7 @@ import time
 from datetime import date, timedelta
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from logic.app_config import get_config
@@ -366,19 +366,29 @@ def _count_departments(payload: dict) -> int:
     return len(all_departments)
 
 
-# ─── FastAPI app ──────────────────────────────────────────────────────────────
 
+# FastAPI app instance must be defined before use
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
+def get_api_key():
+    config = get_config()
+    return config.get("api_key", "demo-key-2026")
+
+def require_api_key(request: Request) -> bool:
+    api_key = request.headers.get("X-API-Key")
+    return bool(api_key and api_key == get_api_key())
 
 @app.get("/tv", response_class=HTMLResponse)
-async def tv_page(_req: Request) -> HTMLResponse:
+async def tv_page(request: Request) -> HTMLResponse:
+    if not require_api_key(request):
+        return HTMLResponse(content="Unauthorized", status_code=status.HTTP_401_UNAUTHORIZED)
     html = (TPL_DIR / "tv.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
 
-
 @app.get("/api/tv-data")
-async def tv_data() -> JSONResponse:
+async def tv_data(request: Request) -> JSONResponse:
+    if not require_api_key(request):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
     try:
         raw = _load_schedule()
         payload = _build_tv_data()

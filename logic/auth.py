@@ -58,10 +58,11 @@ def _load_users() -> list[dict]:
     """
     if not USERS_PATH.exists():
         log_warning(
-            "auth: users.json lipseste (%s) — se creeaza cont admin cu parola bootstrap.",
+            "auth: users.json lipseste (%s) — se creeaza cont admin cu parola demo.",
             USERS_PATH,
         )
-        bootstrap_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt(rounds=12)).decode("utf-8")
+        # Parola demo sigura pentru prezentare: 'Autoliv2026!'
+        bootstrap_hash = bcrypt.hashpw(b"Autoliv2026!", bcrypt.gensalt(rounds=12)).decode("utf-8")
         default_users = [
             {
                 "username": "admin",
@@ -72,7 +73,7 @@ def _load_users() -> list[dict]:
         ]
         _save_users(default_users)
         log_info(
-            "auth: cont admin creat cu parola bootstrap 'admin123' — schimbati parola la primul login."
+            "auth: cont admin demo creat — schimbati parola in productie."
         )
         return default_users
     try:
