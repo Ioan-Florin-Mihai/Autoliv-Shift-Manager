@@ -165,7 +165,11 @@ def verify_login(username: str, password: str) -> bool:
     return success
 
 
-def verify_login_detailed(username: str, password: str) -> tuple[bool, str]:
+def verify_login_detailed(
+    username: str,
+    password: str,
+    allow_password_change_only: bool = False,
+) -> tuple[bool, str]:
     """
     Verifica credentialele si returneaza (succes, mesaj_eroare).
     Mesajul este intentionat generic pentru a nu dezvalui ce camp e gresit.
@@ -214,6 +218,10 @@ def verify_login_detailed(username: str, password: str) -> tuple[bool, str]:
         _record_failure(username.casefold())
         return False, "Username sau parola incorecta."
 
+    if bool(user.get("must_change_password", False)) and not allow_password_change_only:
+        _clear_failures(username.casefold())
+        return False, "Parola trebuie schimbata inainte de autentificare."
+
     _clear_failures(username.casefold())
     log_info("auth: login reusit pentru '%s'", username)
     return True, ""
@@ -233,7 +241,7 @@ def change_password(username: str, old_password: str, new_password: str) -> tupl
 
     # Verifica parola curenta (include si brute-force guard)
     try:
-        valid, err = verify_login_detailed(username, old_password)
+        valid, err = verify_login_detailed(username, old_password, allow_password_change_only=True)
     except Exception as exc:
         return False, f"Eroare la verificare: {exc}"
     if not valid:

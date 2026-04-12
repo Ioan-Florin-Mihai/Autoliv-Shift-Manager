@@ -16,6 +16,7 @@ URL TV:
 from __future__ import annotations
 
 import json
+import hmac
 import logging
 import socket
 import time
@@ -26,7 +27,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from logic.app_config import get_config
-from logic.app_logger import log_error, log_info
+from logic.app_logger import log_error, log_exception, log_info
 from logic.app_paths import (
     BACKUP_DIR,
     BASE_DIR,
@@ -372,11 +373,16 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 def get_api_key():
     config = get_config()
-    return config.get("api_key", "demo-key-2026")
+    return str(config.get("api_key") or "").strip()
 
 def require_api_key(request: Request) -> bool:
-    api_key = request.headers.get("X-API-Key")
-    return bool(api_key and api_key == get_api_key())
+    provided_api_key = request.headers.get("X-API-Key")
+    expected_api_key = get_api_key()
+    return bool(
+        provided_api_key
+        and expected_api_key
+        and hmac.compare_digest(provided_api_key, expected_api_key)
+    )
 
 @app.get("/tv", response_class=HTMLResponse)
 async def tv_page(request: Request) -> HTMLResponse:
@@ -402,11 +408,14 @@ async def tv_data(request: Request) -> JSONResponse:
             }
         )
     except Exception as exc:  # noqa: BLE001
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        log_exception("tv_data", exc)
+        return JSONResponse(content={"error": "Internal server error"}, status_code=500)
 
 
 @app.get("/tv/version")
-async def get_tv_version() -> JSONResponse:
+async def get_tv_version(request: Request) -> JSONResponse:
+    if not require_api_key(request):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
     global _LAST_LOGGED_TV_VERSION
     version = _sync_tv_version()
     if version != _LAST_LOGGED_TV_VERSION:
@@ -416,21 +425,22 @@ async def get_tv_version() -> JSONResponse:
 
 
 @app.get("/health")
-async def health() -> JSONResponse:
+async def health(request: Request) -> JSONResponse:
+    if not require_api_key(request):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
     return JSONResponse(
         content={
             "status": "ok",
             "last_update": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
             "data_loaded": _CACHED_DATA is not None,
-            "base_dir": str(BASE_DIR),
-            "data_path": str(DATA_FILE),
-            "runtime_root": str(RUNTIME_FILE),
         }
     )
 
 
 @app.get("/metrics")
-async def metrics() -> JSONResponse:
+async def metrics(request: Request) -> JSONResponse:
+    if not require_api_key(request):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
     payload = _build_tv_data()
     return JSONResponse(
         content={

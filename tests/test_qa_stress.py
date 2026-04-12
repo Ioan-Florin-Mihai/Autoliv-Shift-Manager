@@ -94,10 +94,10 @@ class TestFileSystem:
         assert users[0]["username"] == "admin"
 
     def test_fs005_missing_users_json_default_admin_login(self, users_path):
-        """FS-005: Default admin can login with admin123."""
+        """FS-005: Default admin este blocat pana la schimbarea parolei."""
         from logic.auth import verify_login
-        result = verify_login("admin", "admin123")
-        assert result is True
+        result = verify_login("admin", "Autoliv2026!")
+        assert result is False
 
     def test_fs006_missing_schedule_loads_empty(self, tmp_path, monkeypatch):
         """FS-006: Missing schedule_data.json loads empty weeks dict."""
@@ -444,15 +444,15 @@ class TestAuth:
         assert any(u["username"] == "admin" for u in users)
 
     def test_au002_default_admin_password(self, users_path):
-        """AU-002: Default admin password is admin123."""
+        """AU-002: Default admin necesita schimbare parola la primul login."""
         from logic.auth import verify_login
-        assert verify_login("admin", "admin123") is True
+        assert verify_login("admin", "Autoliv2026!") is False
 
     def test_au003_wrong_password_rejected(self, users_path):
         """AU-003: Wrong password returns False."""
         from logic.auth import verify_login
         # Create default admin first
-        verify_login("admin", "admin123")
+        verify_login("admin", "Autoliv2026!")
         assert verify_login("admin", "wrongpass") is False
 
     def test_au004_nonexistent_user_rejected(self, users_path):
@@ -513,7 +513,7 @@ class TestAuth:
         """AU-012: Password change works."""
         from logic.auth import _load_users, change_password, verify_login
         _load_users()  # create default admin
-        ok, msg = change_password("admin", "admin123", "newpass1234")
+        ok, msg = change_password("admin", "Autoliv2026!", "newpass1234")
         assert ok is True
         assert verify_login("admin", "newpass1234") is True
 
@@ -528,15 +528,17 @@ class TestAuth:
         """AU-014: New password same as old is rejected."""
         from logic.auth import _load_users, change_password
         _load_users()
-        ok, msg = change_password("admin", "admin123", "admin123")
+        ok, msg = change_password("admin", "Autoliv2026!", "Autoliv2026!")
         assert ok is False
 
     def test_au015_case_insensitive_login(self, users_path):
         """AU-015: Login is case-insensitive for username."""
-        from logic.auth import _load_users, verify_login
+        from logic.auth import _load_users, change_password, verify_login
         _load_users()
-        assert verify_login("Admin", "admin123") is True
-        assert verify_login("ADMIN", "admin123") is True
+        ok, _ = change_password("admin", "Autoliv2026!", "CasePass123!")
+        assert ok is True
+        assert verify_login("Admin", "CasePass123!") is True
+        assert verify_login("ADMIN", "CasePass123!") is True
 
     def test_au016_add_user_invalid_role(self, users_path):
         """AU-016: Invalid role rejected."""
@@ -911,7 +913,7 @@ class TestErrorHandling:
         _load_users()
         from logic.auth import verify_login_detailed
         with patch("logic.auth.bcrypt.checkpw", side_effect=Exception("bcrypt boom")):
-            ok, msg = verify_login_detailed("admin", "admin123")
+            ok, msg = verify_login_detailed("admin", "Autoliv2026!")
             assert ok is False
             assert "eroare" in msg.lower()
 
@@ -961,10 +963,12 @@ class TestMultiRunConsistency:
 
     def test_mr004_repeated_auth_consistent(self, users_path):
         """MR-004: Multiple login attempts give consistent results."""
-        from logic.auth import _load_users, verify_login
+        from logic.auth import _load_users, change_password, verify_login
         _load_users()
+        ok, _ = change_password("admin", "Autoliv2026!", "RepeatPass123!")
+        assert ok is True
         for _ in range(5):
-            assert verify_login("admin", "admin123") is True
+            assert verify_login("admin", "RepeatPass123!") is True
         for _ in range(3):
             assert verify_login("admin", "wrong") is False
 

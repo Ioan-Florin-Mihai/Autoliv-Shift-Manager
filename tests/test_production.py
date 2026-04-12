@@ -15,6 +15,10 @@ import tv_server
 from logic.schedule_store import ScheduleStore
 
 
+def _api_headers() -> dict[str, str]:
+    return {"X-API-Key": tv_server.get_api_key()}
+
+
 def _make_minimal_week_payload(week_start: str) -> dict:
     return {
         "weeks": {
@@ -86,13 +90,13 @@ def test_tv_endpoints_health_and_data(monkeypatch, tmp_path):
 
     client = TestClient(tv_server.app)
 
-    health = client.get("/health")
+    health = client.get("/health", headers=_api_headers())
     assert health.status_code == 200
     assert health.json().get("status") == "ok"
-    assert "base_dir" in health.json()
-    assert "data_path" in health.json()
+    assert "base_dir" not in health.json()
+    assert "data_path" not in health.json()
 
-    data_resp = client.get("/api/tv-data")
+    data_resp = client.get("/api/tv-data", headers=_api_headers())
     assert data_resp.status_code == 200
     payload = data_resp.json()
     assert "server_time" in payload
@@ -108,11 +112,11 @@ def test_tv_version_endpoint_tracks_publish_updates(monkeypatch, tmp_path):
 
     client = TestClient(tv_server.app)
 
-    assert client.get("/tv/version").json() == {"version": 0}
+    assert client.get("/tv/version", headers=_api_headers()).json() == {"version": 0}
 
     tv_update_module.trigger_tv_update()
 
-    assert client.get("/tv/version").json() == {"version": 1}
+    assert client.get("/tv/version", headers=_api_headers()).json() == {"version": 1}
 
 
 def test_tv_uses_latest_published_week_when_calendar_window_misses(monkeypatch, tmp_path):
@@ -157,7 +161,7 @@ def test_tv_uses_latest_published_week_when_calendar_window_misses(monkeypatch, 
 
     client = TestClient(tv_server.app)
 
-    data_resp = client.get("/api/tv-data")
+    data_resp = client.get("/api/tv-data", headers=_api_headers())
     assert data_resp.status_code == 200
     payload = data_resp.json()["data"]
     assert payload["published_week_start"] == "2026-05-04"
@@ -177,7 +181,7 @@ def test_tv_returns_no_data_message_for_empty_live_snapshot(monkeypatch, tmp_pat
 
     client = TestClient(tv_server.app)
 
-    data_resp = client.get("/api/tv-data")
+    data_resp = client.get("/api/tv-data", headers=_api_headers())
     assert data_resp.status_code == 200
     payload = data_resp.json()["data"]
     assert payload["has_data"] is False
@@ -222,6 +226,7 @@ def test_config_invalid_values_are_sanitized(monkeypatch, tmp_path):
                 "max_backups": 0,
                 "auto_lock_on_publish": "yes",
                 "log_max_bytes": 10,
+                "api_key": "test-suite-key",
             }
         ),
         encoding="utf-8",
@@ -262,13 +267,13 @@ def test_entry_modes_dispatch(monkeypatch):
     assert called["tv_web"] == 1
 
 
-def test_password_verification_uses_config_hash(monkeypatch, tmp_path):
+def test_password_verification_uses_users_json_hash(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
             {
                 **app_config.DEFAULT_CONFIG,
-                "app_password_hash": bcrypt.hashpw(b"admin123", bcrypt.gensalt(rounds=12)).decode("utf-8"),
+                "api_key": "test-suite-key",
             }
         ),
         encoding="utf-8",
@@ -278,7 +283,13 @@ def test_password_verification_uses_config_hash(monkeypatch, tmp_path):
     monkeypatch.setattr(app_config, "_cached_config", None)
     monkeypatch.setattr(auth_module, "USERS_PATH", tmp_path / "users.json")
 
-    ok, _ = auth_module.verify_login_detailed("admin", "admin123")
+    user_hash = bcrypt.hashpw(b"StrongPass123!", bcrypt.gensalt(rounds=12)).decode("utf-8")
+    (tmp_path / "users.json").write_text(
+        json.dumps([{"username": "admin", "password_hash": user_hash, "role": "admin"}]),
+        encoding="utf-8",
+    )
+
+    ok, _ = auth_module.verify_login_detailed("admin", "StrongPass123!")
     assert ok is True
 
     ok_wrong_password, _ = auth_module.verify_login_detailed("admin", "wrong")
@@ -327,6 +338,7 @@ def test_auto_ip_detection_from_config_auto(monkeypatch, tmp_path):
             {
                 **app_config.DEFAULT_CONFIG,
                 "server_ip": "AUTO",
+                "api_key": "test-suite-key",
             }
         ),
         encoding="utf-8",

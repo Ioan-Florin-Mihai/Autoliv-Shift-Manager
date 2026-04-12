@@ -12,6 +12,7 @@ DEFAULT_CONFIG = {
     "server_host": "127.0.0.1",
     "server_ip": "AUTO",
     "server_port": 8000,
+    "api_key": "",
     "rotation_interval": 10,
     "refresh_interval": 5,
     "max_backups": 20,
@@ -78,6 +79,7 @@ def _merge_config(raw: dict | None) -> dict:
     merged["server_host"] = str(merged.get("server_host") or DEFAULT_CONFIG["server_host"])
     merged["server_ip"] = _as_ip(merged.get("server_ip"), cast(str, DEFAULT_CONFIG["server_ip"]))
     merged["server_port"] = _as_int(merged.get("server_port"), cast(int, DEFAULT_CONFIG["server_port"]), 1, 65535)
+    merged["api_key"] = str(merged.get("api_key") or "").strip()
     merged["rotation_interval"] = _as_int(merged.get("rotation_interval"), cast(int, DEFAULT_CONFIG["rotation_interval"]), 1, 3600)
     merged["refresh_interval"] = _as_int(merged.get("refresh_interval"), cast(int, DEFAULT_CONFIG["refresh_interval"]), 1, 3600)
     merged["max_backups"] = _as_int(merged.get("max_backups"), cast(int, DEFAULT_CONFIG["max_backups"]), 1, 500)
@@ -123,6 +125,11 @@ def get_config(force_reload: bool = False) -> dict:
     except (OSError, json.JSONDecodeError):
         raw = {}
     _cached_config = _merge_config(raw)
+    if not _cached_config.get("api_key"):
+        raise RuntimeError(
+            "Configuratie invalida: lipseste 'api_key' in config.json. "
+            "Setati un API key inainte de pornirea aplicatiei."
+        )
     if str(_cached_config.get("server_ip", "")).strip().upper() == "AUTO":
         _cached_config["server_ip"] = get_local_ip()
     return deepcopy(_cached_config)

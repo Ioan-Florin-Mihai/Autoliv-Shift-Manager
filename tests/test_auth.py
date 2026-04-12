@@ -96,8 +96,9 @@ class TestVerifyLoginDetailed:
         """Dacă users.json lipsește, se creează automat un cont admin default."""
         fake_path = tmp_path / "missing.json"
         monkeypatch.setattr(auth_module, "USERS_PATH", fake_path)
-        ok, _ = verify_login_detailed("admin", "admin123")
-        assert ok is True
+        ok, msg = verify_login_detailed("admin", "Autoliv2026!")
+        assert ok is False
+        assert "schimbata" in msg.lower()
         assert fake_path.exists(), "users.json ar fi trebuit creat automat"
 
 
