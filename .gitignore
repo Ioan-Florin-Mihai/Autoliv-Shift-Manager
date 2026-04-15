@@ -38,6 +38,7 @@ data/schedule_live.json
 data/ui_state.json
 data/runtime_root.txt
 data/tv_version.json
+data/pytest_tmp_run/
 runtime_root.txt
 
 # Sensitive files
