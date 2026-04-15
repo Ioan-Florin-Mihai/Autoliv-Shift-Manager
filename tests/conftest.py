@@ -1,13 +1,13 @@
 """
-Pytest configuration for this repository.
+Configuratie Pytest pentru acest repository.
 
-Note: In some locked-down Windows environments, pytest's internal cleanup step
-(`_pytest.pathlib.cleanup_dead_symlinks`) can raise PermissionError when trying
-to list the base temp directory at session finish. This is a cleanup-only step
-and should not fail the test run.
+Nota: In unele medii Windows cu politici restrictive, pasul intern de cleanup
+al pytest (`_pytest.pathlib.cleanup_dead_symlinks`) poate ridica PermissionError
+cand incearca sa listeze directorul temporar de baza la finalul sesiunii.
+Acesta este un pas doar de curatare si nu ar trebui sa pice rularea testelor.
 
-We patch it to be best-effort: ignore PermissionError while keeping all other
-exceptions visible.
+Aplicam un patch best-effort: ignoram PermissionError, dar pastram vizibile
+celelalte exceptii.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def _cleanup_dead_symlinks_best_effort(root) -> None:  # pragma: no cover
     try:
         _orig_cleanup_dead_symlinks(root)
     except PermissionError:
-        # Cleanup is best-effort; ignore permission issues from the host OS.
+        # Curatare best-effort; ignora problemele de permisiuni ale sistemului.
         return
 
 
@@ -35,8 +35,8 @@ _pytest.tmpdir.cleanup_dead_symlinks = _cleanup_dead_symlinks_best_effort
 
 
 def _chmod_noop_on_windows(_path, _mode, *args, **kwargs) -> None:  # pragma: no cover
-    # On some hardened Windows endpoints, chmod applied by pytest to its temp dirs
-    # can result in ACLs that deny access even to the current process.
+    # Pe unele endpoint-uri Windows "hardened", chmod aplicat de pytest pe directoarele
+    # temporare poate produce ACL-uri care refuza accesul chiar si procesului curent.
     return
 
 
@@ -46,8 +46,8 @@ if os.name == "nt":
     _orig_make_numbered_dir = _pytest.pathlib.make_numbered_dir
 
     def _make_numbered_dir_windows_safe(root: Path, prefix: str, mode: int = 0o700) -> Path:  # pragma: no cover
-        # Re-implement without passing `mode` to mkdir; on some Windows endpoints
-        # `mkdir(mode=...)` can result in restrictive ACLs and break tmp_path.
+        # Re-implementare fara a transmite `mode` la mkdir; pe unele endpoint-uri Windows
+        # `mkdir(mode=...)` poate produce ACL-uri restrictive si poate strica tmp_path.
         parse_num = _pytest.pathlib.parse_num
         find_suffixes = _pytest.pathlib.find_suffixes
         _force_symlink = _pytest.pathlib._force_symlink
@@ -72,13 +72,13 @@ if os.name == "nt":
     _orig_getbasetemp = _pytest.tmpdir.TempPathFactory.getbasetemp
 
     def _getbasetemp_windows_safe(self) -> Path:  # pragma: no cover
-        """Windows-safe basetemp creation without chmod/mode=0o700 side effects."""
+        """Creare basetemp sigura pe Windows, fara efecte secundare chmod/mode=0o700."""
         if getattr(self, "_basetemp", None) is not None:
             return self._basetemp
 
         given = getattr(self, "_given_basetemp", None)
         if given is not None:
-            # Avoid rm_rf + mkdir(mode=0o700) which can produce ACLs that deny access.
+            # Evita rm_rf + mkdir(mode=0o700) care poate produce ACL-uri ce refuza accesul.
             given.mkdir(parents=True, exist_ok=True)
             self._basetemp = given.resolve()
             return self._basetemp

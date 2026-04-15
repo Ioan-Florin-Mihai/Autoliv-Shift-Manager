@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 
-def pre_find_module_path(api) -> None:  # PyInstaller hook entrypoint signature
+def pre_find_module_path(api) -> None:  # Semnatura entrypoint-ului pentru hook PyInstaller
     base = Path(getattr(sys, "base_prefix", sys.prefix)).resolve()
     tcl_root = base / "tcl"
     tcl_lib = tcl_root / "tcl8.6"

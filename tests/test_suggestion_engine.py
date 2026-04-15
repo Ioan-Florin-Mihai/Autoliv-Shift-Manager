@@ -123,12 +123,12 @@ class TestEdgeCases:
         assert [r.name for r in result] == ["A", "B"]
 
     def test_history_none_does_not_raise(self):
-        # history is supposed to be dict but we must not crash on None
+    # history ar trebui sa fie dict, dar nu trebuie sa crape pe None
         result = get_smart_suggestions(_ctx(), ["A"], None)
         assert result == [SuggestionResult(name="A", score=0.0)]
 
     def test_history_list_does_not_raise(self):
-        # Passing an empty dict (valid degenerate input) must return original order
+    # Trimiterea unui dict gol (input degenerat valid) trebuie sa returneze ordinea originala
         result = get_smart_suggestions(_ctx(), ["A"], {})
         assert result == [SuggestionResult(name="A", score=0.0)]
 
@@ -171,7 +171,7 @@ class TestDepartmentScore:
             _history(rec),
         )
         scores = {r.name: r.score for r in result}
-        # Unknown was never in dept → should have negative score
+    # Unknown nu a fost niciodata in departament → trebuie sa aiba scor negativ
         assert scores["Unknown"] < 0
 
 
@@ -222,7 +222,7 @@ class TestRecencyScore:
         r2 = _week(_P2, _DEPT, _DAY, _SHF, [emp])
         r3 = _week(_P3, _DEPT, _DAY, _SHF, [emp])
         result = get_smart_suggestions(_ctx(), [emp, "Newcomer"], _history(r1, r2, r3))
-        # Both employees in result -- consistent employee must have highest score
+    # Ambii angajati sunt in rezultat; angajatul "consistent" trebuie sa aiba scorul cel mai mare
         consistent_score = next(r.score for r in result if r.name == emp)
         newcomer_score   = next(r.score for r in result if r.name == "Newcomer")
         assert consistent_score > newcomer_score
@@ -249,7 +249,7 @@ class TestRotationDetection:
     def test_no_detection_if_last_transition_breaks_pattern(self):
         # A→B→C → normal; then A appears instead of cycling back
         # sequence: a, b, a  → last transition b→a, but unique=[a,b] so expected is b
-        # unique order: a(0), b(1). last=a, prev=b → prev_idx=1, expected_next=(1+1)%2=0 which is a → matches
+    # ordine unica: a(0), b(1). last=a, prev=b → prev_idx=1, expected_next=(1+1)%2=0 adica a → se potriveste
         # Actually a,b,a: unique=[a,b], last=a(idx=0), prev=b(idx=1), expected=(1+1)%2=0=a ✓ → next=b
         seq = ["a", "b", "a"]
         assert _detect_rotation_next(seq) == "b"
@@ -262,7 +262,7 @@ class TestRotationDetection:
     def test_rotation_bonus_given_to_predicted_employee(self):
         """Rotation prediction gives a bonus that lifts predicted employee to #1."""
         # Sequence: Ana, Bogdan, Carmen (each in their respective week)
-        # After Ana→Bogdan→Carmen the next should be Ana
+    # Dupa Ana→Bogdan→Carmen urmatorul ar trebui sa fie Ana
         # Build history with that sequence
         r_ana    = _week(_P3, _DEPT, _DAY, _SHF, ["Ana"])
         r_bogdan = _week(_P2, _DEPT, _DAY, _SHF, ["Bogdan"])
@@ -272,7 +272,7 @@ class TestRotationDetection:
             ["Bogdan", "Carmen", "Ana"],
             _history(r_ana, r_bogdan, r_carmen),
         )
-        # All three have dept_score; Ana should get rotation bonus → ranked first
+    # Toti trei au dept_score; Ana trebuie sa primeasca bonus de rotatie → pe primul loc
         assert result[0].name == "Ana"
 
     def test_rotation_bonus_not_given_to_others(self):
@@ -284,7 +284,7 @@ class TestRotationDetection:
             ["Bogdan", "Carmen", "Ana"],
             _history(r_ana, r_bogdan, r_carmen),
         )
-        # Bogdan and Carmen should NOT carry the rotation bonus
+    # Bogdan si Carmen NU trebuie sa primeasca bonusul de rotatie
         non_predicted = {r.name: r.score for r in result if r.name != "Ana"}
         predicted_score = next(r.score for r in result if r.name == "Ana")
         for nm, sc in non_predicted.items():
@@ -379,7 +379,7 @@ class TestIsRecommended:
     def test_no_recommended_when_all_scores_zero_or_negative(self):
         r1 = _week(_P1, _DEPT, _DAY, _SHF, ["Known"])
         result = get_smart_suggestions(_ctx(), ["Known", "Unknown"], _history(r1))
-        # Known should have positive score → recommended
+    # Known trebuie sa aiba scor pozitiv → recomandat
         known_result = next(r for r in result if r.name == "Known")
         assert known_result.is_recommended is True
 
@@ -414,7 +414,7 @@ class TestDeterminism:
     def test_result_is_new_list_not_mutation_of_input(self):
         original = ["Zoe", "Ana"]
         get_smart_suggestions(_ctx(), original, {"weeks": {}})
-        assert original == ["Zoe", "Ana"]  # must not be mutated
+        assert original == ["Zoe", "Ana"]  # nu trebuie modificata lista originala
 
 
 # ─── Internal helper unit tests ───────────────────────────────────────────────

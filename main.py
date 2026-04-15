@@ -6,7 +6,7 @@
 # Rulează: python main.py (din IDE) sau Autoliv Shift Manager.exe
 #
 # Flux:
-#   1. Configurează mediul Tcl/Tk (runtime bootstrap)
+#   1. Configureaza mediul Tcl/Tk (initializare runtime)
 #   2. Importă UI-ul (dashboard) - care gestionează autentificarea
 #   3. Pornește bucla główna a aplicației (GUI)
 #

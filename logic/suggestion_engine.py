@@ -343,9 +343,9 @@ def _detect_rotation_next(sequence: list[str]) -> str | None:
     last_idx  = unique.index(last)
     prev_idx  = unique.index(prev)
 
-    # The observed transition must match the detected cycle order
+    # Tranzitia observata trebuie sa respecte ordinea ciclului detectat
     if (prev_idx + 1) % cycle_len != last_idx:
-        return None  # pattern mismatch – don't predict
+        return None  # pattern mismatch – nu prezice
 
     next_idx = (last_idx + 1) % cycle_len
     return unique[next_idx]

@@ -187,7 +187,7 @@ class RemoteControlService:
             status          = self._get_reference_value(self.config["status_path"])
             allowed_devices = self._get_reference_value(self.config["allowed_devices_path"])
         except Exception:
-            # ── FAIL-SAFE: Firebase indisponibil → app continuă normal ──
+    # ── Mecanism fail-safe: Firebase indisponibil → aplicatia continua normal ──
             log_warning("firebase: conexiune pierdută — se continuă în mod local.")
             return {
                 "action":  "warn",

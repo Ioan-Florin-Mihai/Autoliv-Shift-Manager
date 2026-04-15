@@ -4,7 +4,7 @@
 # Categories:
 #   1. File System Tests
 #   2. EXE Portability / Path Resolution
-#   3. Offline / Firebase Fail-Safe
+#   3. Offline / Firebase (fail-safe)
 #   4. Auth / Login
 #   5. Data Integrity (ScheduleStore)
 #   6. Data Integrity (EmployeeStore)
@@ -168,7 +168,7 @@ class TestFileSystem:
     def test_fs013_ensure_runtime_file_missing_source(self, tmp_path, monkeypatch):
         """FS-013: ensure_runtime_file() handles missing source gracefully."""
         from logic.app_paths import ensure_runtime_file
-        # With real paths, if no bundle source, just returns target
+# Cu cai reale, daca nu exista sursa din bundle, returneaza direct target-ul
         result = ensure_runtime_file("data/schedule_data.json")
         assert isinstance(result, Path)
 
@@ -326,7 +326,7 @@ class TestPortability:
 
 
 # ================================================================
-# 3. OFFLINE / FIREBASE FAIL-SAFE (OF-001 to OF-012)
+# 3. OFFLINE / FIREBASE (FAIL-SAFE) (OF-001 to OF-012)
 # ================================================================
 
 class TestOfflineFirebase:

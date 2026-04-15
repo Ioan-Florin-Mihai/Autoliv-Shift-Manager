@@ -248,7 +248,7 @@ class RightPanelMixin:
         if not suggestions:
             ctk.CTkLabel(self.suggestion_frame, text="Nicio sugestie.", text_color=MUTED_TEXT).pack(anchor="w", padx=8, pady=8)
             return
-        # Apply smart ranking – pure reorder, no filtering, zero regression risk
+        # Aplica ranking inteligent – doar reordonare, fara filtrare (risc zero de regresie)
         try:
             context = {
                 "department": self.selected_department,
@@ -260,7 +260,7 @@ class RightPanelMixin:
             ranked = get_smart_suggestions(context, suggestions, self.store.data)
             suggestions = [r.name for r in ranked]
         except Exception:
-            pass  # fallback: keep original alphabetical order
+            pass  # fallback: pastreaza ordinea alfabetica originala
         is_locked = self.store.is_week_locked(self.week_record)
         for employee in suggestions:
             btn = ctk.CTkButton(

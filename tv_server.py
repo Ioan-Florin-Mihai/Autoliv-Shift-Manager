@@ -220,7 +220,7 @@ def _is_12h(colors: dict, employee: str) -> bool:
     for k, v in colors.items():
         key = " ".join((k or "").split()).casefold()
         if key == target:
-            # Match schedule_store semantics: colors may be stored with or without leading '#'
+            # Pastreaza semantica din schedule_store: culoarea poate fi stocata cu sau fara prefixul '#'
             return str(v or "").strip().upper().lstrip("#") == _HOURS_12_COLOR.upper()
     return False
 
@@ -294,8 +294,8 @@ def _build_tv_data() -> dict:
                     day_shifts[shift] = [
                         {
                             "name":    " ".join(e.split()),
-                            # Keep boolean for backward compatibility, but also provide an explicit program label
-                            # so the TV UI can mirror the desktop logic (8h vs 12h) without guessing.
+                            # Pastreaza boolean-ul pentru compatibilitate, dar trimite si un label explicit de program
+                            # ca UI-ul TV sa oglindeasca logica din desktop (8h vs 12h) fara presupuneri.
                             "hours12": (is12 := _is_12h(colors, e)),
                             "program": "12h" if is12 else "8h",
                         }
@@ -373,7 +373,7 @@ def _count_departments(payload: dict) -> int:
 
 
 
-# FastAPI app instance must be defined before use
+# Instanta FastAPI trebuie definita inainte de utilizare
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 def get_api_key():
