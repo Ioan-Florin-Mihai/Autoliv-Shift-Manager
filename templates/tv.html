@@ -253,6 +253,16 @@
       font-weight: 900;
     }
 
+    /* Consistent with desktop planner: 12h highlighted in red */
+    .shift-12h {
+      color: #C0392B;
+      font-weight: 700;
+    }
+
+    .shift-8h {
+      color: #111111;
+    }
+
     .entry-empty {
       color: #8ba0b2;
       font-weight: 700;
@@ -390,6 +400,31 @@
       };
     }
 
+    function formatCellContent(entries) {
+      const fragment = document.createDocumentFragment();
+      const normalized = (entries || [])
+        .slice(0, 8)
+        .map(entry => {
+          const name = String((entry && entry.name) || '').trim();
+          const program = String((entry && (entry.program || (entry.hours12 ? '12h' : '8h'))) || '').trim();
+          return { name, program };
+        })
+        .filter(item => item.name);
+
+      if (!normalized.length) {
+        fragment.appendChild(createElement('span', 'entry-empty', '—'));
+        return fragment;
+      }
+
+      normalized.forEach((item, index) => {
+        if (index > 0) fragment.appendChild(document.createTextNode(' / '));
+        const cls = item.program === '12h' ? 'shift-12h' : 'shift-8h';
+        fragment.appendChild(createElement('span', cls, item.name));
+      });
+
+      return fragment;
+    }
+
     function formatCellText(entries) {
       if (!entries.length) return '—';
       return entries
@@ -467,7 +502,8 @@
             const departmentKeys = definition.keys || [definition.key];
             const entries = getShiftEntries(payload, modeName, departmentKeys, day, shift);
             const td = createElement('td', 'day-cell cell');
-            td.textContent = formatCellText(entries);
+            td.textContent = '';
+            td.appendChild(formatCellContent(entries));
             row.appendChild(td);
           });
           tbody.appendChild(row);

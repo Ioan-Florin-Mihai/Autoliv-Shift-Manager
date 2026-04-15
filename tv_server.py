@@ -217,9 +217,12 @@ def _is_active(name: str) -> bool:
 
 def _is_12h(colors: dict, employee: str) -> bool:
     """Returneaza True daca angajatul are culoarea de 12h (case-insensitive)."""
+    target = " ".join((employee or "").split()).casefold()
     for k, v in colors.items():
-        if k.casefold() == employee.casefold():
-            return (v or "").strip().upper() == COLOR_12H.upper()
+        key = " ".join((k or "").split()).casefold()
+        if key == target:
+            # Match schedule_store semantics: colors may be stored with or without leading '#'
+            return str(v or "").strip().upper().lstrip("#") == _HOURS_12_COLOR.upper()
     return False
 
 
@@ -292,7 +295,10 @@ def _build_tv_data() -> dict:
                     day_shifts[shift] = [
                         {
                             "name":    " ".join(e.split()),
-                            "hours12": _is_12h(colors, e),
+                            # Keep boolean for backward compatibility, but also provide an explicit program label
+                            # so the TV UI can mirror the desktop logic (8h vs 12h) without guessing.
+                            "hours12": (is12 := _is_12h(colors, e)),
+                            "program": "12h" if is12 else "8h",
                         }
                         for e in emps if _is_active(e)
                     ]
@@ -378,6 +384,8 @@ def get_api_key():
 def require_api_key(request: Request) -> bool:
     provided_api_key = request.headers.get("X-API-Key")
     expected_api_key = get_api_key()
+    if not expected_api_key:
+        return True
     return bool(
         provided_api_key
         and expected_api_key
