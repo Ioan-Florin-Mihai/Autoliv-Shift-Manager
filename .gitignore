@@ -10,6 +10,11 @@ __pycache__/
 .continue/
 *.continueconfig.json
 .pytest_cache/
+.pytest_tmp/
+.tmp_pytest_run/
+.codex_pytest_tmp/
+pytest-cache-files-*/
+tmp_pytest_run_clean_*/
 
 # Build outputs
 build/

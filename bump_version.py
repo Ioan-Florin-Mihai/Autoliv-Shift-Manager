@@ -6,7 +6,6 @@ import sys
 from datetime import date
 from pathlib import Path
 
-
 VERSION_FILE = Path(__file__).resolve().parent / "logic" / "version.py"
 VERSION_PATTERN = re.compile(r'^VERSION\s*=\s*"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE)
 BUILD_DATE_PATTERN = re.compile(r'^BUILD_DATE\s*=\s*"(?P<build_date>\d{4}-\d{2}-\d{2})"\s*$', re.MULTILINE)

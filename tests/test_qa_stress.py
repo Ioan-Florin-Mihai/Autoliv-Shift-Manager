@@ -19,6 +19,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
 import logic.auth as auth_module
 
 # ── Fixtures ─────────────────────────────────────────────────

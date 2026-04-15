@@ -9,7 +9,14 @@ from datetime import date
 import pytest
 
 import logic.schedule_store as store_module
-from logic.schedule_store import BUCLE_DEPARTMENTS, CORE_DEPARTMENTS, DAY_NAMES, SHIFTS, TEMPLATES, ScheduleStore
+from logic.schedule_store import (
+    BUCLE_DEPARTMENTS,
+    CORE_DEPARTMENTS,
+    DAY_NAMES,
+    SHIFTS,
+    TEMPLATES,
+    ScheduleStore,
+)
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

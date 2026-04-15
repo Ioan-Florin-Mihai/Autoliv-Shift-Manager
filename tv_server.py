@@ -15,8 +15,8 @@ URL TV:
 
 from __future__ import annotations
 
-import json
 import hmac
+import json
 import logging
 import socket
 import time
@@ -32,7 +32,6 @@ from logic.app_paths import (
     BACKUP_DIR,
     BASE_DIR,
     BUNDLE_DIR,
-    RUNTIME_FILE,
     SCHEDULE_DRAFT,
     SCHEDULE_LIVE,
     bootstrap_runtime_root,
