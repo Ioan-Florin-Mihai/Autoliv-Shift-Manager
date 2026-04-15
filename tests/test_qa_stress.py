@@ -19,6 +19,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import logic.auth as auth_module
 
 # ── Fixtures ─────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ class TestFileSystem:
     def test_fs005_missing_users_json_default_admin_login(self, users_path):
         """FS-005: Default admin este blocat pana la schimbarea parolei."""
         from logic.auth import verify_login
-        result = verify_login("admin", "Autoliv2026!")
+        result = verify_login("admin", auth_module.ADMIN_PASSWORD)
         assert result is False
 
     def test_fs006_missing_schedule_loads_empty(self, tmp_path, monkeypatch):

@@ -241,6 +241,27 @@ def test_config_invalid_values_are_sanitized(monkeypatch, tmp_path):
     assert cfg["log_max_bytes"] >= 1024
 
 
+def test_config_without_api_key_does_not_block_startup(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                **app_config.DEFAULT_CONFIG,
+                "api_key": "",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(app_config, "CONFIG_PATH", config_path)
+    monkeypatch.setattr(app_config, "_cached_config", None)
+
+    cfg = app_config.get_config(force_reload=True)
+
+    assert cfg["api_key"] == ""
+    assert cfg["server_port"] == app_config.DEFAULT_CONFIG["server_port"]
+
+
 def test_audit_log_append_and_rotation(monkeypatch, tmp_path):
     audit_path = tmp_path / "audit_log.json"
     monkeypatch.setattr(audit_logger, "AUDIT_LOG_PATH", audit_path)

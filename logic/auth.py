@@ -35,6 +35,11 @@ from logic.utils.io import atomic_write_json
 
 # Calea fisierului cu credentiale â€” NU este copiat din bundle
 USERS_PATH: Path = get_sensitive_path("data/users.json")
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "Autoliv2026!"
+_LEGACY_ADMIN_HASHES = {
+    "$2b$12$ggzp6vQQ8MJm3RfngmJxCuF.ZfMaA.JSuQsSkNGOmIb8kyCT.RyDW",
+}
 
 # Hash dummy pre-calculat folosit pentru a preveni timing-attack cand
 # username-ul nu exista (evita diferenta de timp bcrypt vs. no-bcrypt).
@@ -58,23 +63,20 @@ def _load_users() -> list[dict]:
     """
     if not USERS_PATH.exists():
         log_warning(
-            "auth: users.json lipseste (%s) — se creeaza cont admin cu parola demo.",
+            "auth: users.json lipseste (%s) — se creeaza cont admin initial.",
             USERS_PATH,
         )
-        # Parola demo sigura pentru prezentare: 'Autoliv2026!'
-        bootstrap_hash = bcrypt.hashpw(b"Autoliv2026!", bcrypt.gensalt(rounds=12)).decode("utf-8")
+        bootstrap_hash = bcrypt.hashpw(ADMIN_PASSWORD.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
         default_users = [
             {
-                "username": "admin",
+                "username": ADMIN_USERNAME,
                 "password_hash": bootstrap_hash,
                 "role": "admin",
                 "must_change_password": True,
             }
         ]
         _save_users(default_users)
-        log_info(
-            "auth: cont admin demo creat — schimbati parola in productie."
-        )
+        log_info("auth: cont admin initial creat.")
         return default_users
     try:
         with USERS_PATH.open("r", encoding="utf-8") as file:
@@ -97,20 +99,17 @@ def _load_users() -> list[dict]:
     if not isinstance(raw, list):
         raise ValueError("Format invalid users.json: se asteapta o lista.")
 
-    # --- MIGRARE: elimina admin123 daca exista ---
+    # Migrare automata a hash-ului legacy pentru contul admin.
     changed = False
     for user in raw:
         if (
-            user.get("username", "").casefold() == "admin"
+            user.get("username", "").casefold() == ADMIN_USERNAME
             and isinstance(user.get("password_hash"), str)
         ):
-            try:
-                if bcrypt.checkpw(b"admin123", user["password_hash"].encode("utf-8")):
-                    user["password_hash"] = bcrypt.hashpw(b"Autoliv2026!", bcrypt.gensalt(rounds=12)).decode("utf-8")
-                    user["must_change_password"] = True
-                    changed = True
-            except Exception:
-                pass
+            if user["password_hash"] in _LEGACY_ADMIN_HASHES:
+                user["password_hash"] = bcrypt.hashpw(ADMIN_PASSWORD.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+                user["must_change_password"] = False
+                changed = True
     if changed:
         _save_users(raw)
 

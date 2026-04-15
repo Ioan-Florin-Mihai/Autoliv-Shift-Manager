@@ -125,11 +125,6 @@ def get_config(force_reload: bool = False) -> dict:
     except (OSError, json.JSONDecodeError):
         raw = {}
     _cached_config = _merge_config(raw)
-    if not _cached_config.get("api_key"):
-        raise RuntimeError(
-            "Configuratie invalida: lipseste 'api_key' in config.json. "
-            "Setati un API key inainte de pornirea aplicatiei."
-        )
     if str(_cached_config.get("server_ip", "")).strip().upper() == "AUTO":
         _cached_config["server_ip"] = get_local_ip()
     return deepcopy(_cached_config)

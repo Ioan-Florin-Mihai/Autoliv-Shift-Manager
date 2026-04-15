@@ -20,6 +20,8 @@ from ui.common_ui import (
 from ui.planner_dashboard import PlannerDashboard
 
 ACCENT_BLUE = "#0067C8"
+SHOW_PASSWORD_ICON = "\U0001F441"
+HIDE_PASSWORD_ICON = "\U0001F648"
 
 
 class LoginFrame(ctk.CTkFrame):
@@ -40,7 +42,7 @@ class LoginFrame(ctk.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # Panoul stâng: branding albastru
+        # Panoul stang: branding albastru
         left = ctk.CTkFrame(self, corner_radius=0, fg_color=("#0A4D9B", "#0A3A7A"))
         left.grid(row=0, column=0, sticky="nsew")
         left.grid_columnconfigure(0, weight=1)
@@ -80,32 +82,41 @@ class LoginFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(form, text="Parola", text_color=PRIMARY_BLUE,
                      font=ctk.CTkFont(size=15, weight="bold")).grid(row=4, column=0, sticky="w", pady=(0, 6))
-        # --- Parola + buton show/hide ---
-        pw_row = 5
-        pw_frame = ctk.CTkFrame(form, fg_color="transparent")
-        pw_frame.grid(row=pw_row, column=0, pady=(0, 32), sticky="w")
-        self.password_entry = ctk.CTkEntry(pw_frame, textvariable=self.password_var, placeholder_text="Introdu parola",
-                                           show="*", width=340, height=48, fg_color=ENTRY_BG, border_width=2,
-                                           border_color=LINE_BLUE, text_color=BODY_TEXT,
-                                           font=ctk.CTkFont(size=15))
+        password_parent = ctk.CTkFrame(form, fg_color="transparent")
+        password_parent.grid(row=5, column=0, pady=(0, 32), sticky="w")
+        password_parent.grid_columnconfigure(0, weight=1)
+
+        self.password_entry = ctk.CTkEntry(
+            password_parent,
+            textvariable=self.password_var,
+            placeholder_text="Introdu parola",
+            show="*",
+            width=340,
+            height=48,
+            fg_color=ENTRY_BG,
+            border_width=2,
+            border_color=LINE_BLUE,
+            text_color=BODY_TEXT,
+            font=ctk.CTkFont(size=15),
+        )
         self.password_entry.grid(row=0, column=0, sticky="w")
 
         def toggle_password():
             self.show_password = not self.show_password
             self.password_entry.configure(show="" if self.show_password else "*")
-            self.toggle_btn.configure(text="🙈" if self.show_password else "👁")
+            self.toggle_btn.configure(text=HIDE_PASSWORD_ICON if self.show_password else SHOW_PASSWORD_ICON)
 
         self.toggle_btn = ctk.CTkButton(
-            pw_frame,
-            text="👁",
-            width=30,
+            master=password_parent,
+            text=SHOW_PASSWORD_ICON,
+            width=35,
             height=48,
             command=toggle_password,
             fg_color=ENTRY_BG,
             hover_color="#e0e0e0",
             border_width=1,
             border_color=LINE_BLUE,
-            font=ctk.CTkFont(size=18)
+            font=ctk.CTkFont(size=18),
         )
         self.toggle_btn.grid(row=0, column=1, padx=(6, 0))
 
@@ -170,7 +181,7 @@ class ShiftManagerApp(ctk.CTk):
         # Verifica modificari nesalvate in PlannerDashboard
         if isinstance(self.current_frame, PlannerDashboard):
             if not self.current_frame.confirm_close():
-                return   # utilizatorul a ales Cancel
+                return
         if self.current_frame is not None:
             try:
                 self.current_frame.destroy()

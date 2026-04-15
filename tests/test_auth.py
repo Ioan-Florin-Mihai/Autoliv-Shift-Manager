@@ -11,6 +11,7 @@ import pytest
 
 import logic.auth as auth_module
 from logic.auth import (
+    ADMIN_PASSWORD,
     _failed_attempts,
     _load_users,
     add_user,
@@ -20,7 +21,6 @@ from logic.auth import (
     verify_login_detailed,
 )
 
-# ── Fixtures ─────────────────────────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)
 def reset_brute_force():
@@ -49,12 +49,10 @@ def users_file(tmp_path, monkeypatch):
 def single_user(users_file):
     """Pregateste un fisier users.json cu un singur utilizator admin."""
     password = "TestParola123!"
-    pw_hash  = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=4)).decode()
+    pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=4)).decode()
     users_file([{"username": "admin", "password_hash": pw_hash, "role": "admin"}])
     return {"username": "admin", "password": password}
 
-
-# ── verify_login_detailed ─────────────────────────────────────────────────────
 
 class TestVerifyLoginDetailed:
     def test_valid_credentials_return_true(self, single_user):
@@ -93,16 +91,41 @@ class TestVerifyLoginDetailed:
         assert ok is True
 
     def test_missing_users_file_creates_default(self, tmp_path, monkeypatch):
-        """Dacă users.json lipsește, se creează automat un cont admin default."""
         fake_path = tmp_path / "missing.json"
         monkeypatch.setattr(auth_module, "USERS_PATH", fake_path)
-        ok, msg = verify_login_detailed("admin", "Autoliv2026!")
+        ok, msg = verify_login_detailed("admin", ADMIN_PASSWORD)
         assert ok is False
         assert "schimbata" in msg.lower()
         assert fake_path.exists(), "users.json ar fi trebuit creat automat"
 
+    def test_legacy_admin_hash_is_migrated_to_current_password(self, users_file):
+        users_file([
+            {
+                "username": "admin",
+                "password_hash": next(iter(auth_module._LEGACY_ADMIN_HASHES)),
+                "role": "admin",
+                "must_change_password": True,
+            }
+        ])
+        users = _load_users()
+        admin = users[0]
+        assert admin.get("must_change_password") is False
+        assert bcrypt.checkpw(ADMIN_PASSWORD.encode("utf-8"), admin["password_hash"].encode("utf-8")) is True
 
-# ── verify_login (backward compat) ───────────────────────────────────────────
+    def test_legacy_admin_password_no_longer_works_after_migration(self, users_file):
+        users_file([
+            {
+                "username": "admin",
+                "password_hash": next(iter(auth_module._LEGACY_ADMIN_HASHES)),
+                "role": "admin",
+                "must_change_password": True,
+            }
+        ])
+        ok_new, _ = verify_login_detailed("admin", ADMIN_PASSWORD)
+        ok_old, _ = verify_login_detailed("admin", "admin-legacy-invalid")
+        assert ok_new is True
+        assert ok_old is False
+
 
 class TestVerifyLoginBool:
     def test_returns_true_on_valid(self, single_user):
@@ -111,8 +134,6 @@ class TestVerifyLoginBool:
     def test_returns_false_on_invalid(self, single_user):
         assert verify_login(single_user["username"], "gresit") is False
 
-
-# ── Brute-force lockout ───────────────────────────────────────────────────────
 
 class TestBruteForce:
     MAX = auth_module._MAX_ATTEMPTS
@@ -125,32 +146,24 @@ class TestBruteForce:
         assert "secunde" in msg.lower()
 
     def test_lockout_cleared_on_success(self, single_user):
-        """Dupa un login reusit, contorul e resetat si loginul urmator merge."""
-        # Inregistram cateva esecuri (dar nu cat sa blocheze)
         for _ in range(self.MAX - 2):
             verify_login_detailed(single_user["username"], "gresit")
-        # Login valid — curata esecurile
         ok, _ = verify_login_detailed(single_user["username"], single_user["password"])
         assert ok is True
-        # Urmatoarea incercare cu parola gresita nu blocheaza imediat
         ok, _ = verify_login_detailed(single_user["username"], "gresit")
-        assert ok is False  # gresit, dar nu blocat
+        assert ok is False
 
     def test_different_usernames_independent_lockout(self, users_file):
         pw_hash = bcrypt.hashpw(b"parola123", bcrypt.gensalt(rounds=4)).decode()
         users_file([
             {"username": "alice", "password_hash": pw_hash, "role": "user"},
-            {"username": "bob",   "password_hash": pw_hash, "role": "user"},
+            {"username": "bob", "password_hash": pw_hash, "role": "user"},
         ])
-        # Blocam alice
         for _ in range(self.MAX):
             verify_login_detailed("alice", "gresit")
-        # Bob nu e blocat
         ok, _ = verify_login_detailed("bob", "parola123")
         assert ok is True
 
-
-# ── change_password ───────────────────────────────────────────────────────────
 
 class TestChangePassword:
     def test_success(self, single_user):
@@ -158,12 +171,11 @@ class TestChangePassword:
         assert ok is True
         assert msg
 
-        # Noua parola functioneaza
         ok2, _ = verify_login_detailed(single_user["username"], "NoiParola999!")
         assert ok2 is True
 
     def test_wrong_old_password(self, single_user):
-        ok, msg = change_password(single_user["username"], "gresit", "NoiParola999!")
+        ok, _ = change_password(single_user["username"], "gresit", "NoiParola999!")
         assert ok is False
 
     def test_new_password_too_short(self, single_user):
@@ -176,8 +188,6 @@ class TestChangePassword:
         assert ok is False
         assert "diferita" in msg.lower()
 
-
-# ── add_user ──────────────────────────────────────────────────────────────────
 
 class TestAddUser:
     def test_add_new_user(self, single_user):
@@ -202,13 +212,11 @@ class TestAddUser:
         assert "8" in msg
 
 
-# ── delete_user ───────────────────────────────────────────────────────────────
-
 class TestDeleteUser:
     def test_delete_other_user(self, users_file):
         pw_hash = bcrypt.hashpw(b"TestParola1", bcrypt.gensalt(rounds=4)).decode()
         users_file([
-            {"username": "admin",  "password_hash": pw_hash, "role": "admin"},
+            {"username": "admin", "password_hash": pw_hash, "role": "admin"},
             {"username": "target", "password_hash": pw_hash, "role": "user"},
         ])
         ok, _ = delete_user("target", "admin")
@@ -227,14 +235,12 @@ class TestDeleteUser:
         assert "ultim" in msg.lower()
 
     def test_delete_nonexistent_user(self, single_user):
-        ok, msg = delete_user("nimeni", "admin")
+        ok, _ = delete_user("nimeni", "admin")
         assert ok is False
 
 
-# ── Auto-migrare format vechi ─────────────────────────────────────────────────
-
 class TestLegacyMigration:
-    def test_old_dict_format_migrated(self, users_file, tmp_path, monkeypatch):
+    def test_old_dict_format_migrated(self, users_file):
         pw_hash = bcrypt.hashpw(b"veche123456", bcrypt.gensalt(rounds=4)).decode()
         users_file({"username": "legacy", "password_hash": pw_hash})
 
