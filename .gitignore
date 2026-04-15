@@ -20,6 +20,9 @@ Livrare/
 backups/
 Exports/
 logs/
+tmp_manual_ok/
+tmp_run_*/
+_pyi_tmp/
 data/app.log
 data/users.json
 data/audit_log.json

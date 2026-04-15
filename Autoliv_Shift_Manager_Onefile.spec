@@ -2,6 +2,7 @@
 # Spec pentru un singur .exe portabil (onefile)
 
 import sys
+import os
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -104,11 +105,28 @@ datas = [
 
 binaries = []
 
-python_base = Path(sys.executable).resolve().parent
+# IMPORTANT (venv): when running PyInstaller from a venv, sys.executable points to
+# ".venv\\Scripts\\python.exe", but Tcl/Tk + stdlib live under sys.base_prefix.
+# If we derive paths from sys.executable, PyInstaller's tkinter hook can mark the
+# installation as "broken" and exclude tkinter from the bundle.
+python_base = Path(getattr(sys, "base_prefix", sys.prefix)).resolve()
+if not python_base.exists():
+    python_base = Path(sys.executable).resolve().parent
 tcl_dll_dir = python_base / "DLLs"
 tcl_binaries = ["_tkinter.pyd", "tcl86t.dll", "tk86t.dll"]
 tcl_root = python_base / "tcl"
 tkinter_root = python_base / "Lib" / "tkinter"
+
+# Help PyInstaller's hook-tkinter locate Tcl/Tk when building from a venv.
+try:
+    tcl_lib = tcl_root / "tcl8.6"
+    tk_lib = tcl_root / "tk8.6"
+    if tcl_lib.exists() and not os.environ.get("TCL_LIBRARY"):
+        os.environ["TCL_LIBRARY"] = str(tcl_lib)
+    if tk_lib.exists() and not os.environ.get("TK_LIBRARY"):
+        os.environ["TK_LIBRARY"] = str(tk_lib)
+except Exception:
+    pass
 
 if tkinter_root.exists():
     for path in tkinter_root.rglob("*"):
@@ -132,7 +150,12 @@ for relative_dir in ("tcl8.6", "tk8.6"):
             if not path.is_file():
                 continue
             relative_parent = path.parent.relative_to(source_dir)
-            target_dir = f"tcl/{relative_dir}"
+            # PyInstaller's runtime hook `pyi_rth__tkinter` expects these exact
+            # directories in onefile extraction:
+            # - sys._MEIPASS\\_tcl_data
+            # - sys._MEIPASS\\_tk_data
+            # If they are missing, the app fails before the GUI is shown.
+            target_dir = "_tcl_data" if relative_dir == "tcl8.6" else "_tk_data"
             if str(relative_parent) != ".":
                 target_dir = f"{target_dir}/{relative_parent}"
             datas.append((str(path), target_dir))
@@ -144,7 +167,7 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    hookspath=[],
+    hookspath=["pyinstaller_hooks"],
     hooksconfig={},
     runtime_hooks=["pyinstaller_runtime_hook.py"],
     excludes=[],
