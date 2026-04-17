@@ -34,14 +34,18 @@ def configure_tk_runtime():
     if os.environ.get("TCL_LIBRARY") and os.environ.get("TK_LIBRARY"):
         return
 
-    # Cauta librariile Tcl/Tk in folderul /tcl/ langa Python.exe
-    base_dir    = Path(sys.executable).resolve().parent
-    tcl_dir     = base_dir / "tcl"
-    tcl_library = tcl_dir / "tcl8.6"
-    tk_library  = tcl_dir / "tk8.6"
+    # In unele medii Windows (sandbox/endpoint hardened) folderul Python global
+    # poate fi accesibil partial; preferam o copie locala (ne-track-uita) daca exista.
+    project_root = Path(__file__).resolve().parent.parent
+    local_tcl_dir = project_root / "tmp_manual_ok" / "tcl_copy" / "tcl"
 
-    # Seteaza doar daca folderele exista efectiv pe disc
-    if tcl_library.exists():
-        os.environ.setdefault("TCL_LIBRARY", str(tcl_library))
-    if tk_library.exists():
-        os.environ.setdefault("TK_LIBRARY", str(tk_library))
+    base_dir = Path(sys.executable).resolve().parent
+    system_tcl_dir = base_dir / "tcl"
+
+    for tcl_dir in (local_tcl_dir, system_tcl_dir):
+        tcl_library = tcl_dir / "tcl8.6"
+        tk_library = tcl_dir / "tk8.6"
+        if tcl_library.exists() and tk_library.exists():
+            os.environ.setdefault("TCL_LIBRARY", str(tcl_library))
+            os.environ.setdefault("TK_LIBRARY", str(tk_library))
+            return

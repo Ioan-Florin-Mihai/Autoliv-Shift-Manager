@@ -83,6 +83,16 @@ if os.name == "nt":
             self._basetemp = given.resolve()
             return self._basetemp
 
-        return _orig_getbasetemp(self)
+        try:
+            return _orig_getbasetemp(self)
+        except PermissionError:
+            # In unele sandbox-uri Windows, variabilele TEMP/TMP indica un profil
+            # nelocuibil de procesul curent (ex: C:\\Users\\User\\AppData\\Local\\Temp).
+            # Fallback: foloseste un director local in repo, ignorat de Git.
+            repo_root = Path(__file__).resolve().parents[1]
+            fallback = repo_root / ".pytest_tmp_local"
+            fallback.mkdir(parents=True, exist_ok=True)
+            self._basetemp = fallback.resolve()
+            return self._basetemp
 
     _pytest.tmpdir.TempPathFactory.getbasetemp = _getbasetemp_windows_safe
