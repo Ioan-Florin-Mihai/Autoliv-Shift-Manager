@@ -15,6 +15,7 @@ __pycache__/
 .codex_pytest_tmp/
 pytest-cache-files-*/
 tmp_pytest_run_clean_*/
+data__backup_before_migration_*/
 
 # Build outputs
 build/
