@@ -225,6 +225,19 @@ def _is_12h(colors: dict, employee: str) -> bool:
     return False
 
 
+def _employee_tv_payload(colors: dict, employee: object) -> dict:
+    raw = str(employee or "")
+    name = " ".join(raw.split())
+    is12 = _is_12h(colors, raw)
+    return {
+        "name": name,
+        # Pastreaza boolean-ul pentru compatibilitate, dar trimite si un label explicit de program
+        # ca UI-ul TV sa oglindeasca logica din desktop (8h vs 12h) fara presupuneri.
+        "hours12": is12,
+        "program": "12h" if is12 else "8h",
+    }
+
+
 # ─── Main data builder ────────────────────────────────────────────────────────
 
 def _build_tv_data() -> dict:
@@ -292,14 +305,9 @@ def _build_tv_data() -> dict:
                     colors = cell.get("colors", {}) if isinstance(cell, dict) else {}
                     emps   = cell.get("employees", []) if isinstance(cell, dict) else []
                     day_shifts[shift] = [
-                        {
-                            "name":    " ".join(e.split()),
-                            # Pastreaza boolean-ul pentru compatibilitate, dar trimite si un label explicit de program
-                            # ca UI-ul TV sa oglindeasca logica din desktop (8h vs 12h) fara presupuneri.
-                            "hours12": (is12 := _is_12h(colors, e)),
-                            "program": "12h" if is12 else "8h",
-                        }
-                        for e in emps if _is_active(e)
+                        _employee_tv_payload(colors, e)
+                        for e in emps
+                        if _is_active(str(e or ""))
                     ]
                 dept_data[day_name] = day_shifts
             mode_schedule[dept] = dept_data

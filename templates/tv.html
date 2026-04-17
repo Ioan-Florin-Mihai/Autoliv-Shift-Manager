@@ -253,14 +253,51 @@
       font-weight: 900;
     }
 
+    .employee-entry {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+      vertical-align: baseline;
+    }
+
+    .employee-name {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
     /* Consistent with desktop planner: 12h highlighted in red */
-    .shift-12h {
+    .employee-entry.shift-12h .employee-name {
       color: #C0392B;
       font-weight: 700;
     }
 
-    .shift-8h {
+    .employee-entry.shift-8h .employee-name {
       color: #111111;
+      font-weight: 600;
+    }
+
+    .shift-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      color: #FFFFFF;
+      flex: 0 0 auto;
+    }
+
+    .shift-badge-12 {
+      background: #C0392B;
+    }
+
+    .shift-badge-8 {
+      background: #2C5E9E;
     }
 
     .entry-empty {
@@ -407,7 +444,8 @@
         .map(entry => {
           const name = String((entry && entry.name) || '').trim();
           const program = String((entry && (entry.program || (entry.hours12 ? '12h' : '8h'))) || '').trim();
-          return { name, program };
+          const normalizedProgram = (program === '12h' || program === '12') ? '12h' : '8h';
+          return { name, program: normalizedProgram };
         })
         .filter(item => item.name);
 
@@ -416,10 +454,17 @@
         return fragment;
       }
 
+      function createEmployeeEntry(item) {
+        const is12 = item.program === '12h';
+        const entry = createElement('span', `employee-entry ${is12 ? 'shift-12h' : 'shift-8h'}`);
+        entry.appendChild(createElement('span', 'employee-name', item.name));
+        entry.appendChild(createElement('span', `shift-badge ${is12 ? 'shift-badge-12' : 'shift-badge-8'}`, is12 ? '12' : '8'));
+        return entry;
+      }
+
       normalized.forEach((item, index) => {
         if (index > 0) fragment.appendChild(document.createTextNode(' / '));
-        const cls = item.program === '12h' ? 'shift-12h' : 'shift-8h';
-        fragment.appendChild(createElement('span', cls, item.name));
+        fragment.appendChild(createEmployeeEntry(item));
       });
 
       return fragment;
