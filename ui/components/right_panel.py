@@ -50,43 +50,10 @@ class RightPanelMixin:
         header_section = ctk.CTkFrame(frame, fg_color="transparent")
         header_section.grid(row=0, column=0, sticky="ew", padx=20, pady=(OUTER_PAD, 8))
         header_section.grid_columnconfigure(0, weight=1)
-        self._create_section_label(header_section, "CONTEXT").grid(row=0, column=0, sticky="w", pady=(0, 4))
-        department_nav = ctk.CTkFrame(header_section, fg_color="transparent")
-        department_nav.grid(row=1, column=0, sticky="ew", pady=(0, 4))
-        department_nav.grid_columnconfigure(1, weight=1)
-        self.department_prev_button = self._create_utility_button(
-            department_nav,
-            "◀",
-            self.prev_department,
-            width=36,
-            height=28,
-            font=ctk.CTkFont(size=12, weight="bold"),
-        )
-        self.department_prev_button.grid(row=0, column=0, sticky="w")
-        self.department_name_label = ctk.CTkLabel(
-            department_nav,
-            textvariable=self.department_name_var,
-            text_color=PRIMARY_BLUE,
-            font=ctk.CTkFont(size=15, weight="bold"),
-            anchor="center",
-        )
-        self.department_name_label.grid(row=0, column=1, sticky="ew", padx=8)
-        self.department_next_button = self._create_utility_button(
-            department_nav,
-            "▶",
-            self.next_department,
-            width=36,
-            height=28,
-            font=ctk.CTkFont(size=12, weight="bold"),
-        )
-        self.department_next_button.grid(row=0, column=2, sticky="e")
-        self.cell_title = ctk.CTkLabel(header_section, text="Celula selectata", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=20, weight="bold"))
-        self.cell_title.grid(row=2, column=0, sticky="w")
-        self.cell_meta = ctk.CTkLabel(header_section, text="", text_color=MUTED_TEXT, justify="left")
-        self.cell_meta.grid(row=3, column=0, sticky="w", pady=(2, 4))
+        self._create_section_label(header_section, "Context").grid(row=0, column=0, sticky="w", pady=(0, 4))
 
         quick_add_section = ctk.CTkFrame(header_section, fg_color="transparent")
-        quick_add_section.grid(row=4, column=0, sticky="ew", pady=(4, 4))
+        quick_add_section.grid(row=1, column=0, sticky="ew", pady=(4, 4))
         quick_add_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(quick_add_section, "QUICK ADD").grid(row=0, column=0, sticky="w", pady=(0, 3))
         entry = ctk.CTkEntry(
@@ -118,7 +85,7 @@ class RightPanelMixin:
         self._add_button.grid(row=2, column=0, sticky="ew")
 
         more_actions_section = ctk.CTkFrame(header_section, fg_color="transparent")
-        more_actions_section.grid(row=5, column=0, sticky="ew", pady=(4, 2))
+        more_actions_section.grid(row=2, column=0, sticky="ew", pady=(4, 2))
         more_actions_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(more_actions_section, "MORE ACTIONS").grid(row=0, column=0, sticky="w", pady=(0, 3))
         self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=24).grid(row=1, column=0, sticky="ew", pady=(0, 2))

@@ -345,8 +345,49 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
         header_row.grid(row=0, column=0, sticky="ew", padx=OUTER_PAD, pady=(12, 4))
         header_row.grid_columnconfigure(0, weight=1)
 
-        self.editor_title = ctk.CTkLabel(header_row, text="Editor", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=22, weight="bold"))
-        self.editor_title.grid(row=0, column=0, sticky="w")
+        context_header = ctk.CTkFrame(header_row, fg_color="transparent")
+        context_header.grid(row=0, column=0, sticky="w")
+
+        department_nav = ctk.CTkFrame(context_header, fg_color="transparent")
+        department_nav.grid(row=0, column=0, sticky="w")
+        department_nav.grid_columnconfigure(1, weight=1)
+        self.department_prev_button = self._create_utility_button(
+            department_nav,
+            "â—€",
+            self.prev_department,
+            width=36,
+            height=28,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        self.department_prev_button.grid(row=0, column=0, sticky="w")
+        self.department_name_label = ctk.CTkLabel(
+            department_nav,
+            textvariable=self.department_name_var,
+            text_color=PRIMARY_BLUE,
+            font=ctk.CTkFont(size=15, weight="bold"),
+            anchor="w",
+        )
+        self.department_name_label.grid(row=0, column=1, sticky="w", padx=8)
+        self.department_next_button = self._create_utility_button(
+            department_nav,
+            "â–¶",
+            self.next_department,
+            width=36,
+            height=28,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        self.department_next_button.grid(row=0, column=2, sticky="w")
+
+        self.cell_title = ctk.CTkLabel(
+            context_header,
+            text="",
+            text_color=PRIMARY_BLUE,
+            font=ctk.CTkFont(size=20, weight="bold"),
+            anchor="w",
+        )
+        self.cell_title.grid(row=1, column=0, sticky="w", pady=(2, 0))
+        self.cell_meta = ctk.CTkLabel(context_header, text="", text_color=MUTED_TEXT, justify="left")
+        self.cell_meta.grid(row=2, column=0, sticky="w", pady=(0, 2))
 
         self.day_toggle_frame = ctk.CTkFrame(header_row, fg_color="transparent")
         self.day_toggle_frame.grid(row=0, column=1, sticky="e")
@@ -450,7 +491,6 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
         start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
         end = datetime.strptime(self.week_record["week_end"], "%Y-%m-%d").date()
         self.week_var.set(f"{self.week_record['week_label']}\n{start.strftime('%d.%m.%Y')} - {end.strftime('%d.%m.%Y')}")
-        self.editor_title.configure(text=f"Editor: {self.selected_department}")
         split_names = [name for name in self.current_cell()["employees"] if self._employee_day_count(name) > 1]
         extra = f"  |  Split in zi: {', '.join(split_names)}" if split_names else ""
         self.cell_title.configure(text=f"{self.selected_department} | {self.selected_day} | {self.selected_shift}")
