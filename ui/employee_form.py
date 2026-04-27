@@ -23,7 +23,7 @@ _DEPT_LIST = list(TEMPLATES["Magazie"]) + list(TEMPLATES["Bucle"])
 class EmployeeRegistrationWindow(ctk.CTkToplevel):
     def __init__(self, master, on_employee_added=None, initial_department: str | None = None):
         super().__init__(master)
-        self.title("Gestionare Personal (Angajat Nou)")
+        self.title("Gestionare Personal")
         self.geometry("680x760")
         self.minsize(680, 640)
         self.configure(fg_color=BG_WHITE)
@@ -50,7 +50,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
         form_frame.grid(row=0, column=0, sticky="ew", pady=(0, 20))
         form_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(form_frame, text="Inregistrare Angajat", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=22, weight="bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=20, pady=(20, 15))
+        ctk.CTkLabel(form_frame, text="Gestionare Incadrare", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=22, weight="bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=20, pady=(20, 15))
 
         ctk.CTkLabel(form_frame, text="Data Inregistrarii:", text_color=MUTED_TEXT, font=ctk.CTkFont(size=14, weight="bold")).grid(row=1, column=0, sticky="w", padx=20, pady=8)
         self.data_label_var = ctk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
@@ -83,7 +83,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
 
         self.btn_salveaza = ctk.CTkButton(
             form_frame,
-            text="Salveaza Angajat",
+            text="Salveaza Incadrare",
             font=ctk.CTkFont(size=15, weight="bold"),
             height=42,
             fg_color=PRIMARY_BLUE,
@@ -97,7 +97,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
         list_container.grid_rowconfigure(1, weight=1)
         list_container.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(list_container, text="Angajati Recenți", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=18, weight="bold")).grid(row=0, column=0, sticky="w", padx=20, pady=(15, 10))
+        ctk.CTkLabel(list_container, text="Personal Inregistrat", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=18, weight="bold")).grid(row=0, column=0, sticky="w", padx=20, pady=(15, 10))
 
         self.records_scroll = ctk.CTkScrollableFrame(list_container, fg_color=PANEL_BG, corner_radius=10)
         self.records_scroll.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
@@ -123,7 +123,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
             if not confirm:
                 return
             self.employee_store.upsert_profile(nume, prenume, departament)
-            messagebox.showinfo("Succes", "Departamentul principal a fost actualizat.", parent=self)
+            messagebox.showinfo("Succes", "Incadrarea a fost actualizata.", parent=self)
         else:
             self.employee_store.upsert_profile(nume, prenume, departament)
             messagebox.showinfo("Succes", "Angajatul a fost salvat.", parent=self)

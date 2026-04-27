@@ -70,3 +70,12 @@ def test_suggestions_are_filtered_by_selected_department():
     source = _source("ui/components/right_panel.py")
     assert "def _department_suggestion_names" in source
     assert "department_suggestions = self._department_suggestion_names(suggestions)" in source
+    assert "employees_with_profile_department" in source
+
+
+def test_personnel_button_uses_management_wording():
+    right_panel = _source("ui/components/right_panel.py")
+    form = _source("ui/employee_form.py")
+    assert "Gestionare Personal" in right_panel
+    assert "Gestionare Incadrare" in form
+    assert "Salveaza Incadrare" in form

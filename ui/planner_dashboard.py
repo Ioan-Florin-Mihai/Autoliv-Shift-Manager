@@ -670,7 +670,7 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
                 self.employee_search_var.set(employee)
                 self.refresh_suggestions()
                 self.render_unplanned_warning()
-                self.show_inline_message(f"{employee} salvat in lista de angajati.")
+                self.show_inline_message(f"{employee} salvat in personal.")
             except ValueError as exc:
                 messagebox.showerror("Date invalide", str(exc))
 

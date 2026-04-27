@@ -94,7 +94,7 @@ class RightPanelMixin:
         more_actions_section.grid(row=1, column=0, sticky="ew", pady=(6, 2))
         more_actions_section.grid_columnconfigure(0, weight=1)
         self._create_section_label(more_actions_section, "MORE ACTIONS").grid(row=0, column=0, sticky="w", pady=(0, 4))
-        self._create_secondary_button(more_actions_section, "Angajat Nou", self.add_new_employee, height=24).grid(row=1, column=0, sticky="ew", pady=(0, 2))
+        self._create_secondary_button(more_actions_section, "Gestionare Personal", self.add_new_employee, height=24).grid(row=1, column=0, sticky="ew", pady=(0, 2))
         self._create_secondary_button(more_actions_section, "Redenumeste", self.rename_employee_global, height=24).grid(row=2, column=0, sticky="ew", pady=(0, 2))
         self._delete_global_button = ctk.CTkButton(
             more_actions_section,
@@ -277,10 +277,14 @@ class RightPanelMixin:
         candidate_by_key = {name.casefold(): name for name in candidates if isinstance(name, str)}
         allowed_keys: set[str] = set()
 
+        employees_with_profile_department: set[str] = set()
         try:
             for name, department in self.employee_store.get_department_map().items():
-                if str(department or "").strip() == selected_department:
-                    key = str(name).casefold()
+                key = str(name).casefold()
+                profile_department = str(department or "").strip()
+                if profile_department:
+                    employees_with_profile_department.add(key)
+                if profile_department == selected_department:
                     if key in candidate_by_key:
                         allowed_keys.add(key)
         except (OSError, ValueError, RuntimeError, AttributeError):
@@ -306,7 +310,7 @@ class RightPanelMixin:
                             if not isinstance(employee, str):
                                 continue
                             key = employee.casefold()
-                            if key in candidate_by_key:
+                            if key in candidate_by_key and key not in employees_with_profile_department:
                                 allowed_keys.add(key)
         except (OSError, ValueError, RuntimeError, AttributeError):
             pass
