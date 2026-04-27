@@ -1,29 +1,26 @@
-﻿# ============================================================
+# ============================================================
 # MODUL: auth.py - AUTENTIFICARE SI MANAGEMENT UTILIZATORI
 # ============================================================
 #
 # Functionalitati:
-#   - Verificare credentiale cu bcrypt (cost factor 12)
-#   - Suport multi-utilizator (users.json = lista de obiecte)
-#   - Protectie brute-force: blocare 60s dupa 5 incercari esuate
-#   - Schimbare parola cu validare lungime minima (8 caractere)
-#   - Adaugare si stergere utilizatori (rol admin)
+#   - verificare credentiale cu bcrypt (cost factor 12)
+#   - suport multi-utilizator (users.json = lista de obiecte)
+#   - protectie brute-force: blocare 60s dupa 5 incercari esuate
+#   - schimbare parola cu validare lungime minima (8 caractere)
+#   - adaugare si stergere utilizatori (rol admin)
 #
-# Format users.json (lista):
-#   [
-#     {"username": "admin", "password_hash": "$2b$12$...", "role": "admin"},
-#     {"username": "user1", "password_hash": "$2b$12$...", "role": "user"}
-#   ]
-#
-# SECURITATE:
-#   - users.json NU este inclus in .exe (nu e in PyInstaller datas)
-#   - Fisierul trebuie furnizat separat de administrator
-#   - app_paths.get_sensitive_path() nu face bundle-copy
+# Hardening:
+#   - nu mai exista o parola admin implicita predictibila
+#   - la primul rulaj se genereaza local o parola bootstrap random
+#   - parola bootstrap este scrisa intr-un fisier local separat, langa users.json
 # ============================================================
 
 import json
+import secrets
+import string
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 import bcrypt
@@ -31,53 +28,78 @@ import bcrypt
 from logic.app_config import get_config
 from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import get_sensitive_path
+from logic.internal_credentials import BOOTSTRAP_PASSWORD_LENGTH, DEFAULT_ADMIN_USERNAME
 from logic.utils.io import atomic_write_json
 
-# Calea fisierului cu credentiale â€” NU este copiat din bundle
 USERS_PATH: Path = get_sensitive_path("data/users.json")
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "Autoliv2026!"
+BOOTSTRAP_INFO_PATH: Path = get_sensitive_path("data/bootstrap_admin.json")
+ADMIN_USERNAME = DEFAULT_ADMIN_USERNAME
+ADMIN_PASSWORD = ""
 _LEGACY_ADMIN_HASHES = {
     "$2b$12$ggzp6vQQ8MJm3RfngmJxCuF.ZfMaA.JSuQsSkNGOmIb8kyCT.RyDW",
 }
 
-# Hash dummy pre-calculat folosit pentru a preveni timing-attack cand
-# username-ul nu exista (evita diferenta de timp bcrypt vs. no-bcrypt).
-# Costul redus (4) minimizeaza overhead-ul in test; in productie e neobservabil.
 _DUMMY_HASH: bytes = bcrypt.hashpw(b"timing_attack_prevention_dummy", bcrypt.gensalt(rounds=4))
 
-# â”€â”€ Protectie brute-force â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-_MAX_ATTEMPTS    = 5      # Incercari inainte de blocare
-_LOCKOUT_SECONDS = 60     # Durata blocarii (secunde)
-_bf_lock         = threading.Lock()
-_failed_attempts: dict[str, list[float]] = {}  # username -> [timestamps]
+_MAX_ATTEMPTS = 5
+_LOCKOUT_SECONDS = 60
+_bf_lock = threading.Lock()
+_failed_attempts: dict[str, list[float]] = {}
 
 
-# â”€â”€ Operatii pe fisier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def _generate_bootstrap_password(length: int = BOOTSTRAP_PASSWORD_LENGTH) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(max(12, int(length))))
+
+
+def _resolve_bootstrap_info_path() -> Path:
+    users_path = Path(USERS_PATH)
+    if users_path.name.casefold() == "users.json":
+        return users_path.with_name("bootstrap_admin.json")
+    return BOOTSTRAP_INFO_PATH
+
+
+def _write_bootstrap_info(username: str, password: str) -> None:
+    payload = {
+        "username": username,
+        "password": password,
+        "must_change_password": True,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    atomic_write_json(_resolve_bootstrap_info_path(), payload)
+
+
+def get_bootstrap_info_path() -> Path:
+    return _resolve_bootstrap_info_path()
+
+
+def _create_bootstrap_admin() -> list[dict]:
+    password = _generate_bootstrap_password()
+    bootstrap_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+    bootstrap_path = _resolve_bootstrap_info_path()
+    default_users = [
+        {
+            "username": ADMIN_USERNAME,
+            "password_hash": bootstrap_hash,
+            "role": "admin",
+            "must_change_password": True,
+        }
+    ]
+    _save_users(default_users)
+    _write_bootstrap_info(ADMIN_USERNAME, password)
+    log_warning(
+        "auth: users.json lipseste (%s) - a fost creat un cont bootstrap local; vezi %s",
+        USERS_PATH,
+        bootstrap_path,
+    )
+    return default_users
+
 
 def _load_users() -> list[dict]:
-    """
-    Citeste lista de utilizatori din users.json.
-    Suporta atat format vechi (dict unic) cat si format nou (lista).
-    Daca fisierul lipseste, CREEAZA un cont admin default.
-    """
+    """Citeste lista de utilizatori din users.json."""
     if not USERS_PATH.exists():
-        log_warning(
-            "auth: users.json lipseste (%s) — se creeaza cont admin initial.",
-            USERS_PATH,
-        )
-        bootstrap_hash = bcrypt.hashpw(ADMIN_PASSWORD.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
-        default_users = [
-            {
-                "username": ADMIN_USERNAME,
-                "password_hash": bootstrap_hash,
-                "role": "admin",
-                "must_change_password": True,
-            }
-        ]
-        _save_users(default_users)
-        log_info("auth: cont admin initial creat.")
-        return default_users
+        return _create_bootstrap_admin()
+
     try:
         with USERS_PATH.open("r", encoding="utf-8") as file:
             raw = json.load(file)
@@ -86,30 +108,48 @@ def _load_users() -> list[dict]:
     except OSError as exc:
         raise OSError(f"Nu se poate citi users.json: {exc}") from exc
 
-    # Migrare automata format vechi (dict) → format nou (lista)
     if isinstance(raw, dict):
         log_warning("auth: users.json in format vechi (dict), se migreaza automat la lista.")
         raw = [{
-            "username":      raw.get("username", ""),
+            "username": raw.get("username", ""),
             "password_hash": raw.get("password_hash", ""),
-            "role":          "admin",
+            "role": "admin",
         }]
-        _save_users(raw)   # scrie imediat formatul nou
+        _save_users(raw)
 
     if not isinstance(raw, list):
         raise ValueError("Format invalid users.json: se asteapta o lista.")
 
-    # Migrare automata a hash-ului legacy pentru contul admin.
     changed = False
+    bootstrap_path = _resolve_bootstrap_info_path()
     for user in raw:
         if (
             user.get("username", "").casefold() == ADMIN_USERNAME
             and isinstance(user.get("password_hash"), str)
+            and user["password_hash"] in _LEGACY_ADMIN_HASHES
         ):
-            if user["password_hash"] in _LEGACY_ADMIN_HASHES:
-                user["password_hash"] = bcrypt.hashpw(ADMIN_PASSWORD.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
-                user["must_change_password"] = False
-                changed = True
+            password = _generate_bootstrap_password()
+            user["password_hash"] = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+            user["must_change_password"] = True
+            _write_bootstrap_info(ADMIN_USERNAME, password)
+            changed = True
+            log_warning("auth: hash admin legacy inlocuit cu o parola bootstrap noua.")
+        elif bool(user.get("must_change_password", False)):
+            password_hash = user.get("password_hash", "")
+            if not isinstance(password_hash, str) or not password_hash:
+                continue
+            try:
+                if bootstrap_path.exists():
+                    payload = json.loads(bootstrap_path.read_text(encoding="utf-8"))
+                    bootstrap_password = str(payload.get("password") or "")
+                    if bootstrap_password and bcrypt.checkpw(
+                        bootstrap_password.encode("utf-8"),
+                        password_hash.encode("utf-8"),
+                    ):
+                        continue
+            except (OSError, json.JSONDecodeError, ValueError):
+                pass
+
     if changed:
         _save_users(raw)
 
@@ -117,7 +157,7 @@ def _load_users() -> list[dict]:
 
 
 def _save_users(users: list[dict]) -> None:
-    """Scrie lista de utilizatori in users.json â€” scriere atomica."""
+    """Scrie lista de utilizatori in users.json prin scriere atomica."""
     USERS_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
         atomic_write_json(USERS_PATH, users)
@@ -126,17 +166,13 @@ def _save_users(users: list[dict]) -> None:
         raise
 
 
-# â”€â”€ Brute-force helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 def _is_locked_out(username: str) -> tuple[bool, float]:
-    """Returneaza (este_blocat, secunde_ramase)."""
     with _bf_lock:
-        now     = time.monotonic()
-        attempts = [t for t in _failed_attempts.get(username, [])
-                    if now - t < _LOCKOUT_SECONDS]
+        now = time.monotonic()
+        attempts = [t for t in _failed_attempts.get(username, []) if now - t < _LOCKOUT_SECONDS]
         _failed_attempts[username] = attempts
         if len(attempts) >= _MAX_ATTEMPTS:
-            oldest   = min(attempts)
+            oldest = min(attempts)
             remaining = _LOCKOUT_SECONDS - (now - oldest)
             return True, max(0.0, remaining)
         return False, 0.0
@@ -155,11 +191,7 @@ def _clear_failures(username: str) -> None:
 
 
 def _find_user(users: list[dict], username: str) -> dict | None:
-    """Cauta utilizatorul dupa username (case-insensitive)."""
-    return next(
-        (u for u in users if u.get("username", "").casefold() == username.casefold()),
-        None,
-    )
+    return next((u for u in users if u.get("username", "").casefold() == username.casefold()), None)
 
 
 def _normalize_role(role: str) -> str:
@@ -169,14 +201,7 @@ def _normalize_role(role: str) -> str:
     return value
 
 
-# â”€â”€ API public â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 def verify_login(username: str, password: str) -> bool:
-    """
-    Verifica credentialele. Returneaza True/False.
-    Compatibil cu apelul existent din dashboard.py.
-    Arunca exceptie daca fisierul users.json lipseste/e corupt.
-    """
     success, _msg = verify_login_detailed(username, password)
     return success
 
@@ -186,47 +211,33 @@ def verify_login_detailed(
     password: str,
     allow_password_change_only: bool = False,
 ) -> tuple[bool, str]:
-    """
-    Verifica credentialele si returneaza (succes, mesaj_eroare).
-    Mesajul este intentionat generic pentru a nu dezvalui ce camp e gresit.
-    """
     if not username or not password:
         return False, "Username si parola sunt obligatorii."
 
-    # Validare baza â€” previne injectie prin input lung
     if len(username) > 128 or len(password) > 256:
         return False, "Input prea lung."
 
-    # Verificare blocare brute-force
     locked, remaining = _is_locked_out(username.casefold())
     if locked:
         log_warning("auth: login blocat pentru '%s' (%.0fs ramasi)", username, remaining)
         return False, f"Prea multe incercari esuate. Asteptati {remaining:.0f} secunde."
 
-    # Incarcare utilizatori
-    try:
-        users = _load_users()
-    except Exception:
-        raise   # Propagam â€” dashboard.py afiseaza eroarea de configurare
+    users = _load_users()
 
     user = _find_user(users, username)
     if user is None:
-        # Executam bcrypt dummy pentru a preveni timing-attack bazat pe timp raspuns
         bcrypt.checkpw(b"dummy", _DUMMY_HASH)
         _record_failure(username.casefold())
         return False, "Username sau parola incorecta."
 
     password_hash = user.get("password_hash", "")
-    if not password_hash:
+    if not isinstance(password_hash, str) or not password_hash:
         _record_failure(username.casefold())
         return False, "Configuratie cont invalida. Contactati administratorul."
 
     try:
-        is_valid = bcrypt.checkpw(
-            password.encode("utf-8"),
-            password_hash.encode("utf-8"),
-        )
-    except Exception as exc:
+        is_valid = bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError as exc:
         log_exception("auth_bcrypt_check", exc)
         return False, "Eroare interna la verificarea parolei."
 
@@ -236,7 +247,7 @@ def verify_login_detailed(
 
     if bool(user.get("must_change_password", False)) and not allow_password_change_only:
         _clear_failures(username.casefold())
-        return False, "Parola trebuie schimbata inainte de autentificare."
+        return False, f"Parola bootstrap trebuie schimbata. Verifica fisierul {_resolve_bootstrap_info_path().name}."
 
     _clear_failures(username.casefold())
     log_info("auth: login reusit pentru '%s'", username)
@@ -244,10 +255,6 @@ def verify_login_detailed(
 
 
 def change_password(username: str, old_password: str, new_password: str) -> tuple[bool, str]:
-    """
-    Schimba parola unui utilizator.
-    Returneaza (succes, mesaj).
-    """
     if len(new_password) < 8:
         return False, "Parola noua trebuie sa aiba cel putin 8 caractere."
     if len(new_password) > 256:
@@ -255,18 +262,16 @@ def change_password(username: str, old_password: str, new_password: str) -> tupl
     if new_password == old_password:
         return False, "Parola noua trebuie sa fie diferita de cea curenta."
 
-    # Verifica parola curenta (include si brute-force guard)
     try:
         valid, err = verify_login_detailed(username, old_password, allow_password_change_only=True)
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         return False, f"Eroare la verificare: {exc}"
     if not valid:
         return False, f"Parola curenta gresita: {err}"
 
-    # Actualizeaza hash-ul
     try:
         users = _load_users()
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         return False, f"Eroare la citirea utilizatorilor: {exc}"
 
     user = _find_user(users, username)
@@ -279,15 +284,21 @@ def change_password(username: str, old_password: str, new_password: str) -> tupl
 
     try:
         _save_users(users)
-    except Exception as exc:
+    except OSError as exc:
         return False, f"Eroare la salvarea parolei: {exc}"
+
+    bootstrap_path = _resolve_bootstrap_info_path()
+    if bootstrap_path.exists():
+        try:
+            bootstrap_path.unlink()
+        except OSError:
+            pass
 
     log_info("auth: parola schimbata pentru '%s'", username)
     return True, "Parola a fost schimbata cu succes."
 
 
 def add_user(username: str, password: str, role: str = "user") -> tuple[bool, str]:
-    """Adauga un utilizator nou. Returneaza (succes, mesaj)."""
     config = get_config()
     username = username.strip()
     role = _normalize_role(role)
@@ -304,9 +315,7 @@ def add_user(username: str, password: str, role: str = "user") -> tuple[bool, st
 
     try:
         users = _load_users()
-    except FileNotFoundError:
-        users = []
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         return False, f"Eroare: {exc}"
 
     if _find_user(users, username) is not None:
@@ -319,7 +328,7 @@ def add_user(username: str, password: str, role: str = "user") -> tuple[bool, st
 
     try:
         _save_users(users)
-    except Exception as exc:
+    except OSError as exc:
         return False, f"Eroare la salvare: {exc}"
 
     log_info("auth: utilizator nou adaugat '%s' (rol: %s)", username, role)
@@ -327,16 +336,12 @@ def add_user(username: str, password: str, role: str = "user") -> tuple[bool, st
 
 
 def delete_user(username: str, requesting_username: str) -> tuple[bool, str]:
-    """
-    Sterge un utilizator. Nu se poate sterge propriul cont.
-    Returneaza (succes, mesaj).
-    """
     if username.casefold() == requesting_username.casefold():
         return False, "Nu iti poti sterge propriul cont."
 
     try:
         users = _load_users()
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         return False, f"Eroare: {exc}"
 
     initial_count = len(users)
@@ -349,7 +354,7 @@ def delete_user(username: str, requesting_username: str) -> tuple[bool, str]:
 
     try:
         _save_users(users)
-    except Exception as exc:
+    except OSError as exc:
         return False, f"Eroare la salvare: {exc}"
 
     log_info("auth: utilizatorul '%s' sters de catre '%s'", username, requesting_username)
@@ -357,12 +362,9 @@ def delete_user(username: str, requesting_username: str) -> tuple[bool, str]:
 
 
 def list_users() -> list[dict]:
-    """
-    Returneaza lista utilizatorilor (fara campul password_hash).
-    """
     try:
         users = _load_users()
-    except Exception:
+    except (OSError, ValueError):
         return []
     return [{"username": u.get("username", ""), "role": _normalize_role(u.get("role", "operator"))} for u in users]
 
@@ -370,7 +372,7 @@ def list_users() -> list[dict]:
 def get_user_role(username: str) -> str:
     try:
         users = _load_users()
-    except Exception:
+    except (OSError, ValueError):
         return "operator"
     user = _find_user(users, username)
     if not user:
@@ -383,13 +385,10 @@ def is_admin(username: str) -> bool:
 
 
 def must_change_password(username: str) -> bool:
-    """Returneaza True dacă utilizatorul trebuie să schimbe parola (flag setat la creare cont)."""
+    """Returneaza True daca utilizatorul trebuie sa schimbe parola."""
     try:
         users = _load_users()
-        user = _find_user(users, username)
-        if user:
-            return bool(user.get("must_change_password", False))
-    except Exception:
-        pass
-    return False
-
+    except (OSError, ValueError):
+        return False
+    user = _find_user(users, username)
+    return bool(user and user.get("must_change_password", False))

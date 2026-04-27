@@ -112,6 +112,7 @@ def bootstrap_runtime_root(role: str) -> str | None:
     current_root = BASE_DIR.resolve()
     local_marker = RUNTIME_FILE
     shared_marker = _shared_runtime_root_path()
+    messages: list[str] = []
 
     existing_local_root = _read_runtime_root(local_marker)
     if existing_local_root:
@@ -120,20 +121,20 @@ def bootstrap_runtime_root(role: str) -> str | None:
         except OSError:
             resolved_existing_local_root = Path(existing_local_root)
         if resolved_existing_local_root != current_root:
-            _write_runtime_root(local_marker, current_root)
-            return (
+            messages.append(
                 "⚠ Runtime mismatch detected: different BASE_DIR between components "
                 f"({role}: {current_root}, runtime_file: {resolved_existing_local_root})"
             )
-
     _write_runtime_root(local_marker, current_root)
 
     app_root = os.environ.get("APP_ROOT", "").strip()
     if app_root:
-        hinted_root = Path(app_root).expanduser().resolve()
+        try:
+            hinted_root = Path(app_root).expanduser().resolve()
+        except OSError:
+            hinted_root = Path(app_root).expanduser()
         if hinted_root != current_root:
-            _write_runtime_root(shared_marker, current_root)
-            return (
+            messages.append(
                 "⚠ Runtime mismatch detected: different BASE_DIR between components "
                 f"({role}: {current_root}, APP_ROOT: {hinted_root})"
             )
@@ -145,14 +146,13 @@ def bootstrap_runtime_root(role: str) -> str | None:
         except OSError:
             resolved_existing_root = Path(existing_root)
         if resolved_existing_root != current_root:
-            _write_runtime_root(shared_marker, current_root)
-            return (
+            messages.append(
                 "⚠ Runtime mismatch detected: different BASE_DIR between components "
                 f"({role}: {current_root}, marker: {resolved_existing_root})"
             )
 
     _write_runtime_root(shared_marker, current_root)
-    return None
+    return " | ".join(messages) if messages else None
 
 
 # ── Utilități cale ─────────────────────────────────────────────

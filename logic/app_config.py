@@ -36,7 +36,7 @@ def get_local_ip() -> str:
         ip = str(sock.getsockname()[0])
         sock.close()
         return ip
-    except Exception:
+    except OSError:
         return "127.0.0.1"
 
 
@@ -91,7 +91,6 @@ def _merge_config(raw: dict | None) -> dict:
     merged["server_restart_delay"] = _as_int(merged.get("server_restart_delay"), cast(int, DEFAULT_CONFIG["server_restart_delay"]), 1, 300)
     merged["log_max_bytes"] = _as_int(merged.get("log_max_bytes"), cast(int, DEFAULT_CONFIG["log_max_bytes"]), 1024, 100 * 1024 * 1024)
     merged["log_backup_count"] = _as_int(merged.get("log_backup_count"), cast(int, DEFAULT_CONFIG["log_backup_count"]), 1, 50)
-    # app_password_hash este gestionat exclusiv in users.json — nu se stocheaza in config
     merged.pop("app_password_hash", None)
     return merged
 

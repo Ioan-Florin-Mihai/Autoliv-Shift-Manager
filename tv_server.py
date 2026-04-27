@@ -176,14 +176,28 @@ def _load_schedule() -> dict:
     try:
         with open(DATA_FILE, encoding="utf-8") as f:
             loaded = json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except OSError as exc:
+        # If the file is temporarily locked (Windows), keep serving the last cached data.
+        is_lock_related = isinstance(exc, PermissionError) or getattr(exc, "winerror", None) in {5, 32, 33}
+        if is_lock_related and _CACHED_DATA is not None:
+            return _CACHED_DATA
         restored = _restore_live_from_sources()
         if not restored:
-            _CACHED_DATA = {"weeks": {}}
-            _LAST_MTIME = 0.0
-            return _CACHED_DATA
-        with open(DATA_FILE, encoding="utf-8") as f:
-            loaded = json.load(f)
+            return _CACHED_DATA if _CACHED_DATA is not None else {"weeks": {}}
+        try:
+            with open(DATA_FILE, encoding="utf-8") as f:
+                loaded = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return _CACHED_DATA if _CACHED_DATA is not None else {"weeks": {}}
+    except json.JSONDecodeError:
+        restored = _restore_live_from_sources()
+        if not restored:
+            return _CACHED_DATA if _CACHED_DATA is not None else {"weeks": {}}
+        try:
+            with open(DATA_FILE, encoding="utf-8") as f:
+                loaded = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return _CACHED_DATA if _CACHED_DATA is not None else {"weeks": {}}
     _CACHED_DATA = loaded if isinstance(loaded, dict) else {"weeks": {}}
     _LAST_MTIME = mtime
     return _CACHED_DATA
@@ -276,7 +290,7 @@ def _build_tv_data() -> dict:
             ws = date.fromisoformat(ws_str)
             we = date.fromisoformat(we_str)
             week_range = f"{ws.strftime('%d %b')} – {we.strftime('%d %b')}"
-    except Exception:  # noqa: BLE001
+    except (TypeError, ValueError):  # noqa: BLE001
         pass
 
     # Construieste departamentele si planificarea pe fiecare mod
@@ -384,15 +398,24 @@ def _count_departments(payload: dict) -> int:
 # Instanta FastAPI trebuie definita inainte de utilizare
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
+def _no_store_headers() -> dict[str, str]:
+    # Make kiosk behavior more predictable (avoid intermediary caches).
+    return {"Cache-Control": "no-store"}
+
 def get_api_key():
     config = get_config()
     return str(config.get("api_key") or "").strip()
 
-def require_api_key(request: Request) -> bool:
+def _tv_auth_warning() -> str | None:
+    if get_api_key():
+        return None
+    return "TV API key lipseste. Endpointurile read-only ruleaza in mod insecure."
+
+def require_api_key(request: Request, *, allow_insecure: bool = False) -> bool:
     provided_api_key = request.headers.get("X-API-Key")
     expected_api_key = get_api_key()
     if not expected_api_key:
-        return True
+        return allow_insecure
     return bool(
         provided_api_key
         and expected_api_key
@@ -401,15 +424,21 @@ def require_api_key(request: Request) -> bool:
 
 @app.get("/tv", response_class=HTMLResponse)
 async def tv_page(request: Request) -> HTMLResponse:
-    if not require_api_key(request):
-        return HTMLResponse(content="Unauthorized", status_code=status.HTTP_401_UNAUTHORIZED)
-    html = (TPL_DIR / "tv.html").read_text(encoding="utf-8")
-    return HTMLResponse(content=html)
+    try:
+        html = (TPL_DIR / "tv.html").read_text(encoding="utf-8")
+    except OSError:
+        return HTMLResponse(
+            content="TV template missing. Contact administrator.",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            headers=_no_store_headers(),
+        )
+    html = html.replace("__TV_API_KEY__", get_api_key())
+    return HTMLResponse(content=html, headers=_no_store_headers())
 
 @app.get("/api/tv-data")
 async def tv_data(request: Request) -> JSONResponse:
-    if not require_api_key(request):
-        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
+    if not require_api_key(request, allow_insecure=True):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED, headers=_no_store_headers())
     try:
         raw = _load_schedule()
         payload = _build_tv_data()
@@ -420,50 +449,59 @@ async def tv_data(request: Request) -> JSONResponse:
                 "server_time": int(time.time() * 1000),
                 "last_publish_time": _extract_last_publish_time(raw),
                 "data": payload,
-            }
+                "auth_warning": _tv_auth_warning(),
+            },
+            headers=_no_store_headers(),
         )
-    except Exception as exc:  # noqa: BLE001
+    except (OSError, ValueError, RuntimeError) as exc:
         log_exception("tv_data", exc)
-        return JSONResponse(content={"error": "Internal server error"}, status_code=500)
+        return JSONResponse(content={"error": "Internal server error"}, status_code=500, headers=_no_store_headers())
 
 
 @app.get("/tv/version")
 async def get_tv_version(request: Request) -> JSONResponse:
-    if not require_api_key(request):
-        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
+    if not require_api_key(request, allow_insecure=True):
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED, headers=_no_store_headers())
     global _LAST_LOGGED_TV_VERSION
     version = _sync_tv_version()
     if version != _LAST_LOGGED_TV_VERSION:
         log_info("[TV] Version changed -> reload")
         _LAST_LOGGED_TV_VERSION = version
-    return JSONResponse(content={"version": version})
+    return JSONResponse(content={"version": version}, headers=_no_store_headers())
 
 
 @app.get("/health")
 async def health(request: Request) -> JSONResponse:
-    if not require_api_key(request):
-        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
     return JSONResponse(
         content={
             "status": "ok",
             "last_update": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
             "data_loaded": _CACHED_DATA is not None,
-        }
+            "auth_mode": "secured" if get_api_key() else "insecure-readonly",
+        },
+        headers=_no_store_headers(),
     )
 
 
 @app.get("/metrics")
 async def metrics(request: Request) -> JSONResponse:
+    if not get_api_key():
+        return JSONResponse(content={"error": "TV API key required for metrics"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE, headers=_no_store_headers())
     if not require_api_key(request):
-        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED)
-    payload = _build_tv_data()
-    return JSONResponse(
-        content={
-            "departments": _count_departments(payload),
-            "employees_total": _count_all_employees(payload),
-            "last_refresh": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
-        }
-    )
+        return JSONResponse(content={"error": "Unauthorized"}, status_code=status.HTTP_401_UNAUTHORIZED, headers=_no_store_headers())
+    try:
+        payload = _build_tv_data()
+        return JSONResponse(
+            content={
+                "departments": _count_departments(payload),
+                "employees_total": _count_all_employees(payload),
+                "last_refresh": int(_LAST_MTIME * 1000) if _LAST_MTIME else 0,
+            },
+            headers=_no_store_headers(),
+        )
+    except (OSError, ValueError, RuntimeError) as exc:
+        log_exception("tv_metrics", exc)
+        return JSONResponse(content={"error": "Internal server error"}, status_code=500, headers=_no_store_headers())
 
 
 # ─── LAN IP helper ────────────────────────────────────────────────────────────
@@ -476,7 +514,7 @@ def _local_ip() -> str:
         ip = str(s.getsockname()[0])
         s.close()
         return ip
-    except Exception:  # noqa: BLE001
+    except OSError:
         return "127.0.0.1"
 
 
@@ -491,11 +529,16 @@ def start_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     log_info("[TV] BASE_DIR=%s", BASE_DIR)
     log_info("[TV] DATA_PATH=%s", DATA_FILE)
     if mismatch:
-        log_error(mismatch)
+        log_info(mismatch)
+    auth_warning = _tv_auth_warning()
+    if auth_warning:
+        log_warning(auth_warning)
     logger.warning("\n%s", sep)
     logger.warning("  AUTOLIV TV SERVER - pornit")
     logger.warning("  Local :  http://127.0.0.1:%s/tv", port)
     logger.warning("  Retea :  http://%s:%s/tv", ip, port)
     logger.warning("  Deschide URL-ul de mai sus pe fiecare TV")
+    if auth_warning:
+        logger.warning("  WARNING: TV API key lipseste; endpointurile read-only sunt publice.")
     logger.warning("%s\n", sep)
     uvicorn.run(app, host=host, port=port, log_level="warning")

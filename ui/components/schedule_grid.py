@@ -16,6 +16,7 @@ from ui.components.constants import (
     CELL_MIN_HEIGHT,
     EMPLOYEE_NAME_TEXT,
     EMPLOYEE_ROW_PADY,
+    META_FONT_SIZE,
     GRID_BORDER_DARK,
     GRID_BORDER_LIGHT,
     GRID_CELL_BG,
@@ -27,6 +28,7 @@ from ui.components.constants import (
     GRID_NAME_MAX_CHARS,
     HEADER_FONT_SIZE,
     HOURS_COLOR_MAP,
+    SECTION_TITLE_FONT_SIZE,
     SELECTED_BG,
     SHIFT_FONT_SIZE,
     SOFT_BLUE,
@@ -41,6 +43,11 @@ from ui.components.dialogs import HoverTooltip
 
 class ScheduleGridMixin:
     """Methods for rendering and interacting with the schedule grid."""
+
+    # Coloane de zi mai compacte pentru a afisa saptamana mai confortabil.
+    _DAY_COLUMN_WIDTH = 136
+    _GRID_PAD_X = 3
+    _SHIFT_COLUMN_WIDTH = 68
 
     def _resolve_theme_color(self, color_value):
         if isinstance(color_value, (tuple, list)):
@@ -111,7 +118,7 @@ class ScheduleGridMixin:
         is_dark = ctk.get_appearance_mode() == "Dark"
         normal = GRID_BORDER_DARK if is_dark else GRID_BORDER_LIGHT
         hover = GRID_HOVER_DARK if is_dark else GRID_HOVER_LIGHT
-        selected = "#8EB8E5" if is_dark else PRIMARY_BLUE[0]
+        selected = "#8EB8E5" if is_dark else ACCENT_BLUE
         return normal, hover, selected
 
     def _grid_border_width(self, is_selected: bool = False) -> int:
@@ -125,13 +132,9 @@ class ScheduleGridMixin:
             return
         normal_border, hover_border, selected_border = self._grid_border_theme()
         is_selected = self.selected_day == day_name and self.selected_shift == shift
-        is_weekend = day_name in WEEKEND_DAYS
         if is_selected:
-            fg_color = WEEKEND_SELECTED_BG if is_weekend else SELECTED_BG
+            fg_color = SELECTED_BG
             border_color = selected_border
-        elif is_weekend:
-            fg_color = WEEKEND_BG
-            border_color = hover_border if hover else normal_border
         else:
             fg_color = GRID_CELL_BG
             border_color = hover_border if hover else normal_border
@@ -158,50 +161,85 @@ class ScheduleGridMixin:
         return None
 
     def render_grid(self):
-        for widget in self.grid_frame.winfo_children():
+        left_parent = getattr(self, "grid_left", None)
+        days_parent = getattr(self, "grid_days_frame", None)
+        if not left_parent or not days_parent:
+            return
+
+        for widget in left_parent.winfo_children():
+            widget.destroy()
+        for widget in days_parent.winfo_children():
             widget.destroy()
         self._grid_cell_frames = {}   # reseteaza cache-ul la rebuild complet
         self._grid_cell_canvases = {}
         start = datetime.strptime(self.week_record["week_start"], "%Y-%m-%d").date()
         visible_days = self._visible_days()
-        self.grid_frame.grid_columnconfigure(0, weight=0)
-        self.grid_frame.grid_rowconfigure(0, weight=0, minsize=GRID_HEADER_HEIGHT)
-        for idx in range(1, len(visible_days) + 1):
-            self.grid_frame.grid_columnconfigure(idx, weight=1)
-        ctk.CTkLabel(self.grid_frame, text="Schimb", text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=SHIFT_FONT_SIZE, weight="bold")).grid(row=0, column=0, padx=(6, 12), pady=8, sticky="w")
-        for day_idx, (day_name, day_offset) in enumerate(visible_days, start=1):
-            header_fg = WEEKEND_BG if day_name in WEEKEND_DAYS else SOFT_BLUE
-            cell = ctk.CTkFrame(self.grid_frame, fg_color=header_fg, corner_radius=10, border_width=1, border_color=LINE_BLUE)
-            cell.grid(row=0, column=day_idx, padx=GRID_CELL_PAD, pady=GRID_CELL_PAD, sticky="ew")
-            ctk.CTkLabel(cell, text=format_day_label(start, day_offset), text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=HEADER_FONT_SIZE, weight="bold")).pack(padx=10, pady=9)
+        left_parent.grid_columnconfigure(0, weight=0, minsize=self._SHIFT_COLUMN_WIDTH)
+        left_parent.grid_rowconfigure(0, weight=0, minsize=GRID_HEADER_HEIGHT)
+        days_parent.grid_rowconfigure(0, weight=0, minsize=GRID_HEADER_HEIGHT)
+        for idx in range(len(visible_days)):
+            days_parent.grid_columnconfigure(idx, weight=0, minsize=self._DAY_COLUMN_WIDTH)
+
+        ctk.CTkLabel(
+            left_parent,
+            text="Schimb",
+            text_color=PRIMARY_BLUE,
+            font=ctk.CTkFont(size=SECTION_TITLE_FONT_SIZE, weight="bold"),
+        ).grid(row=0, column=0, padx=(6, 10), pady=10, sticky="w")
+
+        for day_idx, (_day_name, day_offset) in enumerate(visible_days, start=0):
+            header_fg = SOFT_BLUE
+            cell = ctk.CTkFrame(
+                days_parent,
+                fg_color=header_fg,
+                corner_radius=12,
+                border_width=1,
+                border_color=LINE_BLUE,
+                width=self._DAY_COLUMN_WIDTH,
+                height=GRID_HEADER_HEIGHT,
+            )
+            cell.grid(row=0, column=day_idx, padx=self._GRID_PAD_X, pady=GRID_CELL_PAD, sticky="ew")
+            cell.grid_propagate(False)
+            ctk.CTkLabel(
+                cell,
+                text=format_day_label(start, day_offset),
+                text_color=PRIMARY_BLUE,
+                font=ctk.CTkFont(size=HEADER_FONT_SIZE, weight="bold"),
+            ).pack(padx=12, pady=10)
 
         for row_idx, shift in enumerate(SHIFTS, start=1):
-            self.grid_frame.grid_rowconfigure(row_idx, weight=0, minsize=CELL_MIN_HEIGHT + 12)
-            ctk.CTkLabel(self.grid_frame, text=shift, text_color=PRIMARY_BLUE, font=ctk.CTkFont(size=SHIFT_FONT_SIZE, weight="bold")).grid(row=row_idx, column=0, padx=(6, 12), pady=8, sticky="nw")
-            for day_idx, (day_name, _) in enumerate(visible_days, start=1):
+            left_parent.grid_rowconfigure(row_idx, weight=0, minsize=CELL_MIN_HEIGHT + 12)
+            days_parent.grid_rowconfigure(row_idx, weight=0, minsize=CELL_MIN_HEIGHT + 12)
+            ctk.CTkLabel(
+                left_parent,
+                text=shift,
+                text_color=PRIMARY_BLUE,
+                font=ctk.CTkFont(size=SHIFT_FONT_SIZE, weight="bold"),
+            ).grid(row=row_idx, column=0, padx=(6, 10), pady=10, sticky="nw")
+
+            for day_idx, (day_name, _) in enumerate(visible_days, start=0):
                 cell_data  = self.current_mode_record()["schedule"][self.selected_department][day_name][shift]
                 employees  = cell_data.get("employees", [])
                 cell_colors = cell_data.get("colors", {})
                 normal_border, _hover_border, selected_border = self._grid_border_theme()
                 is_selected = self.selected_day == day_name and self.selected_shift == shift
-                is_weekend = day_name in WEEKEND_DAYS
                 if is_selected:
-                    cell_bg = WEEKEND_SELECTED_BG if is_weekend else SELECTED_BG
+                    cell_bg = SELECTED_BG
                 else:
-                    cell_bg = WEEKEND_BG if is_weekend else GRID_CELL_BG
+                    cell_bg = GRID_CELL_BG
                 border_color_active = selected_border if is_selected else normal_border
 
                 # Celula — frame clickabil
                 cell_frame = ctk.CTkFrame(
-                    self.grid_frame,
+                    days_parent,
                     fg_color=cell_bg,
-                    corner_radius=14,
+                    corner_radius=16,
                     border_width=self._grid_border_width(is_selected),
                     border_color=border_color_active,
-                    width=150,
+                    width=self._DAY_COLUMN_WIDTH,
                     height=CELL_MIN_HEIGHT,
                 )
-                cell_frame.grid(row=row_idx, column=day_idx, padx=GRID_CELL_PAD, pady=GRID_CELL_PAD, sticky="nsew")
+                cell_frame.grid(row=row_idx, column=day_idx, padx=self._GRID_PAD_X, pady=GRID_CELL_PAD, sticky="nsew")
                 cell_frame.grid_propagate(False)
                 cell_frame.pack_propagate(False)
                 cell_frame.bind("<Button-1>", lambda _e, d=day_name, s=shift: self.select_cell(d, s))
@@ -212,7 +250,7 @@ class ScheduleGridMixin:
                 # ── Scroll container: tk.Frame → Canvas + Scrollbar → inner_frame ──
                 resolved_bg = self._resolve_theme_color(cell_bg)
                 scroll_host = tk.Frame(cell_frame, bg=resolved_bg, highlightthickness=0)
-                scroll_host.pack(fill="both", expand=True, padx=GRID_INNER_PAD, pady=GRID_INNER_PAD)
+                scroll_host.pack(fill="both", expand=True, padx=GRID_INNER_PAD, pady=(GRID_INNER_PAD, GRID_INNER_PAD - 1))
 
                 content_canvas = tk.Canvas(
                     scroll_host, highlightthickness=0, bd=0, bg=resolved_bg,
@@ -255,7 +293,7 @@ class ScheduleGridMixin:
                         text=f"\u2191 {len(employees)}",
                         bg=resolved_bg,
                         fg=self._resolve_theme_color(SUBTLE_HINT_TEXT),
-                        font=("Segoe UI", 7),
+                        font=("Segoe UI", 8, "bold"),
                     )
                     count_lbl.pack(anchor="e")
                     self._bind_cell_mousewheel(count_lbl, content_canvas)
@@ -290,7 +328,7 @@ class ScheduleGridMixin:
                         text="+ adaugare",
                         bg=resolved_bg,
                         fg=self._resolve_theme_color(SUBTLE_HINT_TEXT),
-                        font=("Segoe UI", 8),
+                        font=("Segoe UI", META_FONT_SIZE),
                     )
                     add_lbl.pack(expand=True, pady=16)
                     self._bind_cell_mousewheel(add_lbl, content_canvas)
@@ -298,15 +336,11 @@ class ScheduleGridMixin:
 
                 self._apply_cell_frame_style(day_name, shift, hover=False)
 
+        try:
+            if getattr(self, "grid_days_canvas", None) and self.grid_days_canvas.winfo_exists():
+                self.grid_days_canvas.configure(scrollregion=self.grid_days_canvas.bbox("all"))
+        except tk.TclError:
+            pass
+
     def render_day_toggle_buttons(self):
-        if not hasattr(self, "day_toggle_buttons"):
-            return
-        active_mode = self.day_view_mode.get()
-        for mode_name, button in self.day_toggle_buttons.items():
-            selected = mode_name == active_mode
-            button.configure(
-                fg_color=PRIMARY_BLUE if selected else SUGGESTION_BG,
-                hover_color=ACCENT_BLUE if selected else "#C7D7E8",
-                text_color="white" if selected else ("#15304B", "#E8E8E8"),
-                width=150 if mode_name == "weekdays" else 92,
-            )
+        return

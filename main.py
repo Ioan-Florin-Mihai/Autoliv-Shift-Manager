@@ -1,17 +1,9 @@
 # ============================================================
 # AUTOLIV SHIFT MANAGER - PUNCT DE INTRARE
 # ============================================================
-# 
-# Fișierul principal care pornește aplicația.
-# Rulează: python main.py (din IDE) sau Autoliv Shift Manager.exe
 #
-# Flux:
-#   1. Configureaza mediul Tcl/Tk (initializare runtime)
-#   2. Importă UI-ul (dashboard) - care gestionează autentificarea
-#   3. Pornește bucla główna a aplicației (GUI)
-#
-# NOTE: În modul .exe (PyInstaller), bootstrapping-ul e inclus automat.
-#       Doar în dev mode (Python direct) e nevoie de setup suplimentar.
+# Fisierul principal porneste aplicatia desktop sau serverul TV.
+# Ruleaza: python main.py sau executabilul generat de PyInstaller.
 # ============================================================
 
 import argparse
@@ -26,25 +18,29 @@ from pathlib import Path
 from logic.app_config import get_config
 from logic.app_logger import log_error, log_exception, log_info, log_warning
 from logic.app_paths import BASE_DIR, bootstrap_runtime_root
+from logic.process_lock import try_acquire_process_lock
 from logic.runtime_bootstrap import configure_tk_runtime
+
+_PROCESS_LOCK = None
 
 
 def _global_crash_handler(exc_type, exc_value, exc_tb):
-    """Handler global pentru excepții necapturate pe main thread."""
+    """Handler global pentru exceptii necapturate pe thread-ul principal."""
     err_text = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
     try:
         import tkinter.messagebox as _mb
+
         _mb.showerror(
-            "Eroare neașteptată",
-            f"A apărut o eroare neașteptată:\n\n{err_text[:600]}\n\nReporniți aplicația.",
+            "Eroare neasteptata",
+            f"A aparut o eroare neasteptata:\n\n{err_text[:600]}\n\nReporniti aplicatia.",
         )
-    except Exception:
+    except (ImportError, RuntimeError):
         pass
     log_error("exceptie necapturata: %s", err_text[:2000])
 
 
 def _thread_crash_handler(args):
-    """Handler global pentru excepții necapturate în thread-uri background."""
+    """Handler global pentru exceptii necapturate in thread-urile background."""
     _global_crash_handler(args.exc_type, args.exc_value, args.exc_traceback)
 
 
@@ -69,21 +65,39 @@ def _self_command(*extra_args: str) -> list[str]:
 
 
 def _run_planner() -> None:
+    global _PROCESS_LOCK
+    _PROCESS_LOCK = try_acquire_process_lock("planner")
+    if _PROCESS_LOCK is None:
+        try:
+            import tkinter.messagebox as _mb
+
+            _mb.showerror(
+                "Aplicatia este deja deschisa",
+                "Planner-ul ruleaza deja intr-o alta fereastra.\n\n"
+                "Inchide instanta existenta si incearca din nou.",
+            )
+        except (ImportError, RuntimeError):
+            pass
+        return
     log_info("[BOOT] BASE_DIR=%s", BASE_DIR)
     mismatch = bootstrap_runtime_root("planner")
     if mismatch:
-        log_error(mismatch)
+        log_info(mismatch)
     configure_tk_runtime()
     from ui.dashboard import run_app
+
     run_app()
 
 
 def _run_tv_worker() -> None:
+    global _PROCESS_LOCK
+    _PROCESS_LOCK = try_acquire_process_lock("tv_server")
+    if _PROCESS_LOCK is None:
+        log_info("[TV] Server deja pornit - iesire curata.")
+        return
     log_info("[BOOT] BASE_DIR=%s", BASE_DIR)
-    mismatch = bootstrap_runtime_root("tv_server")
-    if mismatch:
-        log_error(mismatch)
     from tv_server import start_server
+
     config = get_config()
     start_server(
         host=str(config.get("server_host", "0.0.0.0")),
@@ -156,7 +170,7 @@ def run_cli(argv: list[str] | None = None) -> None:
             _run_kiosk()
         else:
             _run_planner()
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         log_exception("main", exc)
         raise
 

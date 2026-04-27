@@ -58,7 +58,7 @@ if os.name == "nt":
             new_path = root.joinpath(f"{prefix}{new_number}")
             try:
                 new_path.mkdir()
-            except Exception:
+            except OSError:
                 pass
             else:
                 _force_symlink(root, prefix + "current", new_path)

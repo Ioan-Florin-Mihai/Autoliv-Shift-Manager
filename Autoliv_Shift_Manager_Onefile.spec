@@ -33,7 +33,6 @@ hiddenimports += [
     "tkinter.filedialog",
     "tkinter.font",
     "tkinter.constants",
-    "logic.remote_control",
     "logic.app_logger",
     "logic.app_config",
     "logic.app_paths",
@@ -93,10 +92,9 @@ datas = [
     ("assets/autoliv_logo.png",       "assets"),
     ("assets/autoliv_app.ico",         "assets"),
     ("assets/autoliv_app_icon.png",    "assets"),
-    # NOTA SECURITATE: users.json si firebase_service_account.json sunt
+    # NOTA SECURITATE: users.json este fisier sensibil.
     # fisiere SENSIBILE — NU se includ niciodata in bundle (.exe).
     # Se depun manual langa executabil de catre administrator.
-    ("data/remote_config.json",        "data"),
     ("data/schedule_draft.json",       "data"),
     ("data/schedule_live.json",        "data"),
     ("data/audit_log.json",            "data"),

@@ -12,14 +12,17 @@ import pytest
 import logic.auth as auth_module
 from logic.auth import (
     ADMIN_PASSWORD,
+    ADMIN_USERNAME,
     _failed_attempts,
     _load_users,
+    get_bootstrap_info_path,
     add_user,
     change_password,
     delete_user,
     verify_login,
     verify_login_detailed,
 )
+from logic.internal_credentials import DEFAULT_ADMIN_USERNAME
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +55,16 @@ def single_user(users_file):
     pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=4)).decode()
     users_file([{"username": "admin", "password_hash": pw_hash, "role": "admin"}])
     return {"username": "admin", "password": password}
+
+
+def test_internal_default_credentials_are_centralized():
+    assert ADMIN_USERNAME == DEFAULT_ADMIN_USERNAME
+    assert ADMIN_PASSWORD == ""
+
+
+def _bootstrap_password() -> str:
+    payload = json.loads(get_bootstrap_info_path().read_text(encoding="utf-8"))
+    return str(payload["password"])
 
 
 class TestVerifyLoginDetailed:
@@ -92,11 +105,21 @@ class TestVerifyLoginDetailed:
 
     def test_missing_users_file_creates_default(self, tmp_path, monkeypatch):
         fake_path = tmp_path / "missing.json"
+        bootstrap_path = tmp_path / "bootstrap_admin.json"
         monkeypatch.setattr(auth_module, "USERS_PATH", fake_path)
-        ok, msg = verify_login_detailed("admin", ADMIN_PASSWORD)
-        assert ok is False
-        assert "schimbata" in msg.lower()
+        monkeypatch.setattr(auth_module, "BOOTSTRAP_INFO_PATH", bootstrap_path)
+        users = _load_users()
+        assert users and users[0]["username"] == "admin"
         assert fake_path.exists(), "users.json ar fi trebuit creat automat"
+        assert bootstrap_path.exists(), "bootstrap_admin.json trebuie generat la primul rulaj"
+        data = json.loads(fake_path.read_text(encoding="utf-8"))
+        assert isinstance(data, list) and data, "users.json trebuie sa contina lista de utilizatori"
+        admin = next((u for u in data if u.get("username") == "admin"), None)
+        assert admin is not None
+        assert admin.get("must_change_password", False) is True
+        ok, msg = verify_login_detailed("admin", json.loads(bootstrap_path.read_text(encoding="utf-8"))["password"])
+        assert ok is False
+        assert "bootstrap" in msg.lower()
 
     def test_legacy_admin_hash_is_migrated_to_current_password(self, users_file):
         users_file([
@@ -109,8 +132,9 @@ class TestVerifyLoginDetailed:
         ])
         users = _load_users()
         admin = users[0]
-        assert admin.get("must_change_password") is False
-        assert bcrypt.checkpw(ADMIN_PASSWORD.encode("utf-8"), admin["password_hash"].encode("utf-8")) is True
+        assert admin.get("must_change_password") is True
+        payload = json.loads(get_bootstrap_info_path().read_text(encoding="utf-8"))
+        assert bcrypt.checkpw(payload["password"].encode("utf-8"), admin["password_hash"].encode("utf-8")) is True
 
     def test_legacy_admin_password_no_longer_works_after_migration(self, users_file):
         users_file([
@@ -121,9 +145,12 @@ class TestVerifyLoginDetailed:
                 "must_change_password": True,
             }
         ])
-        ok_new, _ = verify_login_detailed("admin", ADMIN_PASSWORD)
+        _load_users()
+        payload = json.loads(get_bootstrap_info_path().read_text(encoding="utf-8")) if get_bootstrap_info_path().exists() else {}
+        ok_new, msg_new = verify_login_detailed("admin", str(payload.get("password") or ""))
         ok_old, _ = verify_login_detailed("admin", "admin-legacy-invalid")
-        assert ok_new is True
+        assert ok_new is False
+        assert "bootstrap" in msg_new.lower()
         assert ok_old is False
 
 

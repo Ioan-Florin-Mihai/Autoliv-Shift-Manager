@@ -18,12 +18,8 @@ if "%APP_VERSION%"=="" (
 echo Construiesc executabilul portabil...
 echo Versiune: %APP_VERSION%
 
-if exist "dist\Autoliv Shift Manager.exe" (
-	del /f /q "dist\Autoliv Shift Manager.exe"
-)
-
-if exist "dist\Autoliv Shift Manager v%APP_VERSION%.exe" (
-	del /f /q "dist\Autoliv Shift Manager v%APP_VERSION%.exe"
+if exist "dist" (
+	rmdir /s /q "dist"
 )
 
 if exist "build\Autoliv_Shift_Manager_Onefile" (
@@ -40,6 +36,27 @@ if errorlevel 1 (
 	echo ============================================
 	exit /b 1
 )
+
+mkdir "dist\assets" >nul 2>&1
+mkdir "dist\data" >nul 2>&1
+mkdir "dist\backups" >nul 2>&1
+mkdir "dist\Exports" >nul 2>&1
+mkdir "dist\logs" >nul 2>&1
+
+copy /y "config.json" "dist\config.json" >nul
+copy /y "assets\autoliv_logo.png" "dist\assets\autoliv_logo.png" >nul
+copy /y "assets\autoliv_app.ico" "dist\assets\autoliv_app.ico" >nul
+copy /y "assets\autoliv_app_icon.png" "dist\assets\autoliv_app_icon.png" >nul
+copy /y "data\schedule_draft.json" "dist\data\schedule_draft.json" >nul
+copy /y "data\schedule_live.json" "dist\data\schedule_live.json" >nul
+copy /y "data\audit_log.json" "dist\data\audit_log.json" >nul
+copy /y "data\employees.json" "dist\data\employees.json" >nul
+copy /y "data\ui_state.json" "dist\data\ui_state.json" >nul
+if exist "data\users.json" copy /y "data\users.json" "dist\data\users.json" >nul
+
+if exist "dist\data\remote_config.json" del /f /q "dist\data\remote_config.json" >nul 2>&1
+if exist "dist\data\device_id.json" del /f /q "dist\data\device_id.json" >nul 2>&1
+if exist "dist\logs\system.log" del /f /q "dist\logs\system.log" >nul 2>&1
 
 echo.
 echo ============================================

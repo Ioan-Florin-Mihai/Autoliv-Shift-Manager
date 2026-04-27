@@ -463,3 +463,21 @@ class TestInternalHelpers:
 
     def test_detect_rotation_only_one_person_returns_none(self):
         assert _detect_rotation_next(["a", "a", "a"]) is None
+
+
+class TestDepartmentPriorityMetadata:
+
+    def test_department_metadata_prioritizes_matching_department_first(self):
+        rec = _week(_P1, _DEPT, _DAY, "Sch2", ["Other Person"])
+        context = _ctx(employee_departments={"Dept Match": _DEPT, "Other Person": "Livrari"})
+        result = get_smart_suggestions(context, ["Other Person", "Dept Match"], _history(rec))
+        assert result[0].name == "Dept Match"
+
+    def test_other_departments_still_remain_in_results(self):
+        context = _ctx(employee_departments={"Dept Match": _DEPT, "Other Person": "Livrari"})
+        result = get_smart_suggestions(
+            context,
+            ["Other Person", "Dept Match"],
+            {"weeks": {_P1: _week(_P1, _DEPT, _DAY, _SHF, ["Other Person"])}},
+        )
+        assert {item.name for item in result} == {"Dept Match", "Other Person"}

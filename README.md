@@ -38,7 +38,7 @@ Logo:
 
 ## Securitate (Highlights)
 
-* Fisiere sensibile sunt pastrate in `data/` si ignorate in git (ex. `data/users.json`, `data/firebase_service_account.json`).
+* Fisiere sensibile sunt pastrate in `data/` si ignorate in git (ex. `data/users.json`).
 * API key poate fi folosit pentru a proteja endpoint-urile TV; daca nu este setat, TV ruleaza neautentificat in retea interna (comportament controlat din config).
 
 ## Testare (Highlights)
@@ -92,4 +92,3 @@ main.py
 tv_server.py
 Autoliv_Shift_Manager_Onefile.spec
 ```
-

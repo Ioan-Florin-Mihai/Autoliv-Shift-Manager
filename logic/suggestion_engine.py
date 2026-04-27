@@ -109,7 +109,8 @@ def get_smart_suggestions(
         day        = str(context.get("day")        or "").strip()
         mode       = str(context.get("mode")       or "").strip()
         cur_week   = str(context.get("week_start") or "").strip()
-    except Exception:
+        employee_departments = context.get("employee_departments") or {}
+    except (AttributeError, TypeError, ValueError):
         return _unchanged(employees)
 
     if not (department and shift and day and mode):
@@ -119,7 +120,7 @@ def get_smart_suggestions(
     try:
         raw_weeks = history.get("weeks", {}) if isinstance(history, dict) else {}
         past_weeks = _sorted_past_weeks(raw_weeks, cur_week)
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return _unchanged(employees)
 
     if not past_weeks:
@@ -225,8 +226,14 @@ def get_smart_suggestions(
         total = dept_score + slot_score + rec_score + rot_score + pair_score + penalty
         results.append(SuggestionResult(name=emp, score=total))
 
-    # Sort DESC by score, then ASC by name for deterministic tiebreak
-    results.sort(key=lambda r: (-r.score, r.name.casefold()))
+    def _department_priority(name: str) -> int:
+        if not isinstance(employee_departments, dict):
+            return 0
+        employee_department = str(employee_departments.get(name) or "").strip()
+        return 1 if employee_department == department else 0
+
+    # Sort same-department employees first, then by score DESC, then alphabetical.
+    results.sort(key=lambda r: (-_department_priority(r.name), -r.score, r.name.casefold()))
 
     # Mark the single top recommendation (only if positively scored)
     if results and results[0].score > 0:
@@ -308,7 +315,7 @@ def _safe_cell_from(dept_sched: dict, day: str, shift: str) -> tuple[list, dict]
         if not isinstance(day_sched, dict):
             return [], {}
         return _safe_cell(day_sched.get(shift))
-    except Exception:
+    except AttributeError:
         return [], {}
 
 

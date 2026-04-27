@@ -5,7 +5,6 @@ import customtkinter as ctk
 
 from logic.app_logger import log_exception
 from logic.auth import get_user_role, verify_login_detailed
-from logic.remote_control import RemoteControlService
 from logic.version import APP_NAME, VERSION
 from ui.common_ui import (
     BG_WHITE,
@@ -132,7 +131,7 @@ class LoginFrame(ctk.CTkFrame):
         password = self.password_var.get()
         try:
             ok, msg = verify_login_detailed(username, password)
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             messagebox.showerror("Eroare configurare", str(exc))
             self.status_var.set("Configurarea login-ului este invalida.")
             return
@@ -159,7 +158,6 @@ class ShiftManagerApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
         self.configure(fg_color=BG_WHITE)
         apply_window_icon(self)
-        self.remote_service = RemoteControlService()
         self.current_frame = None
         self.protocol("WM_DELETE_WINDOW", self.close_app)
         self.show_login()
@@ -175,7 +173,7 @@ class ShiftManagerApp(ctk.CTk):
         if self.current_frame is not None:
             self.current_frame.destroy()
         self.unbind("<Return>")
-        self.current_frame = PlannerDashboard(self, self.remote_service, username=username, user_role=role)
+        self.current_frame = PlannerDashboard(self, username=username, user_role=role)
 
     def close_app(self):
         # Verifica modificari nesalvate in PlannerDashboard
@@ -185,7 +183,7 @@ class ShiftManagerApp(ctk.CTk):
         if self.current_frame is not None:
             try:
                 self.current_frame.destroy()
-            except Exception as exc:
+            except (tk.TclError, RuntimeError) as exc:
                 log_exception("close_app_frame_destroy", exc)
         self.quit()
         self.destroy()

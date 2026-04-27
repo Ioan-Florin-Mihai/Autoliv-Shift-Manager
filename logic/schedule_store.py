@@ -1,4 +1,4 @@
-import json
+﻿import json
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 
@@ -505,7 +505,7 @@ class ScheduleStore:
             self.save()
             # Live write + TV version bump (atomic sequence)
             self._publish_and_notify()
-        except Exception:
+        except (OSError, RuntimeError, ValueError):
             self.data = previous_data
             self.save()
             raise
@@ -640,9 +640,6 @@ class ScheduleStore:
         )
         existing_shifts = {assigned_shift for _dept, assigned_shift, _cell in assignments}
 
-        if shift in existing_shifts:
-            raise ValueError(f"{employee} este deja planificat in {day_name}, {shift}.")
-
         if not assignments:
             return
 
@@ -650,7 +647,11 @@ class ScheduleStore:
         candidate_shifts = existing_shifts | {shift}
 
         if hours_type == "8h":
-            raise ValueError("Angajatul are deja 8h alocat in aceasta zi.")
+            # Regula noua: 8h poate fi alocat pe mai multe functii/zone,
+            # DAR numai in acelasi schimb (nu in doua schimburi diferite).
+            if len(candidate_shifts) > 1:
+                raise ValueError("Angajatul (8h) nu poate fi alocat in doua schimburi in aceeasi zi.")
+            return
 
         if len(candidate_shifts) > 2:
             raise ValueError("Angajatul cu 12h poate avea maximum doua schimburi in aceeasi zi.")

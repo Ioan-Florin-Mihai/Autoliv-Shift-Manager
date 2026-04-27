@@ -156,6 +156,18 @@ class TestValidateAssignment:
         with pytest.raises(ValueError, match="8h"):
             store.validate_assignment(week, mode, dept, day, shift2, "Vasile Dan")
 
+    def test_8h_same_shift_multiple_departments_allowed(self, store):
+        """8h poate fi alocat pe mai multe functii/zone in acelasi schimb."""
+        week = store.get_or_create_week(date(2026, 4, 7))
+        mode = list(TEMPLATES.keys())[0]
+        departments = week["modes"][mode]["departments"]
+        assert len(departments) >= 2
+        dept1, dept2 = departments[0], departments[1]
+        day = DAY_NAMES[0]
+        shift = SHIFTS[0]
+        week["modes"][mode]["schedule"][dept1][day][shift]["employees"].append("Ion Pop")
+        store.validate_assignment(week, mode, dept2, day, shift, "Ion Pop")
+
     def test_12h_consecutive_shifts_allowed(self, store):
         """12h poate avea doua schimburi consecutive in aceeasi zi."""
         week = store.get_or_create_week(date(2026, 4, 7))

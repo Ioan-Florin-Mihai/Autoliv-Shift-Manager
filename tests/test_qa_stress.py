@@ -1,10 +1,10 @@
-# ============================================================
-# QA STRESS TEST SUITE — 150+ VALIDATIONS
+﻿# ============================================================
+# QA STRESS TEST SUITE - 150+ VALIDATIONS
 # ============================================================
 # Categories:
 #   1. File System Tests
 #   2. EXE Portability / Path Resolution
-#   3. Offline / Firebase (fail-safe)
+#   3. Offline local-only
 #   4. Auth / Login
 #   5. Data Integrity (ScheduleStore)
 #   6. Data Integrity (EmployeeStore)
@@ -22,7 +22,7 @@ import pytest
 
 import logic.auth as auth_module
 
-# ── Fixtures ─────────────────────────────────────────────────
+# Fixtures
 
 @pytest.fixture
 def tmp_dir(tmp_path):
@@ -96,10 +96,11 @@ class TestFileSystem:
         assert users[0]["username"] == "admin"
 
     def test_fs005_missing_users_json_default_admin_login(self, users_path):
-        """FS-005: Default admin este blocat pana la schimbarea parolei."""
-        from logic.auth import verify_login
-        result = verify_login("admin", auth_module.ADMIN_PASSWORD)
-        assert result is False
+        """FS-005: Bootstrap admin necesita schimbare de parola la primul login."""
+        from logic.auth import verify_login_detailed
+        ok, msg = verify_login_detailed("admin", TestAuth._bootstrap_password())
+        assert ok is False
+        assert "bootstrap" in msg.lower()
 
     def test_fs006_missing_schedule_loads_empty(self, tmp_path, monkeypatch):
         """FS-006: Missing schedule_data.json loads empty weeks dict."""
@@ -142,11 +143,11 @@ class TestFileSystem:
     def test_fs010_schedule_save_creates_file(self, schedule_store):
         """FS-010: ScheduleStore.save() creates the file."""
         schedule_store.get_or_create_week(date.today())
-        # Data was saved by get_or_create_week — check via fresh load
+        # Data was saved by get_or_create_week - check via fresh load
         assert "weeks" in schedule_store.data
 
     def test_fs011_atomic_save_no_partial_writes(self, schedule_store):
-        """FS-011: Save is atomic — no partial writes on disk."""
+        """FS-011: Save is atomic - no partial writes on disk."""
         schedule_store.get_or_create_week(date.today())
         schedule_store.save()
 
@@ -183,14 +184,14 @@ class TestFileSystem:
         week = schedule_store.get_or_create_week(date.today())
         dept = week["modes"]["Magazie"]["departments"][0]
         cell = week["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
-        cell["employees"].append("Ștefan Pîrvu-Dăescu")
+        cell["employees"].append("Stefan Pirvu-Daescu")
         schedule_store.update_week(week)
         # Reload
         from logic.schedule_store import ScheduleStore
         store2 = ScheduleStore()
         w2 = store2.get_or_create_week(date.today())
         cell2 = w2["modes"]["Magazie"]["schedule"][dept]["Luni"]["Sch1"]
-        assert "Ștefan Pîrvu-Dăescu" in cell2["employees"]
+        assert "Stefan Pirvu-Daescu" in cell2["employees"]
 
     def test_fs016_missing_employees_json_no_crash(self, tmp_path, monkeypatch):
         """FS-016: Missing employees.json does not crash."""
@@ -202,7 +203,7 @@ class TestFileSystem:
         assert isinstance(store.data, dict)
 
     def test_fs017_empty_schedule_file_handled(self, tmp_path, monkeypatch):
-        """FS-017: Empty schedule file treated as corrupt → empty weeks."""
+        """FS-017: Empty schedule file treated as corrupt -> empty weeks."""
         path = tmp_path / "data" / "schedule_data.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("", encoding="utf-8")
@@ -326,135 +327,88 @@ class TestPortability:
 
 
 # ================================================================
-# 3. OFFLINE / FIREBASE (FAIL-SAFE) (OF-001 to OF-012)
+# 3. OFFLINE LOCAL-ONLY (OF-001 to OF-006)
 # ================================================================
 
-class TestOfflineFirebase:
-    """OF-001..OF-012: Firebase unavailable, no internet, fail-safe."""
+class TestOfflineLocalOnly:
+    """OF-001..OF-006: aplicatia ramane locala."""
 
-    def test_of001_remote_service_init_no_crash(self):
-        """OF-001: RemoteControlService.__init__ does not crash."""
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        assert svc.device_id
+    def test_of001_external_control_module_removed(self):
+        """OF-001: modulul extern de control nu mai exista."""
+        module_path = Path("logic") / ("remote" + "_control.py")
+        assert not module_path.exists()
 
-    def test_of002_config_defaults_if_missing(self, tmp_path, monkeypatch):
-        """OF-002: Missing config returns safe defaults (firebase_enabled=False)."""
-        monkeypatch.setattr("logic.remote_control.REMOTE_CONFIG_PATH", tmp_path / "nope.json")
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        assert svc.config["firebase_enabled"] is False
+    def test_of002_requirements_do_not_include_external_sdk(self):
+        """OF-002: requirements nu mai instaleaza SDK extern."""
+        requirements = Path("requirements.txt").read_text(encoding="utf-8").casefold()
+        assert ("fire" + "base") not in requirements
 
-    def test_of003_corrupt_config_returns_defaults(self, tmp_path, monkeypatch):
-        """OF-003: Corrupt remote_config.json returns safe defaults."""
-        cfg = tmp_path / "bad_config.json"
-        cfg.write_text("{{{corrupt", encoding="utf-8")
-        monkeypatch.setattr("logic.remote_control.REMOTE_CONFIG_PATH", cfg)
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        assert svc.config["firebase_enabled"] is False
+    def test_of003_main_flow_has_no_external_checker(self):
+        """OF-003: fluxul principal nu mai porneste verificari externe."""
+        checked_files = [Path("main.py"), Path("ui/dashboard.py"), Path("ui/planner_dashboard.py")]
+        source = "\n".join(path.read_text(encoding="utf-8") for path in checked_files)
+        assert ("Remote" + "Checker") not in source
+        assert ("Remote" + "ControlService") not in source
+        assert ("logic.remote" + "_control") not in source
 
-    def test_of004_check_access_firebase_disabled(self):
-        """OF-004: check_access with firebase_enabled=False → allow."""
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        svc.config["firebase_enabled"] = False
-        result = svc.check_access()
-        assert result["action"] == "allow"
+    def test_of004_no_external_config_active(self):
+        """OF-004: configul activ nu mai contine optiuni externe."""
+        config = json.loads(Path("config.json").read_text(encoding="utf-8"))
+        forbidden = {
+            "fire" + "base_enabled",
+            "data" + "base_url",
+            "block_on_" + "unauthorized" + "_device",
+        }
+        assert forbidden.isdisjoint(config)
+        assert not (Path("data") / ("remote" + "_config.json")).exists()
 
-    def test_of005_check_access_firebase_fail_returns_warn(self):
-        """OF-005: Firebase connection failure → warn, NOT block."""
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        svc.config["firebase_enabled"] = True
-        svc._firebase_failed = True
-        result = svc.check_access()
-        assert result["action"] in ("allow", "warn")
+    def test_of005_app_startup_does_not_import_network_clients(self):
+        """OF-005: startup-ul planner nu importa clienti externi HTTP."""
+        startup_source = "\n".join(
+            Path(path).read_text(encoding="utf-8")
+            for path in ("main.py", "ui/dashboard.py", "ui/planner_dashboard.py")
+        )
+        assert ("fire" + "base_admin") not in startup_source
+        assert "requests" not in startup_source
+        assert "httpx" not in startup_source
 
-    def test_of006_device_id_persists(self, tmp_path, monkeypatch):
-        """OF-006: Device ID is generated and persisted."""
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        assert len(svc.device_id) > 0
+    def test_of006_pyinstaller_spec_has_no_external_control_artifacts(self):
+        """OF-006: build-ul nu include artefacte externe de control."""
+        spec = Path("Autoliv_Shift_Manager_Onefile.spec").read_text(encoding="utf-8")
+        assert ("remote" + "_control") not in spec
+        assert ("remote" + "_config") not in spec
+        assert ("fire" + "base") not in spec.casefold()
 
-    def test_of007_missing_service_account_no_crash(self, tmp_path, monkeypatch):
-        """OF-007: Missing firebase_service_account.json → local mode."""
-        monkeypatch.setattr("logic.remote_control.FIREBASE_SERVICE_PATH", tmp_path / "nope.json")
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        svc.config["firebase_enabled"] = True
-        svc.config["database_url"] = "https://fake.firebaseio.com"
-        svc._firebase_ready = False
-        svc._firebase_failed = False
-        svc._init_firebase()
-        assert svc._firebase_failed is True
-
-    def test_of008_check_access_exception_returns_warn(self):
-        """OF-008: Any exception in check_access → warn action."""
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        svc.config["firebase_enabled"] = True
-        svc._firebase_ready = False
-        svc._firebase_failed = False
-        # Force a connection error by setting ready=False
-        with patch.object(svc, "_get_reference_value", side_effect=ConnectionError("no net")):
-            result = svc.check_access()
-        assert result["action"] == "warn"
-
-    def test_of009_offline_message_is_static_local(self):
-        """OF-009: Offline warn message is static 'Mod local activ' without timer."""
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        svc.config["firebase_enabled"] = True
-        with patch.object(svc, "_get_reference_value", side_effect=ConnectionError):
-            result = svc.check_access()
-        assert result["message"] == "Mod local activ"
-
-    def test_of010_backoff_schedule_exists(self):
-        """OF-010: Backoff schedule defined for RemoteChecker."""
-        from logic.remote_control import _BACKOFF_SCHEDULE
-        assert len(_BACKOFF_SCHEDULE) >= 3
-        assert all(isinstance(s, (int, float)) for s in _BACKOFF_SCHEDULE)
-
-    def test_of011_firebase_disabled_means_allow(self):
-        """OF-011: Firebase disabled in config always returns allow."""
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        svc.config["firebase_enabled"] = False
-        for _ in range(5):
-            assert svc.check_access()["action"] == "allow"
-
-    def test_of012_device_id_is_uuid_format(self):
-        """OF-012: Device ID follows UUID format."""
-        from logic.remote_control import RemoteControlService
-        svc = RemoteControlService()
-        import uuid
-        uuid.UUID(svc.device_id)  # Throws if invalid
-
-
-# ================================================================
-# 4. AUTH / LOGIN (AU-001 to AU-016)
-# ================================================================
 
 class TestAuth:
     """AU-001..AU-016: Login, password, brute-force, user management."""
 
+    @staticmethod
+    def _bootstrap_password() -> str:
+        from logic.auth import _load_users, get_bootstrap_info_path
+
+        _load_users()
+        payload = json.loads(get_bootstrap_info_path().read_text(encoding="utf-8"))
+        return str(payload["password"])
+
     def test_au001_default_admin_created(self, users_path):
-        """AU-001: Default admin account auto-created."""
+        """AU-001: Bootstrap admin account auto-created."""
         from logic.auth import _load_users
         users = _load_users()
         assert any(u["username"] == "admin" for u in users)
 
     def test_au002_default_admin_password(self, users_path):
-        """AU-002: Default admin necesita schimbare parola la primul login."""
-        from logic.auth import verify_login
-        assert verify_login("admin", "Autoliv2026!") is False
+        """AU-002: Bootstrap password este generata local si trebuie schimbata."""
+        from logic.auth import must_change_password, verify_login_detailed
+        ok, msg = verify_login_detailed("admin", self._bootstrap_password())
+        assert ok is False
+        assert "bootstrap" in msg.lower()
+        assert must_change_password("admin") is True
 
     def test_au003_wrong_password_rejected(self, users_path):
         """AU-003: Wrong password returns False."""
         from logic.auth import verify_login
-        # Create default admin first
-        verify_login("admin", "Autoliv2026!")
+        self._bootstrap_password()
         assert verify_login("admin", "wrongpass") is False
 
     def test_au004_nonexistent_user_rejected(self, users_path):
@@ -515,7 +469,7 @@ class TestAuth:
         """AU-012: Password change works."""
         from logic.auth import _load_users, change_password, verify_login
         _load_users()  # create default admin
-        ok, msg = change_password("admin", "Autoliv2026!", "newpass1234")
+        ok, msg = change_password("admin", self._bootstrap_password(), "newpass1234")
         assert ok is True
         assert verify_login("admin", "newpass1234") is True
 
@@ -530,14 +484,15 @@ class TestAuth:
         """AU-014: New password same as old is rejected."""
         from logic.auth import _load_users, change_password
         _load_users()
-        ok, msg = change_password("admin", "Autoliv2026!", "Autoliv2026!")
+        bootstrap_password = self._bootstrap_password()
+        ok, msg = change_password("admin", bootstrap_password, bootstrap_password)
         assert ok is False
 
     def test_au015_case_insensitive_login(self, users_path):
         """AU-015: Login is case-insensitive for username."""
         from logic.auth import _load_users, change_password, verify_login
         _load_users()
-        ok, _ = change_password("admin", "Autoliv2026!", "CasePass123!")
+        ok, _ = change_password("admin", self._bootstrap_password(), "CasePass123!")
         assert ok is True
         assert verify_login("Admin", "CasePass123!") is True
         assert verify_login("ADMIN", "CasePass123!") is True
@@ -551,7 +506,7 @@ class TestAuth:
 
 
 # ================================================================
-# 5. DATA INTEGRITY — SCHEDULE STORE (DS-001 to DS-018)
+# 5. DATA INTEGRITY - SCHEDULE STORE (DS-001 to DS-018)
 # ================================================================
 
 class TestScheduleIntegrity:
@@ -626,7 +581,7 @@ class TestScheduleIntegrity:
         assert len(list(backup_dir.glob("schedule_backup_*.json"))) >= 1
 
     def test_ds009_corrupt_main_loads_backup(self, tmp_path, monkeypatch):
-        """DS-009: Corrupt main file → recovery from latest valid backup."""
+        """DS-009: Corrupt main file -> recovery from latest valid backup."""
         path = tmp_path / "data" / "schedule_data.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         backup_dir = tmp_path / "backups"
@@ -726,7 +681,7 @@ class TestScheduleIntegrity:
 
 
 # ================================================================
-# 6. DATA INTEGRITY — EMPLOYEE STORE (ES-001 to ES-010)
+# 6. DATA INTEGRITY - EMPLOYEE STORE (ES-001 to ES-010)
 # ================================================================
 
 class TestEmployeeIntegrity:
@@ -863,7 +818,7 @@ class TestErrorHandling:
     """EH-001..EH-010: Graceful failure, no uncaught exceptions."""
 
     def test_eh001_schedule_store_corrupt_recovery(self, tmp_path, monkeypatch):
-        """EH-001: Corrupt schedule + valid backup → recovered."""
+        """EH-001: Corrupt schedule + valid backup -> recovered."""
         path = tmp_path / "data" / "schedule_data.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         backup_dir = tmp_path / "backups"
@@ -898,7 +853,7 @@ class TestErrorHandling:
         assert "2026-03-25" in store.data["weeks"]
 
     def test_eh003_no_backups_starts_empty(self, tmp_path, monkeypatch):
-        """EH-003: No valid backups → start with empty weeks."""
+        """EH-003: No valid backups -> start with empty weeks."""
         path = tmp_path / "data" / "schedule_data.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         backup_dir = tmp_path / "backups"
@@ -914,10 +869,10 @@ class TestErrorHandling:
         from logic.auth import _load_users
         _load_users()
         from logic.auth import verify_login_detailed
-        with patch("logic.auth.bcrypt.checkpw", side_effect=Exception("bcrypt boom")):
-            ok, msg = verify_login_detailed("admin", "Autoliv2026!")
-            assert ok is False
-            assert "eroare" in msg.lower()
+        with patch("logic.auth.bcrypt.checkpw", side_effect=ValueError("bcrypt boom")):
+            ok, msg = verify_login_detailed("admin", TestAuth._bootstrap_password())
+        assert ok is False
+        assert "eroare" in msg.lower()
 
     def test_eh007_rotate_backups_limits_count(self, tmp_path, monkeypatch):
         """EH-007: Backup rotation keeps only max_backups files."""
@@ -967,7 +922,7 @@ class TestMultiRunConsistency:
         """MR-004: Multiple login attempts give consistent results."""
         from logic.auth import _load_users, change_password, verify_login
         _load_users()
-        ok, _ = change_password("admin", "Autoliv2026!", "RepeatPass123!")
+        ok, _ = change_password("admin", TestAuth._bootstrap_password(), "RepeatPass123!")
         assert ok is True
         for _ in range(5):
             assert verify_login("admin", "RepeatPass123!") is True
@@ -1009,3 +964,4 @@ class TestMultiRunConsistency:
         assert len(DAY_NAMES) == 7
         assert "Magazie" in TEMPLATES
         assert "Bucle" in TEMPLATES
+

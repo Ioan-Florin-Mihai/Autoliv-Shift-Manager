@@ -5,3 +5,4 @@ ruff==0.15.5
 black==26.3.0
 isort==5.13.2
 pyinstaller==6.16.0
+pypdf==6.9.2
