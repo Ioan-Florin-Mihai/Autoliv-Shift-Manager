@@ -269,14 +269,62 @@ class RightPanelMixin:
                     command=lambda e=employee, h=label: self._set_employee_hours(e, h),
                 ).pack(side="left", padx=2)
 
+    def _department_suggestion_names(self, candidates: list[str]) -> list[str]:
+        selected_department = str(self.selected_department or "").strip()
+        if not selected_department:
+            return candidates
+
+        candidate_by_key = {name.casefold(): name for name in candidates if isinstance(name, str)}
+        allowed_keys: set[str] = set()
+
+        try:
+            for name, department in self.employee_store.get_department_map().items():
+                if str(department or "").strip() == selected_department:
+                    key = str(name).casefold()
+                    if key in candidate_by_key:
+                        allowed_keys.add(key)
+        except (OSError, ValueError, RuntimeError, AttributeError):
+            pass
+
+        try:
+            weeks = self.store.data.get("weeks", {}) if isinstance(self.store.data, dict) else {}
+            for week_record in weeks.values():
+                if not isinstance(week_record, dict):
+                    continue
+                mode_record = (week_record.get("modes", {}) or {}).get(self.current_mode, {})
+                department_schedule = (mode_record.get("schedule", {}) or {}).get(selected_department, {})
+                if not isinstance(department_schedule, dict):
+                    continue
+                for day_schedule in department_schedule.values():
+                    if not isinstance(day_schedule, dict):
+                        continue
+                    for cell in day_schedule.values():
+                        employees = cell.get("employees", []) if isinstance(cell, dict) else []
+                        if not isinstance(employees, list):
+                            continue
+                        for employee in employees:
+                            if not isinstance(employee, str):
+                                continue
+                            key = employee.casefold()
+                            if key in candidate_by_key:
+                                allowed_keys.add(key)
+        except (OSError, ValueError, RuntimeError, AttributeError):
+            pass
+
+        return [name for name in candidates if name.casefold() in allowed_keys]
+
     def refresh_suggestions(self):
         for widget in self.suggestion_frame.winfo_children():
             widget.destroy()
-        suggestions = self.employee_store.search(self.employee_search_var.get())
+        search_text = self.employee_search_var.get().strip()
+        suggestions = self.employee_store.search(search_text)
+        department_suggestions = self._department_suggestion_names(suggestions)
+        if department_suggestions or not search_text:
+            suggestions = department_suggestions
         if not suggestions:
             ctk.CTkLabel(
                 self.suggestion_frame,
-                text="Nicio sugestie.",
+                text=f"Nicio sugestie pentru {self.selected_department}.",
                 text_color=MUTED_TEXT,
                 font=ctk.CTkFont(size=BODY_FONT_SIZE),
             ).pack(anchor="w", padx=8, pady=8)

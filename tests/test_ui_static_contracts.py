@@ -55,3 +55,18 @@ def test_unplanned_warning_is_non_blocking_right_panel_contract():
     assert "self.unplanned_section.grid_remove()" in right_panel
     assert "messagebox" not in right_panel
     assert "self.render_unplanned_warning()" in dashboard
+
+
+def test_new_employee_registration_does_not_auto_assign_to_selected_cell():
+    source = _source("ui/planner_dashboard.py")
+    start = source.index("    def add_new_employee")
+    end = source.index("    def add_employee_from_search", start)
+    method_source = source[start:end]
+    assert "self.add_employee_to_selected_cell(employee)" not in method_source
+    assert "initial_department=self.selected_department" in method_source
+
+
+def test_suggestions_are_filtered_by_selected_department():
+    source = _source("ui/components/right_panel.py")
+    assert "def _department_suggestion_names" in source
+    assert "department_suggestions = self._department_suggestion_names(suggestions)" in source

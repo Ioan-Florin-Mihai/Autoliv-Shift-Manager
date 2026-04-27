@@ -663,14 +663,22 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
         from ui.employee_form import EmployeeRegistrationWindow
         def on_employee_added(full_name):
             try:
-                employee = self.employee_store.add_employee(full_name)
+                self.employee_store = EmployeeStore()
+                employee = full_name.strip()
+                if not employee:
+                    raise ValueError("Numele angajatului este obligatoriu.")
                 self.employee_search_var.set(employee)
                 self.refresh_suggestions()
-                self.add_employee_to_selected_cell(employee)
+                self.render_unplanned_warning()
+                self.show_inline_message(f"{employee} salvat in lista de angajati.")
             except ValueError as exc:
                 messagebox.showerror("Date invalide", str(exc))
 
-        EmployeeRegistrationWindow(self.winfo_toplevel(), on_employee_added=on_employee_added)
+        EmployeeRegistrationWindow(
+            self.winfo_toplevel(),
+            on_employee_added=on_employee_added,
+            initial_department=self.selected_department,
+        )
 
     def add_employee_from_search(self):
         value = self.employee_search_var.get().strip()

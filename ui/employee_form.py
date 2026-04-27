@@ -21,7 +21,7 @@ _DEPT_LIST = list(TEMPLATES["Magazie"]) + list(TEMPLATES["Bucle"])
 
 
 class EmployeeRegistrationWindow(ctk.CTkToplevel):
-    def __init__(self, master, on_employee_added=None):
+    def __init__(self, master, on_employee_added=None, initial_department: str | None = None):
         super().__init__(master)
         self.title("Gestionare Personal (Angajat Nou)")
         self.geometry("680x760")
@@ -32,6 +32,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
 
         self.on_employee_added = on_employee_added
         self.employee_store = EmployeeStore()
+        self.initial_department = initial_department if initial_department in _DEPT_LIST else _DEPT_LIST[0]
 
         self._build_ui()
         self.auto_load_list()
@@ -66,7 +67,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
         self.prenume_entry.grid(row=3, column=1, sticky="w", padx=10, pady=8)
 
         ctk.CTkLabel(form_frame, text="Departament:", text_color=MUTED_TEXT, font=ctk.CTkFont(size=14, weight="bold")).grid(row=4, column=0, sticky="w", padx=20, pady=8)
-        self.departament_var = ctk.StringVar(value=_DEPT_LIST[0])
+        self.departament_var = ctk.StringVar(value=self.initial_department)
         self.departament_cb = ctk.CTkComboBox(
             form_frame,
             variable=self.departament_var,
@@ -77,7 +78,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
             text_color=BODY_TEXT,
             state="readonly",
         )
-        self.departament_cb.set(_DEPT_LIST[0])
+        self.departament_cb.set(self.initial_department)
         self.departament_cb.grid(row=4, column=1, sticky="w", padx=10, pady=8)
 
         self.btn_salveaza = ctk.CTkButton(
@@ -136,7 +137,7 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
     def reset_form(self):
         self.nume_var.set("")
         self.prenume_var.set("")
-        self.departament_var.set(_DEPT_LIST[0])
+        self.departament_var.set(self.initial_department)
         self.data_label_var.set(datetime.now().strftime("%Y-%m-%d"))
 
     def auto_load_list(self):
