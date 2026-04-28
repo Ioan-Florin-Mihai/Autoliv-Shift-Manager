@@ -228,20 +228,20 @@ class RightPanelMixin:
             name_label.grid(row=0, column=1, sticky="ew")
             self._attach_tooltip_if_truncated(name_label, employee, shown_name)
 
-            actions = ctk.CTkFrame(top_row, fg_color="transparent")
-            actions.grid(row=0, column=2, sticky="e", padx=(8, 0))
+            actions = ctk.CTkFrame(card, fg_color="transparent")
+            actions.pack(fill="x", padx=8, pady=(2, 1))
             is_locked = self.store.is_week_locked(self.week_record)
-            up_btn = self._create_utility_button(actions, "Sus", lambda e=employee: self.reorder_employee(e, -1), width=36, height=24, font=ctk.CTkFont(size=META_FONT_SIZE))
-            down_btn = self._create_utility_button(actions, "Jos", lambda e=employee: self.reorder_employee(e, 1), width=36, height=24, font=ctk.CTkFont(size=META_FONT_SIZE))
-            move_btn = self._create_utility_button(actions, "Mut", lambda e=employee: self.move_employee_to_shift(e), width=36, height=24, font=ctk.CTkFont(size=META_FONT_SIZE))
-            remove_btn = ctk.CTkButton(actions, text="x", width=26, height=24, fg_color=DANGER_RED, hover_color=DANGER_RED_HOVER, text_color="white", font=ctk.CTkFont(size=META_FONT_SIZE), command=lambda e=employee: self.remove_employee(e))
+            up_btn = self._create_utility_button(actions, "Sus", lambda e=employee: self.reorder_employee(e, -1), width=40, height=24, font=ctk.CTkFont(size=META_FONT_SIZE))
+            down_btn = self._create_utility_button(actions, "Jos", lambda e=employee: self.reorder_employee(e, 1), width=40, height=24, font=ctk.CTkFont(size=META_FONT_SIZE))
+            move_btn = self._create_utility_button(actions, "Mut", lambda e=employee: self.move_employee_to_shift(e), width=40, height=24, font=ctk.CTkFont(size=META_FONT_SIZE))
+            remove_btn = ctk.CTkButton(actions, text="x", width=30, height=24, fg_color=DANGER_RED, hover_color=DANGER_RED_HOVER, text_color="white", font=ctk.CTkFont(size=META_FONT_SIZE), command=lambda e=employee: self.remove_employee(e))
             if is_locked:
                 for btn in (up_btn, down_btn, move_btn, remove_btn):
                     btn.configure(state="disabled")
+            remove_btn.pack(side="right", padx=(4, 0))
             up_btn.pack(side="left", padx=(0, 3))
             down_btn.pack(side="left", padx=3)
             move_btn.pack(side="left", padx=3)
-            remove_btn.pack(side="left", padx=(3, 0))
 
             palette_row = ctk.CTkFrame(card, fg_color="transparent")
             palette_row.pack(fill="x", padx=8, pady=(1, 5))
