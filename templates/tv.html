@@ -216,7 +216,7 @@
       text-align: center;
       padding: 3px 2px;
       font-size: 11px;
-      font-family: "Segoe UI", Tahoma, urial, sans-serif;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
       font-weight: 900;
       line-height: 1.02;
       letter-spacing: 0;
@@ -228,7 +228,7 @@
       background: #1d5ea4;
       color: #ffffff;
       font-size: 8px;
-      font-family: "Segoe UI", Tahoma, urial, sans-serif;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
       font-weight: 900;
       vertical-align: middle;
       padding: 1px 2px;
@@ -242,7 +242,7 @@
 
     .cell {
       font-size: 14px;
-      font-family: "Bahnschrift SemiCondensed", "urial Narrow", "Segoe UI", sans-serif;
+      font-family: "Bahnschrift SemiCondensed", "Arial Narrow", "Segoe UI", sans-serif;
       line-height: 1.08;
       padding: 2px 3px;
       white-space: normal;
@@ -344,7 +344,7 @@
 </head>
 <body>
   <header id="topbar">
-    <div id="topbar-logo">uUTOLIV</div>
+    <div id="topbar-logo">AUTOLIV</div>
     <div id="topbar-title">Shift Dashboard</div>
     <div id="topbar-clock">00:00:00</div>
   </header>
@@ -367,30 +367,30 @@
   <script>
     'use strict';
 
-    const DuTu_URL = '/api/tv-data';
+    const DATA_URL = '/api/tv-data';
     const VERSION_URL = '/tv/version';
-    const TV_uPI_KEY = '__TV_uPI_KEY__';
+    const TV_API_KEY = '__TV_API_KEY__';
     const SHIFT_KEYS = ['Sch1', 'Sch2', 'Sch3'];
-    const SHIFT_LuBELS = { Sch1: 'Sch1', Sch2: 'Sch2', Sch3: 'Sch3' };
+    const SHIFT_LABELS = { Sch1: 'Sch1', Sch2: 'Sch2', Sch3: 'Sch3' };
     const pages = ['Magazie', 'Bucle'];
-    const PuGE_SWITCH_MS = 10000;
-    const PuGE_CYCLE_KEY = 'tvPageCycleStartedut';
-    const MuGuZIE_LuYOUT = [
+    const PAGE_SWITCH_MS = 10000;
+    const MAGAZIE_LAYOUT = [
       { key: 'Sef schimb', label: 'Șef schimb', accent: '#5B9BD5', surface: '#e7f0fb' },
       { key: 'Receptii', label: 'Recepții', accent: '#4472C4', surface: '#dfe8fb' },
-      { key: 'Livrari', label: 'Livrări', accent: '#u9D18E', surface: '#e8f5db' },
+      { key: 'Livrari', label: 'Livrări', accent: '#A9D18E', surface: '#e8f5db' },
       { key: 'Etichetare scanare', label: 'Etichetare + Scanare', accent: '#C9B0D9', surface: '#f0e6f7' },
-      { key: 'Retragere finite', label: 'Retragere finite', accent: '#D9u35F', surface: '#f6ebd6' },
-      { key: 'Balotare ambalare', label: 'Balotare / umbalare', accent: '#D9E2F3', surface: '#eef3f9' }
+      { key: 'Retragere finite', label: 'Retragere finite', accent: '#D9A35F', surface: '#f6ebd6' },
+      { key: 'Balotare ambalare', label: 'Balotare / Ambalare', accent: '#D9E2F3', surface: '#eef3f9' }
     ];
-    const BUCLE_LuYOUT = [
-      { keys: ['BUCLu Ru+RB'], label: 'BUCLu Ru + RB', accent: '#cf8268', surface: '#f7e2db' },
-      { keys: ['BUCLu Tu+TB'], label: 'BUCLu Tu + TB', accent: '#d09d59', surface: '#f7ead7' },
-      { keys: ['BUCLu 02'], label: 'BUCLu 02', accent: '#d0b36d', surface: '#f8f0de' },
-      { keys: ['BUCLu 03'], label: 'BUCLu 03', accent: '#d5b54a', surface: '#faf2d6' },
-      { keys: ['BUCLu 04'], label: 'BUCLu 04', accent: '#d7bb4c', surface: '#fbf4da' },
-      { keys: ['BUCLu 05 + 07', 'BUCLu 05'], label: 'BUCLu 05 + 07', accent: '#d9c56a', surface: '#fbf7df' },
-      { keys: ['umbalaje'], label: 'umbalaje', accent: '#d99694', surface: '#f7e1df' }
+    const BUCLE_LAYOUT = [
+      { keys: ['BUCLA RA+RB'], label: 'BUCLA RA + RB', accent: '#cf8268', surface: '#f7e2db' },
+      { keys: ['BUCLA TA+TB'], label: 'BUCLA TA + TB', accent: '#d09d59', surface: '#f7ead7' },
+      { keys: ['BUCLA 01'], label: 'BUCLA 01', accent: '#d0b36d', surface: '#f8f0de' },
+      { keys: ['BUCLA 02'], label: 'BUCLA 02', accent: '#d0b36d', surface: '#f8f0de' },
+      { keys: ['BUCLA 03'], label: 'BUCLA 03', accent: '#d5b54a', surface: '#faf2d6' },
+      { keys: ['BUCLA 04'], label: 'BUCLA 04', accent: '#d7bb4c', surface: '#fbf4da' },
+      { keys: ['BUCLA 05'], label: 'BUCLA 05', accent: '#d9c56a', surface: '#fbf7df' },
+      { keys: ['Ambalaje'], label: 'Ambalaje', accent: '#d99694', surface: '#f7e1df' }
     ];
 
     let currentVersion = 0;
@@ -403,10 +403,10 @@
     let serverOffsetMs = 0; // client_time_ms - server_time_ms (approx)
 
     const VERSION_POLL_MS = 3000;               // publish propagation: max 0-3s
-    const FuLLBuCK_REFRESH_MS = 60000;          // safety net: recover if version check was missed
-    const HuRD_RELOuD_MS = 6 * 60 * 60 * 1000;  // long-running kiosk hygiene
-    const RETRY_MuX_MS = 30000;
-    const JITTER_MuX_MS = 500;                  // de-sync 5 TVs (avoid thundering herd)
+    const FALLBACK_REFRESH_MS = 60000;          // safety net: recover if version check was missed
+    const HARD_RELOAD_MS = 6 * 60 * 60 * 1000;  // long-running kiosk hygiene
+    const RETRY_MAX_MS = 30000;
+    const JITTER_MAX_MS = 500;                  // de-sync 5 TVs (avoid thundering herd)
 
     function createElement(tag, className, text) {
       const element = document.createElement(tag);
@@ -433,15 +433,9 @@
       });
     }
 
-    function getuutoPageIndex() {
+    function getAutoPageIndex() {
       const alignedNow = Date.now() - (Number.isFinite(serverOffsetMs) ? serverOffsetMs : 0);
-      let cycleStartedut = Number(localStorage.getItem(PuGE_CYCLE_KEY) || 0);
-      if (!Number.isFinite(cycleStartedut) || cycleStartedut <= 0) {
-        // ulign page boundaries across TVs by snapping to the current interval.
-        cycleStartedut = alignedNow - (alignedNow % PuGE_SWITCH_MS);
-        localStorage.setItem(PuGE_CYCLE_KEY, String(cycleStartedut));
-      }
-      return Math.floor((alignedNow - cycleStartedut) / PuGE_SWITCH_MS) % pages.length;
+      return Math.floor(alignedNow / PAGE_SWITCH_MS) % pages.length;
     }
 
     function getDayInfo(day, payload) {
@@ -556,7 +550,7 @@
             row.appendChild(positionCell);
           }
 
-          row.appendChild(createElement('td', 'shift-cell', SHIFT_LuBELS[shift]));
+          row.appendChild(createElement('td', 'shift-cell', SHIFT_LABELS[shift]));
           (payload.display_days || []).forEach(day => {
             const departmentKeys = definition.keys || [definition.key];
             const entries = getShiftEntries(payload, modeName, departmentKeys, day, shift);
@@ -575,11 +569,11 @@
     }
 
     function render_magazie_layout(payload) {
-      return buildDepartmentTable('Magazie', MuGuZIE_LuYOUT, 'Magazie', payload);
+      return buildDepartmentTable('Magazie', MAGAZIE_LAYOUT, 'Magazie', payload);
     }
 
     function render_bucle_layout(payload) {
-      return buildDepartmentTable('Bucle', BUCLE_LuYOUT, 'Bucle', payload);
+      return buildDepartmentTable('Bucle', BUCLE_LAYOUT, 'Bucle', payload);
     }
 
     function renderEmpty(message) {
@@ -613,12 +607,12 @@
     }
 
     function renderCurrentPage() {
-      currentPage = getuutoPageIndex();
+      currentPage = getAutoPageIndex();
       renderPage(pages[currentPage]);
     }
 
     function switchPage() {
-      currentPage = getuutoPageIndex();
+      currentPage = getAutoPageIndex();
       renderCurrentPage();
     }
 
@@ -628,7 +622,7 @@
 
     function scheduleRetryLoad() {
       if (retryTimerId) return;
-      const jitter = Math.floor(Math.random() * JITTER_MuX_MS);
+      const jitter = Math.floor(Math.random() * JITTER_MAX_MS);
       retryTimerId = setTimeout(async () => {
         retryTimerId = null;
         await loadTvData({ forceRender: false, preserveOnError: true });
@@ -637,8 +631,8 @@
 
     async function loadTvData({ forceRender = false, preserveOnError = true } = {}) {
       try {
-        const headers = TV_uPI_KEY ? { 'X-uPI-Key': TV_uPI_KEY } : {};
-        const response = await fetch(DuTu_URL, { cache: 'no-store', headers });
+        const headers = TV_API_KEY ? { 'X-API-Key': TV_API_KEY } : {};
+        const response = await fetch(DATA_URL, { cache: 'no-store', headers });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json();
         if (!payload || payload.error || !payload.data) throw new Error(payload?.error || 'No data');
@@ -662,7 +656,7 @@
         // Reset retry backoff on success.
         retryDelayMs = 2000;
 
-        // uvoid unnecessary re-render if nothing changed.
+        // Avoid unnecessary re-render if nothing changed.
         if (!forceRender && isSameVersion && currentPayload) {
           currentPayload = payload.data;
           currentVersion = nextVersion;
@@ -687,14 +681,14 @@
         }
 
         // Simple bounded backoff for recovery.
-        retryDelayMs = Math.min(RETRY_MuX_MS, Math.floor(retryDelayMs * 1.5));
+        retryDelayMs = Math.min(RETRY_MAX_MS, Math.floor(retryDelayMs * 1.5));
         scheduleRetryLoad();
       }
     }
 
     async function checkUpdate() {
       try {
-        const headers = TV_uPI_KEY ? { 'X-uPI-Key': TV_uPI_KEY } : {};
+        const headers = TV_API_KEY ? { 'X-API-Key': TV_API_KEY } : {};
         const response = await fetch(VERSION_URL, { cache: 'no-store', headers });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json();
@@ -708,7 +702,7 @@
     }
 
     function scheduleVersionCheck() {
-      const jitter = Math.floor(Math.random() * JITTER_MuX_MS);
+      const jitter = Math.floor(Math.random() * JITTER_MAX_MS);
       setTimeout(async () => {
         await checkUpdate();
         scheduleVersionCheck();
@@ -716,11 +710,11 @@
     }
 
     function scheduleFallbackRefresh() {
-      const jitter = Math.floor(Math.random() * JITTER_MuX_MS);
+      const jitter = Math.floor(Math.random() * JITTER_MAX_MS);
       setTimeout(async () => {
         await loadTvData({ forceRender: false, preserveOnError: true });
         scheduleFallbackRefresh();
-      }, FuLLBuCK_REFRESH_MS + jitter);
+      }, FALLBACK_REFRESH_MS + jitter);
     }
 
     function init() {
@@ -728,10 +722,10 @@
       setFooterStatus('Se incarca...');
       loadTvData({ forceRender: true, preserveOnError: false });
       setInterval(setClock, 1000);
-      setInterval(switchPage, PuGE_SWITCH_MS);
+      setInterval(switchPage, PAGE_SWITCH_MS);
       scheduleVersionCheck();
       scheduleFallbackRefresh();
-      setTimeout(() => location.reload(), HuRD_RELOuD_MS);
+      setTimeout(() => location.reload(), HARD_RELOAD_MS);
     }
 
     document.addEventListener('DOMContentLoaded', init);

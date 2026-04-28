@@ -79,3 +79,22 @@ def test_personnel_button_uses_management_wording():
     assert "Gestionare Personal" in right_panel
     assert "Gestionare Incadrare" in form
     assert "Salveaza Incadrare" in form
+
+
+def test_tv_template_uses_server_api_contract_and_valid_department_keys():
+    source = _source("templates/tv.html")
+    assert "__TV_API_KEY__" in source
+    assert "X-API-Key" in source
+    assert "DATA_URL" in source
+    assert "BUCLA 05" in source
+    assert "BUCLA TA+TB" in source
+    assert "BUCLA RA+RB" in source
+    assert "PAGE_SWITCH_MS" in source
+    assert "__TV_uPI_KEY__" not in source
+    assert "X-uPI-Key" not in source
+    assert "BUCLu" not in source
+
+
+def test_pyinstaller_bundle_includes_tv_template():
+    source = _source("Autoliv_Shift_Manager_Onefile.spec")
+    assert '("templates/tv.html",              "templates")' in source

@@ -92,6 +92,7 @@ datas = [
     ("assets/autoliv_logo.png",       "assets"),
     ("assets/autoliv_app.ico",         "assets"),
     ("assets/autoliv_app_icon.png",    "assets"),
+    ("templates/tv.html",              "templates"),
     # NOTA SECURITATE: users.json este fisier sensibil.
     # fisiere SENSIBILE — NU se includ niciodata in bundle (.exe).
     # Se depun manual langa executabil de catre administrator.

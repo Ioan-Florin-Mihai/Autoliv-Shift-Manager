@@ -2,8 +2,10 @@
 cd /d "%~dp0"
 set "PYTHON_EXE=%~dp0.venv\Scripts\python.exe"
 if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$c = Get-Content 'config.json' -Raw | ConvertFrom-Json; Write-Output ('http://{0}:{1}/tv' -f $c.server_ip, $c.server_port)"`) do set "TV_URL=%%I"
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "$c = Get-Content 'config.json' -Raw | ConvertFrom-Json; $port = [int]$c.server_port; $ip = [string]$c.server_ip; if ([string]::IsNullOrWhiteSpace($ip) -or $ip.ToUpperInvariant() -eq 'AUTO') { try { $socket = [Net.Sockets.Socket]::new([Net.Sockets.AddressFamily]::InterNetwork, [Net.Sockets.SocketType]::Dgram, [Net.Sockets.ProtocolType]::Udp); $socket.Connect('8.8.8.8', 80); $ip = $socket.LocalEndPoint.Address.ToString(); $socket.Close() } catch { $ip = '127.0.0.1' } }; Write-Output ('http://{0}:{1}/tv' -f $ip, $port)"`) do set "TV_URL=%%I"
 if "%TV_URL%"=="" set "TV_URL=http://127.0.0.1:8000/tv"
+echo Deschid TV Dashboard:
+echo %TV_URL%
 where msedge >nul 2>&1
 if %errorlevel%==0 (
     start "" msedge --kiosk "%TV_URL%" --edge-kiosk-type=fullscreen --no-first-run --disable-features=msImplicitSignin
