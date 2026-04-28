@@ -105,7 +105,6 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
         self._build_ui()
         self._refresh_after_cell_change()
         self._update_runtime_warning()
-        self.after(60000, self._auto_save)
 
     def _current_week_code(self) -> str:
         try:
@@ -1282,22 +1281,9 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
             self._delete_global_button.configure(state="normal" if self._is_admin() else "disabled")
 
     def _auto_save(self):
-        if self._closing or not self.winfo_exists():
-            return
-        try:
-            if self._dirty:
-                self.store.update_week(self.week_record)
-                self._dirty = False
-                self._last_saved_var.set(f"Salvat automat la {datetime.now().strftime('%H:%M')}")
-                self._update_dirty_indicator()
-                self.refresh_history()
-        except (OSError, ValueError, RuntimeError) as exc:
-            log_exception("auto_save", exc)
-        finally:
-            try:
-                self.after(60000, self._auto_save)
-            except tk.TclError:
-                pass
+        # Pastrat ca metoda inerta pentru compatibilitate cu instante vechi/teste.
+        # Plannerul nu mai salveaza automat: modificarile se scriu doar la actiuni explicite.
+        return
 
     # Absente rapide
 

@@ -37,6 +37,15 @@ def test_publish_button_obeys_busy_action_guard():
     assert "can_publish = self._is_admin() and not self._busy_action" in source
 
 
+def test_planner_does_not_schedule_background_autosave():
+    source = _source("ui/planner_dashboard.py")
+    init_start = source.index("    def __init__")
+    init_end = source.index("    def _current_week_code", init_start)
+    init_source = source[init_start:init_end]
+    assert "self.after(60000, self._auto_save)" not in init_source
+    assert "Salvat automat" not in source
+
+
 def test_week_grid_has_horizontal_scrollbar_contract():
     source = _source("ui/planner_dashboard.py")
     assert "self.grid_hscroll = ctk.CTkScrollbar" in source
