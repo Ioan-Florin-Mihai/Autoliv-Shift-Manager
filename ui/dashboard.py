@@ -4,7 +4,7 @@ import tkinter.messagebox as messagebox
 import customtkinter as ctk
 
 from logic.app_logger import log_exception
-from logic.auth import get_user_role, verify_login_detailed
+from logic.auth import get_lockout_remaining_seconds, get_user_role, verify_login_detailed
 from logic.version import APP_NAME, VERSION
 from ui.common_ui import (
     BG_WHITE,
@@ -31,6 +31,8 @@ class LoginFrame(ctk.CTkFrame):
         self.password_var = ctk.StringVar()
         self.status_var = ctk.StringVar(value="Autentificare necesara.")
         self.show_password = False
+        self._lockout_after_id: str | None = None
+        self._lockout_username = ""
         self._build_ui()
         self.winfo_toplevel().bind("<Return>", self._handle_enter_key)
 
@@ -119,14 +121,24 @@ class LoginFrame(ctk.CTkFrame):
         )
         self.toggle_btn.grid(row=0, column=1, padx=(6, 0))
 
-        ctk.CTkButton(form, text="Autentificare", command=self.login,
-                      width=380, height=52, fg_color=PRIMARY_BLUE, hover_color=ACCENT_BLUE,
-                      font=ctk.CTkFont(size=16, weight="bold"),
-                      corner_radius=12).grid(row=6, column=0, pady=(0, 16))
+        self.login_button = ctk.CTkButton(
+            form,
+            text="Autentificare",
+            command=self.login,
+            width=380,
+            height=52,
+            fg_color=PRIMARY_BLUE,
+            hover_color=ACCENT_BLUE,
+            font=ctk.CTkFont(size=16, weight="bold"),
+            corner_radius=12,
+        )
+        self.login_button.grid(row=6, column=0, pady=(0, 16))
         ctk.CTkLabel(form, textvariable=self.status_var, text_color=MUTED_TEXT,
                      font=ctk.CTkFont(size=13)).grid(row=7, column=0, padx=32, pady=(4, 24))
 
     def login(self):
+        if self._is_login_locked():
+            return
         username = self.username_var.get().strip()
         password = self.password_var.get()
         try:
@@ -137,12 +149,51 @@ class LoginFrame(ctk.CTkFrame):
             return
         if not ok:
             self.status_var.set(msg or "Username sau parola invalida.")
+            self._start_lockout_countdown(username)
             return
+        self._cancel_lockout_countdown()
         self._logged_in_username = username
         self.on_login_success(username, get_user_role(username))
 
     def _handle_enter_key(self, _event):
         self.login()
+
+    def _is_login_locked(self) -> bool:
+        try:
+            return self.login_button.cget("state") == "disabled"
+        except (tk.TclError, AttributeError):
+            return False
+
+    def _start_lockout_countdown(self, username: str) -> None:
+        remaining = get_lockout_remaining_seconds(username)
+        if remaining <= 0:
+            return
+        self._lockout_username = username
+        self.login_button.configure(state="disabled")
+        self._render_lockout_countdown()
+
+    def _render_lockout_countdown(self) -> None:
+        remaining = get_lockout_remaining_seconds(self._lockout_username)
+        if remaining <= 0:
+            self._cancel_lockout_countdown()
+            self.status_var.set("")
+            return
+        suffix = "secunda" if remaining == 1 else "secunde"
+        self.status_var.set(f"Prea multe incercari esuate. Incearca din nou dupa {remaining} {suffix}.")
+        self._lockout_after_id = self.after(1000, self._render_lockout_countdown)
+
+    def _cancel_lockout_countdown(self) -> None:
+        if self._lockout_after_id is not None:
+            try:
+                self.after_cancel(self._lockout_after_id)
+            except tk.TclError:
+                pass
+        self._lockout_after_id = None
+        self._lockout_username = ""
+        try:
+            self.login_button.configure(state="normal")
+        except (tk.TclError, AttributeError):
+            pass
 
 
 class ShiftManagerApp(ctk.CTk):

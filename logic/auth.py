@@ -9,10 +9,9 @@
 #   - schimbare parola cu validare lungime minima (8 caractere)
 #   - adaugare si stergere utilizatori (rol admin)
 #
-# Hardening:
-#   - nu mai exista o parola admin implicita predictibila
-#   - la primul rulaj se genereaza local o parola bootstrap random
-#   - parola bootstrap este scrisa intr-un fisier local separat, langa users.json
+# Release local:
+#   - la primul rulaj se creeaza contul admin local cu parola initiala documentata
+#   - starile bootstrap vechi sunt migrate automat la credentialul local curent
 # ============================================================
 
 import json
@@ -28,13 +27,13 @@ import bcrypt
 from logic.app_config import get_config
 from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import get_sensitive_path
-from logic.internal_credentials import BOOTSTRAP_PASSWORD_LENGTH, DEFAULT_ADMIN_USERNAME
+from logic.internal_credentials import BOOTSTRAP_PASSWORD_LENGTH, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME
 from logic.utils.io import atomic_write_json
 
 USERS_PATH: Path = get_sensitive_path("data/users.json")
 BOOTSTRAP_INFO_PATH: Path = get_sensitive_path("data/bootstrap_admin.json")
 ADMIN_USERNAME = DEFAULT_ADMIN_USERNAME
-ADMIN_PASSWORD = ""
+ADMIN_PASSWORD = DEFAULT_ADMIN_PASSWORD
 _LEGACY_ADMIN_HASHES = {
     "$2b$12$ggzp6vQQ8MJm3RfngmJxCuF.ZfMaA.JSuQsSkNGOmIb8kyCT.RyDW",
 }
@@ -69,28 +68,36 @@ def _write_bootstrap_info(username: str, password: str) -> None:
     atomic_write_json(_resolve_bootstrap_info_path(), payload)
 
 
+def _remove_bootstrap_info() -> None:
+    bootstrap_path = _resolve_bootstrap_info_path()
+    if bootstrap_path.exists():
+        try:
+            bootstrap_path.unlink()
+        except OSError as exc:
+            log_warning("auth: nu pot sterge %s: %s", bootstrap_path, exc)
+
+
 def get_bootstrap_info_path() -> Path:
     return _resolve_bootstrap_info_path()
 
 
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
+
+
 def _create_bootstrap_admin() -> list[dict]:
-    password = _generate_bootstrap_password()
-    bootstrap_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
-    bootstrap_path = _resolve_bootstrap_info_path()
     default_users = [
         {
             "username": ADMIN_USERNAME,
-            "password_hash": bootstrap_hash,
+            "password_hash": _hash_password(ADMIN_PASSWORD),
             "role": "admin",
-            "must_change_password": True,
         }
     ]
     _save_users(default_users)
-    _write_bootstrap_info(ADMIN_USERNAME, password)
+    _remove_bootstrap_info()
     log_warning(
-        "auth: users.json lipseste (%s) - a fost creat un cont bootstrap local; vezi %s",
+        "auth: users.json lipseste (%s) - a fost creat contul admin local implicit",
         USERS_PATH,
-        bootstrap_path,
     )
     return default_users
 
@@ -128,12 +135,11 @@ def _load_users() -> list[dict]:
             and isinstance(user.get("password_hash"), str)
             and user["password_hash"] in _LEGACY_ADMIN_HASHES
         ):
-            password = _generate_bootstrap_password()
-            user["password_hash"] = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
-            user["must_change_password"] = True
-            _write_bootstrap_info(ADMIN_USERNAME, password)
+            user["password_hash"] = _hash_password(ADMIN_PASSWORD)
+            user.pop("must_change_password", None)
+            _remove_bootstrap_info()
             changed = True
-            log_warning("auth: hash admin legacy inlocuit cu o parola bootstrap noua.")
+            log_warning("auth: hash admin legacy inlocuit cu credentialul local curent.")
         elif bool(user.get("must_change_password", False)):
             password_hash = user.get("password_hash", "")
             if not isinstance(password_hash, str) or not password_hash:
@@ -146,7 +152,11 @@ def _load_users() -> list[dict]:
                         bootstrap_password.encode("utf-8"),
                         password_hash.encode("utf-8"),
                     ):
-                        continue
+                        user["password_hash"] = _hash_password(ADMIN_PASSWORD)
+                        user.pop("must_change_password", None)
+                        _remove_bootstrap_info()
+                        changed = True
+                        log_warning("auth: stare bootstrap migrata la credentialul admin local curent.")
             except (OSError, json.JSONDecodeError, ValueError):
                 pass
 
@@ -176,6 +186,14 @@ def _is_locked_out(username: str) -> tuple[bool, float]:
             remaining = _LOCKOUT_SECONDS - (now - oldest)
             return True, max(0.0, remaining)
         return False, 0.0
+
+
+def get_lockout_remaining_seconds(username: str) -> int:
+    """Returneaza secundele ramase de blocare pentru afisarea non-blocanta in UI."""
+    if not username:
+        return 0
+    locked, remaining = _is_locked_out(username.casefold())
+    return int(round(remaining)) if locked else 0
 
 
 def _record_failure(username: str) -> None:
@@ -222,12 +240,16 @@ def verify_login_detailed(
         log_warning("auth: login blocat pentru '%s' (%.0fs ramasi)", username, remaining)
         return False, f"Prea multe incercari esuate. Asteptati {remaining:.0f} secunde."
 
+    users_existed_before_login = USERS_PATH.exists()
     users = _load_users()
+    bootstrap_hint = f"Parola initiala pentru admin este {ADMIN_PASSWORD}."
 
     user = _find_user(users, username)
     if user is None:
         bcrypt.checkpw(b"dummy", _DUMMY_HASH)
         _record_failure(username.casefold())
+        if not users_existed_before_login and _resolve_bootstrap_info_path().exists():
+            return False, bootstrap_hint
         return False, "Username sau parola incorecta."
 
     password_hash = user.get("password_hash", "")
@@ -243,11 +265,18 @@ def verify_login_detailed(
 
     if not is_valid:
         _record_failure(username.casefold())
+        if not users_existed_before_login and _resolve_bootstrap_info_path().exists():
+            return False, bootstrap_hint
         return False, "Username sau parola incorecta."
 
     if bool(user.get("must_change_password", False)) and not allow_password_change_only:
         _clear_failures(username.casefold())
-        return False, f"Parola bootstrap trebuie schimbata. Verifica fisierul {_resolve_bootstrap_info_path().name}."
+        user["password_hash"] = _hash_password(ADMIN_PASSWORD)
+        user.pop("must_change_password", None)
+        _save_users(users)
+        _remove_bootstrap_info()
+        log_warning("auth: stare must_change_password migrata pentru '%s'.", username)
+        return True, ""
 
     _clear_failures(username.casefold())
     log_info("auth: login reusit pentru '%s'", username)

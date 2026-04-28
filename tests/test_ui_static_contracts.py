@@ -97,3 +97,11 @@ def test_tv_template_uses_server_api_contract_and_valid_department_keys():
 def test_pyinstaller_bundle_includes_tv_template():
     source = _source("Autoliv_Shift_Manager_Onefile.spec")
     assert '("templates/tv.html",              "templates")' in source
+
+
+def test_login_lockout_uses_tk_after_countdown_contract():
+    source = _source("ui/dashboard.py")
+    assert "get_lockout_remaining_seconds" in source
+    assert "self.login_button.configure(state=\"disabled\")" in source
+    assert "self.after(1000, self._render_lockout_countdown)" in source
+    assert "self.after_cancel(self._lockout_after_id)" in source

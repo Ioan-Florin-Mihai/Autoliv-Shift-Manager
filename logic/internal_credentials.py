@@ -1,9 +1,5 @@
-"""Internal credential bootstrap constants.
-
-This module no longer ships a predictable admin password. It only defines the
-bootstrap username and password-generation policy used by ``logic.auth`` when
-``users.json`` must be created locally on first run.
-"""
+"""Internal credential bootstrap constants for the local desktop release."""
 
 DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "Autoliv2026!"
 BOOTSTRAP_PASSWORD_LENGTH = 18

@@ -94,11 +94,11 @@ class TestFileSystem:
         assert users[0]["username"] == "admin"
 
     def test_fs005_missing_users_json_default_admin_login(self, users_path):
-        """FS-005: Bootstrap admin necesita schimbare de parola la primul login."""
+        """FS-005: Admin implicit poate intra cu parola documentata."""
         from logic.auth import verify_login_detailed
         ok, msg = verify_login_detailed("admin", TestAuth._bootstrap_password())
-        assert ok is False
-        assert "bootstrap" in msg.lower()
+        assert ok is True
+        assert msg == ""
 
     def test_fs006_missing_schedule_loads_empty(self, tmp_path, monkeypatch):
         """FS-006: Missing schedule_data.json loads empty weeks dict."""
@@ -383,11 +383,10 @@ class TestAuth:
 
     @staticmethod
     def _bootstrap_password() -> str:
-        from logic.auth import _load_users, get_bootstrap_info_path
+        from logic.auth import ADMIN_PASSWORD, _load_users
 
         _load_users()
-        payload = json.loads(get_bootstrap_info_path().read_text(encoding="utf-8"))
-        return str(payload["password"])
+        return ADMIN_PASSWORD
 
     def test_au001_default_admin_created(self, users_path):
         """AU-001: Bootstrap admin account auto-created."""
@@ -396,12 +395,12 @@ class TestAuth:
         assert any(u["username"] == "admin" for u in users)
 
     def test_au002_default_admin_password(self, users_path):
-        """AU-002: Bootstrap password este generata local si trebuie schimbata."""
+        """AU-002: Parola admin implicita este acceptata la primul login."""
         from logic.auth import must_change_password, verify_login_detailed
         ok, msg = verify_login_detailed("admin", self._bootstrap_password())
-        assert ok is False
-        assert "bootstrap" in msg.lower()
-        assert must_change_password("admin") is True
+        assert ok is True
+        assert msg == ""
+        assert must_change_password("admin") is False
 
     def test_au003_wrong_password_rejected(self, users_path):
         """AU-003: Wrong password returns False."""
