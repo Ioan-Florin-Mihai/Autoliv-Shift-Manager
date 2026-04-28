@@ -15,10 +15,10 @@ from logic.auth import (
     ADMIN_USERNAME,
     _failed_attempts,
     _load_users,
-    get_bootstrap_info_path,
     add_user,
     change_password,
     delete_user,
+    get_bootstrap_info_path,
     verify_login,
     verify_login_detailed,
 )

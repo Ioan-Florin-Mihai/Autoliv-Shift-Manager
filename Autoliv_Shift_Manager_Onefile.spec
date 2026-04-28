@@ -96,10 +96,10 @@ datas = [
     # NOTA SECURITATE: users.json este fisier sensibil.
     # fisiere SENSIBILE — NU se includ niciodata in bundle (.exe).
     # Se depun manual langa executabil de catre administrator.
-    ("data/schedule_draft.json",       "data"),
-    ("data/schedule_live.json",        "data"),
-    ("data/audit_log.json",            "data"),
-    ("data/employees.json",            "data"),
+    ("release_defaults/data/schedule_draft.json", "data"),
+    ("release_defaults/data/schedule_live.json",  "data"),
+    ("release_defaults/data/audit_log.json",      "data"),
+    ("release_defaults/data/employees.json",      "data"),
 ]
 
 binaries = []
@@ -169,7 +169,18 @@ a = Analysis(
     hookspath=["pyinstaller_hooks"],
     hooksconfig={},
     runtime_hooks=["pyinstaller_runtime_hook.py"],
-    excludes=[],
+    excludes=[
+        "IPython",
+        "jedi",
+        "matplotlib",
+        "notebook",
+        "paramiko",
+        "parso",
+        "pygame",
+        "pytest",
+        "PyQt5",
+        "zmq",
+    ],
     noarchive=False,
 )
 pyz = PYZ(a.pure)

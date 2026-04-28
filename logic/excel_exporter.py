@@ -11,7 +11,6 @@ from openpyxl.worksheet.page import PageMargins
 from logic.constants import HOURS_12_COLOR
 from logic.schedule_store import DAY_NAMES, DEPARTMENT_COLORS, SHIFTS
 
-
 THIN_SIDE = Side(style="thin", color="8A8A8A")
 THIN_BORDER = Border(left=THIN_SIDE, right=THIN_SIDE, top=THIN_SIDE, bottom=THIN_SIDE)
 BLUE_FILL = PatternFill("solid", fgColor="4F6FB5")

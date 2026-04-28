@@ -392,7 +392,7 @@ class RightPanelMixin:
         if not hasattr(self, "unplanned_toggle"):
             return
         count = len(self._unplanned_missing)
-        arrow = "▲" if self._unplanned_expanded else "▼"
+        arrow = "^" if self._unplanned_expanded else "v"
         self.unplanned_toggle.configure(text=f"Neplanificati ({count}) {arrow}")
 
         for widget in self.unplanned_body.winfo_children():

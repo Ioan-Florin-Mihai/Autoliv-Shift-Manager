@@ -1,6 +1,5 @@
 import json
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -50,8 +49,9 @@ def test_tv_metrics_returns_500_on_unhandled_build_errors(monkeypatch):
 
 
 def test_tv_load_schedule_uses_cache_when_file_locked(monkeypatch, tmp_path):
-    import tv_server
     import builtins
+
+    import tv_server
 
     live = tmp_path / "schedule_live.json"
     live.write_text(json.dumps({"weeks": {"2026-04-06": {"week_start": "2026-04-06"}}}), encoding="utf-8")

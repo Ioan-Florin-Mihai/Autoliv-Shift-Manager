@@ -27,7 +27,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from logic.app_config import get_config
-from logic.app_logger import log_error, log_exception, log_info
+from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import (
     BACKUP_DIR,
     BASE_DIR,
@@ -541,4 +541,11 @@ def start_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     if auth_warning:
         logger.warning("  WARNING: TV API key lipseste; endpointurile read-only sunt publice.")
     logger.warning("%s\n", sep)
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="warning",
+        log_config=None,
+        access_log=False,
+    )

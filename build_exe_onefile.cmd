@@ -4,6 +4,7 @@ set "PYTHON_EXE=%~dp0.venv\Scripts\python.exe"
 if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"
 set "VERSION_TMP=%TEMP%\autoliv_build_version_%RANDOM%.txt"
 set "DIST_RUNTIME_BACKUP=%TEMP%\autoliv_dist_runtime_%RANDOM%"
+set "PYGAME_HIDE_SUPPORT_PROMPT=1"
 
 del /f /q "%VERSION_TMP%" >nul 2>&1
 "%PYTHON_EXE%" -c "from logic.version import VERSION; print(VERSION)" > "%VERSION_TMP%"
@@ -76,19 +77,22 @@ copy /y "config.json" "dist\config.json" >nul
 copy /y "assets\autoliv_logo.png" "dist\assets\autoliv_logo.png" >nul
 copy /y "assets\autoliv_app.ico" "dist\assets\autoliv_app.ico" >nul
 copy /y "assets\autoliv_app_icon.png" "dist\assets\autoliv_app_icon.png" >nul
-if not exist "dist\data\schedule_draft.json" copy /y "data\schedule_draft.json" "dist\data\schedule_draft.json" >nul
-if not exist "dist\data\schedule_live.json" copy /y "data\schedule_live.json" "dist\data\schedule_live.json" >nul
-if not exist "dist\data\audit_log.json" copy /y "data\audit_log.json" "dist\data\audit_log.json" >nul
-if not exist "dist\data\employees.json" copy /y "data\employees.json" "dist\data\employees.json" >nul
-if not exist "dist\data\ui_state.json" copy /y "data\ui_state.json" "dist\data\ui_state.json" >nul
-if exist "data\users.json" if not exist "dist\data\users.json" copy /y "data\users.json" "dist\data\users.json" >nul
+if not exist "dist\data\schedule_draft.json" copy /y "release_defaults\data\schedule_draft.json" "dist\data\schedule_draft.json" >nul
+if not exist "dist\data\schedule_live.json" copy /y "release_defaults\data\schedule_live.json" "dist\data\schedule_live.json" >nul
+if not exist "dist\data\audit_log.json" copy /y "release_defaults\data\audit_log.json" "dist\data\audit_log.json" >nul
+if not exist "dist\data\employees.json" copy /y "release_defaults\data\employees.json" "dist\data\employees.json" >nul
+if not exist "dist\data\ui_state.json" copy /y "release_defaults\data\ui_state.json" "dist\data\ui_state.json" >nul
 
 if exist "%DIST_RUNTIME_BACKUP%" (
 	rmdir /s /q "%DIST_RUNTIME_BACKUP%" >nul 2>&1
 )
 
-if exist "dist\data\remote_config.json" del /f /q "dist\data\remote_config.json" >nul 2>&1
-if exist "dist\data\device_id.json" del /f /q "dist\data\device_id.json" >nul 2>&1
+if exist "dist\data\users.json" del /f /q "dist\data\users.json" >nul 2>&1
+if exist "dist\data\bootstrap_admin.json" del /f /q "dist\data\bootstrap_admin.json" >nul 2>&1
+if exist "dist\data\runtime_root.txt" del /f /q "dist\data\runtime_root.txt" >nul 2>&1
+if exist "dist\data\planner.lock" del /f /q "dist\data\planner.lock" >nul 2>&1
+if exist "dist\data\tv_server.lock" del /f /q "dist\data\tv_server.lock" >nul 2>&1
+if exist "dist\data\audit_log.lock" del /f /q "dist\data\audit_log.lock" >nul 2>&1
 if exist "dist\logs\system.log" del /f /q "dist\logs\system.log" >nul 2>&1
 
 echo.

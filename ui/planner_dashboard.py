@@ -21,7 +21,6 @@ from logic.schedule_store import (
     DAYS,
     SHIFTS,
     TEMPLATES,
-    WEEKEND_DAYS,
     ScheduleStore,
 )
 from logic.ui_state_store import UIStateStore
@@ -38,7 +37,6 @@ from ui.common_ui import (
 from ui.components.constants import (
     BODY_FONT_SIZE,
     BUTTON_FONT_SIZE,
-    DAY_VIEW_LABELS,
     GRID_INNER_PAD,
     HOURS_COLOR_MAP,
     LEFT_PANEL_WIDTH,
@@ -982,13 +980,14 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
 
                 self.after(0, _ok)
             except (OSError, ValueError, RuntimeError, PermissionError) as exc:
+                error_text = str(exc)
                 log_exception("publish_to_tv", exc)
 
                 def _err():
                     self.show_inline_message("Publicarea a esuat.", is_error=True)
                     messagebox.showerror(
                         "Publicare",
-                        f"Nu am putut publica planificarea:\n\n{exc}",
+                        f"Nu am putut publica planificarea:\n\n{error_text}",
                         parent=self.winfo_toplevel(),
                     )
 
@@ -1034,13 +1033,14 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
 
                 self.after(0, _ok)
             except (ImportError, OSError, ValueError, RuntimeError) as exc:
+                error_text = str(exc)
                 log_exception("export_pdf", exc)
 
                 def _err():
                     self.show_inline_message("Export PDF a esuat.", is_error=True)
                     messagebox.showerror(
                         "Export PDF",
-                        f"Nu am putut genera PDF-ul:\n\n{exc}",
+                        f"Nu am putut genera PDF-ul:\n\n{error_text}",
                         parent=self.winfo_toplevel(),
                     )
 
@@ -1086,13 +1086,14 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
 
                 self.after(0, _ok)
             except (ImportError, OSError, ValueError, RuntimeError) as exc:
+                error_text = str(exc)
                 log_exception("export_excel", exc)
 
                 def _err():
                     self.show_inline_message("Export Excel a esuat.", is_error=True)
                     messagebox.showerror(
                         "Export Excel",
-                        f"Nu am putut genera fisierul Excel:\n\n{exc}",
+                        f"Nu am putut genera fisierul Excel:\n\n{error_text}",
                         parent=self.winfo_toplevel(),
                     )
 

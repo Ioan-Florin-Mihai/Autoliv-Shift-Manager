@@ -7,7 +7,6 @@ from pathlib import Path
 from logic.constants import HOURS_12_COLOR
 from logic.schedule_store import DAY_NAMES, DEPARTMENT_COLORS, SHIFTS
 
-
 PDF_SHEET_DEPARTMENTS: dict[str, list[tuple[str, str]]] = {
     "Bucle": [
         ("BUCLA RA+RB", "BUCLA RA + RB"),

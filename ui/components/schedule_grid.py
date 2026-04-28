@@ -7,7 +7,7 @@ from datetime import datetime
 
 import customtkinter as ctk
 
-from logic.schedule_store import SHIFTS, WEEKEND_DAYS, format_day_label
+from logic.schedule_store import SHIFTS, format_day_label
 from ui.common_ui import LINE_BLUE, PRIMARY_BLUE
 from ui.components.constants import (
     ACCENT_BLUE,
@@ -16,7 +16,6 @@ from ui.components.constants import (
     CELL_MIN_HEIGHT,
     EMPLOYEE_NAME_TEXT,
     EMPLOYEE_ROW_PADY,
-    META_FONT_SIZE,
     GRID_BORDER_DARK,
     GRID_BORDER_LIGHT,
     GRID_CELL_BG,
@@ -28,15 +27,13 @@ from ui.components.constants import (
     GRID_NAME_MAX_CHARS,
     HEADER_FONT_SIZE,
     HOURS_COLOR_MAP,
+    META_FONT_SIZE,
     SECTION_TITLE_FONT_SIZE,
     SELECTED_BG,
     SHIFT_FONT_SIZE,
     SOFT_BLUE,
     SUBTLE_HINT_TEXT,
-    SUGGESTION_BG,
     VISIBLE_EMPLOYEE_ROWS,
-    WEEKEND_BG,
-    WEEKEND_SELECTED_BG,
 )
 from ui.components.dialogs import HoverTooltip
 

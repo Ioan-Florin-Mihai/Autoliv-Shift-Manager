@@ -49,4 +49,4 @@ disable=
 max-line-length=100
 
 [TYPECHECK]
-ignored-modules=customtkinter,tkcalendar,PIL,bcrypt,firebase_admin,pytest,openpyxl,win32api,win32print
+ignored-modules=customtkinter,tkcalendar,PIL,bcrypt,pytest,openpyxl,win32api,win32print
