@@ -44,6 +44,22 @@ Dry-run option:
 .\.venv\Scripts\python.exe tools\external_backup.py "external_backups" --dry-run
 ```
 
+## Optional Scheduled External Backup
+
+Register a daily Windows Task Scheduler backup only when the target folder is approved:
+
+```powershell
+.\register_external_backup_task.cmd "D:\Autoliv_Backups" "22:00"
+```
+
+Verify the task command without registering it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\register_external_backup_task.ps1 -TargetFolder "D:\Autoliv_Backups" -Time "22:00" -WhatIf
+```
+
+The scheduled task calls the existing `external_backup.cmd` helper. It remains optional and never deletes source files.
+
 ## Restore From Built-In Schedule Backup
 
 Preferred route:

@@ -1,0 +1,46 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows-test-and-build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint with Ruff
+        run: python -m ruff check .
+
+      - name: Run tests
+        run: python -m pytest -v --tb=short
+
+      - name: Build PyInstaller EXE
+        run: .\build_exe_onefile.cmd
+
+      - name: Verify dist output
+        run: python tools\post_build_verify.py --dist dist
+
+      - name: Upload dist artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autoliv-shift-manager-dist
+          path: dist/
+          if-no-files-found: error

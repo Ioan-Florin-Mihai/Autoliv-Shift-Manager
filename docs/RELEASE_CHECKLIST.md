@@ -34,6 +34,14 @@ Expected output:
 
 The verifier is read-only. It checks required files, JSON validity, EXE size, and that sensitive runtime files are not shipped.
 
+Run the read-only production smoke check:
+
+```powershell
+.\production_smoke_check.cmd --skip-tv
+```
+
+For final station sign-off, use `docs/PRODUCTION_ACCEPTANCE_CHECKLIST.md`.
+
 ## Manual Smoke Test
 
 - Start the built executable from `dist`.

@@ -89,7 +89,10 @@ Spec:
 * Release checklist: `docs/RELEASE_CHECKLIST.md`
 * Backup si restore: `docs/BACKUP_AND_RESTORE.md`
 * Support runbook: `docs/SUPPORT_RUNBOOK.md`
+* Acceptanta productie: `docs/PRODUCTION_ACCEPTANCE_CHECKLIST.md`
 * Backup extern optional: `external_backup.cmd "D:\Autoliv_Backups"`
+* Backup extern programat optional: `register_external_backup_task.cmd "D:\Autoliv_Backups" "22:00"`
+* Smoke check productie: `production_smoke_check.cmd --skip-tv`
 * Pachet suport sanitizat: `generate_support_bundle.cmd`
 
 ## Structura Proiectului
