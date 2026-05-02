@@ -18,7 +18,7 @@ from ui.common_ui import (
 )
 from ui.planner_dashboard import PlannerDashboard
 
-ACCENT_BLUE = "#0067C8"
+ACCENT_BLUE = "#004A99"
 SHOW_PASSWORD_ICON = "\U0001F441"
 HIDE_PASSWORD_ICON = "\U0001F648"
 
@@ -54,9 +54,9 @@ class LoginFrame(ctk.CTkFrame):
         AutolivLogo(brand, width=340, height=130).pack(pady=(0, 32))
         ctk.CTkLabel(brand, text="Shift Manager", text_color="white",
                      font=ctk.CTkFont(size=38, weight="bold")).pack()
-        ctk.CTkLabel(brand, text="Planificare inteligenta a schimburilor", text_color=("#B8D4F4", "#B8D4F4"),
+        ctk.CTkLabel(brand, text="Planificare inteligenta a schimburilor", text_color=("#EAF4FF", "#EAF4FF"),
                      font=ctk.CTkFont(size=16)).pack(pady=(10, 0))
-        sep = ctk.CTkFrame(brand, height=3, width=200, fg_color=("#4A90E2", "#4A90E2"), corner_radius=2)
+        sep = ctk.CTkFrame(brand, height=3, width=200, fg_color=("#EAF4FF", "#EAF4FF"), corner_radius=2)
         sep.pack(pady=(28, 0))
 
         # Panoul drept: formular
@@ -127,7 +127,7 @@ class LoginFrame(ctk.CTkFrame):
             command=self.login,
             width=380,
             height=52,
-            fg_color=PRIMARY_BLUE,
+            fg_color=ACCENT_BLUE,
             hover_color=ACCENT_BLUE,
             font=ctk.CTkFont(size=16, weight="bold"),
             corner_radius=12,

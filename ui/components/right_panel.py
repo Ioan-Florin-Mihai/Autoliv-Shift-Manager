@@ -253,7 +253,7 @@ class RightPanelMixin:
             ).pack(side="left", padx=(0, 6))
             for label in ("8h", "12h"):
                 is_active = hours_label == label
-                bg = HOURS_COLOR_MAP[label]
+                bg = DANGER_RED if label == "12h" else HOURS_COLOR_MAP[label]
                 ctk.CTkButton(
                     palette_row,
                     text=label,

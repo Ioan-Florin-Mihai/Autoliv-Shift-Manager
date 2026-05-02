@@ -170,7 +170,7 @@ class LeftPanelMixin:
         self._dirty_indicator = ctk.CTkLabel(
             action_row,
             text="",
-            text_color="#E74C3C",
+            text_color="#9B241A",
             font=ctk.CTkFont(size=META_FONT_SIZE, weight="bold"),
         )
         self._dirty_indicator.grid(row=0, column=0, sticky="w")
@@ -216,8 +216,8 @@ class LeftPanelMixin:
             command=self.lock_week_toggle,
             height=LEFT_PANEL_UTILITY_HEIGHT,
             corner_radius=10,
-            fg_color="#27AE60",
-            hover_color="#1E8449",
+            fg_color="#145C32",
+            hover_color="#0F4A28",
             text_color="white",
             font=ctk.CTkFont(size=META_FONT_SIZE, weight="bold"),
         )

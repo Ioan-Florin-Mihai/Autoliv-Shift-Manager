@@ -405,7 +405,7 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
             frame,
             textvariable=self.runtime_warning_var,
             fg_color="#FDECEC",
-            text_color="#C0392B",
+            text_color="#9B241A",
             corner_radius=10,
             anchor="w",
             justify="left",
@@ -1261,13 +1261,13 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
             self._lock_state_var.set("SAPTAMANA BLOCATA")
             self._lock_button.configure(
                 text="Saptamana publicata",
-                fg_color="#C0392B", hover_color="#A93226",
+                fg_color="#9B241A", hover_color="#842016",
             )
         else:
             self._lock_state_var.set("")
             self._lock_button.configure(
                 text="Saptamana deschisa",
-                fg_color="#27AE60", hover_color="#1E8449",
+                fg_color="#145C32", hover_color="#0F4A28",
             )
 
     def _sync_action_states(self):

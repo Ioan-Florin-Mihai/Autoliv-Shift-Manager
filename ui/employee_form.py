@@ -11,6 +11,7 @@ from ui.common_ui import (
     BODY_TEXT,
     CARD_WHITE,
     ENTRY_BG,
+    HOVER_BLUE,
     LINE_BLUE,
     MUTED_TEXT,
     PANEL_BG,
@@ -86,8 +87,8 @@ class EmployeeRegistrationWindow(ctk.CTkToplevel):
             text="Salveaza Incadrare",
             font=ctk.CTkFont(size=15, weight="bold"),
             height=42,
-            fg_color=PRIMARY_BLUE,
-            hover_color=ACCENT_BLUE,
+            fg_color=ACCENT_BLUE,
+            hover_color=HOVER_BLUE,
             command=self.save_employee,
         )
         self.btn_salveaza.grid(row=5, column=0, columnspan=2, pady=20, padx=20, sticky="ew")

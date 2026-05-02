@@ -14,6 +14,7 @@ from ui.components.constants import (
     BADGE_HEIGHT,
     BADGE_WIDTH,
     CELL_MIN_HEIGHT,
+    DANGER_RED,
     EMPLOYEE_NAME_TEXT,
     EMPLOYEE_ROW_PADY,
     GRID_BORDER_DARK,
@@ -92,7 +93,7 @@ class ScheduleGridMixin:
 
     def _create_hours_badge(self, parent, colors: dict, employee: str):
         hours_label = self._hours_for_employee(colors, employee)
-        badge_color = self._lookup_color(colors or {}, employee) or HOURS_COLOR_MAP[hours_label]
+        badge_color = DANGER_RED if hours_label == "12h" else HOURS_COLOR_MAP["8h"]
         badge = ctk.CTkLabel(
             parent,
             text=self._hours_badge_value(colors, employee),
