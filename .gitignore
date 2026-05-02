@@ -35,6 +35,7 @@ data/app.log
 data/users.json
 data/audit_log.json
 data/cache.json
+data/employees.json
 data/schedule_data.json
 data/schedule_draft.json
 data/schedule_live.json
