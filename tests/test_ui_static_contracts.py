@@ -82,6 +82,64 @@ def test_quick_add_does_not_save_unknown_names_to_personnel():
     assert "self.employee_store.add_employee" not in method_source
 
 
+def test_global_delete_removes_schedule_assignments_contract():
+    source = _source("ui/planner_dashboard.py")
+    start = source.index("    def delete_employee_global")
+    end = source.index("    def rename_employee_global", start)
+    method_source = source[start:end]
+    assert "self.store.delete_employee" in method_source
+    assert "self.week_record = self.store.get_or_create_week" in method_source
+    assert "self.refresh_all()" in method_source
+
+
+def test_dark_mode_is_persisted_in_ui_state_contract():
+    dashboard = _source("ui/dashboard.py")
+    planner = _source("ui/planner_dashboard.py")
+    state_store = _source("logic/ui_state_store.py")
+    assert "self.ui_state_store.load_theme()" in dashboard
+    assert "self.ui_state_store.save_theme(mode)" in planner
+    assert "def load_theme" in state_store
+    assert "def save_theme" in state_store
+
+
+def test_history_navigation_uses_dirty_save_guard_contract():
+    source = _source("ui/planner_dashboard.py")
+    start = source.index("    def load_history_week")
+    end = source.index("    def add_new_employee", start)
+    method_source = source[start:end]
+    assert "self._select_week(" in method_source
+    assert "self.week_record = self.store.get_or_create_week" not in method_source
+
+
+def test_save_week_reports_failure_to_dependent_flows_contract():
+    source = _source("ui/planner_dashboard.py")
+    save_start = source.index("    def save_week")
+    save_end = source.index("    def _employee_day_count", save_start)
+    save_source = source[save_start:save_end]
+    assert "return True" in save_source
+    assert "return False" in save_source
+
+    select_start = source.index("    def _select_week")
+    select_end = source.index("    def shift_week", select_start)
+    select_source = source[select_start:select_end]
+    assert "if not self.save_week()" in select_source
+
+    close_start = source.index("    def confirm_close")
+    close_end = source.index("    # Dirty indicator", close_start)
+    close_source = source[close_start:close_end]
+    assert "return self.save_week()" in close_source
+
+
+def test_history_menu_keeps_current_week_selected_contract():
+    source = _source("ui/planner_dashboard.py")
+    start = source.index("    def refresh_history")
+    end = source.index("    def render_department_navigation", start)
+    method_source = source[start:end]
+    assert "current_key" in method_source
+    assert "current_value" in method_source
+    assert "self.history_var.set(current_value)" in method_source
+
+
 def test_suggestions_are_filtered_by_selected_department():
     source = _source("ui/components/right_panel.py")
     assert "def _department_suggestion_names" in source

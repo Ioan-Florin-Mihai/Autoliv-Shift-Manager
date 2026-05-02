@@ -5,6 +5,7 @@ import customtkinter as ctk
 
 from logic.app_logger import log_exception
 from logic.auth import get_lockout_remaining_seconds, get_user_role, verify_login_detailed
+from logic.ui_state_store import UIStateStore
 from logic.version import APP_NAME, VERSION
 from ui.common_ui import (
     BG_WHITE,
@@ -160,7 +161,7 @@ class LoginFrame(ctk.CTkFrame):
 
     def _is_login_locked(self) -> bool:
         try:
-            return self.login_button.cget("state") == "disabled"
+            return str(self.login_button.cget("state")) == "disabled"
         except (tk.TclError, AttributeError):
             return False
 
@@ -205,7 +206,8 @@ class ShiftManagerApp(ctk.CTk):
         self.geometry("1620x900")
         self.state("zoomed")
         self.minsize(1320, 760)
-        ctk.set_appearance_mode("light")
+        self.ui_state_store = UIStateStore()
+        ctk.set_appearance_mode(self.ui_state_store.load_theme())
         ctk.set_default_color_theme("blue")
         self.configure(fg_color=BG_WHITE)
         apply_window_icon(self)

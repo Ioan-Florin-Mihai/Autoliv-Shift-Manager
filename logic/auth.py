@@ -27,7 +27,11 @@ import bcrypt
 from logic.app_config import get_config
 from logic.app_logger import log_exception, log_info, log_warning
 from logic.app_paths import get_sensitive_path
-from logic.internal_credentials import BOOTSTRAP_PASSWORD_LENGTH, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME
+from logic.internal_credentials import (
+    BOOTSTRAP_PASSWORD_LENGTH,
+    DEFAULT_ADMIN_PASSWORD,
+    DEFAULT_ADMIN_USERNAME,
+)
 from logic.utils.io import atomic_write_json
 
 USERS_PATH: Path = get_sensitive_path("data/users.json")

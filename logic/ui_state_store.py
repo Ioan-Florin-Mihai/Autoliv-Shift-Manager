@@ -38,7 +38,7 @@ class UIStateStore:
         if not isinstance(data, dict):
             return None
 
-        value = data.get("last_selected_date", "").strip()
+        value = str(data.get("last_selected_date", "")).strip()
         if not value:
             return None
 
@@ -71,7 +71,35 @@ class UIStateStore:
 
     def save_last_selected_date(self, selected_date: date):
         """Salveaza data selectata curenta in fisierul de stare — scriere atomica."""
-        payload = {"last_selected_date": selected_date.isoformat()}
+        payload = self._load_payload()
+        payload["last_selected_date"] = selected_date.isoformat()
+        self._save_payload(payload)
+
+    def load_theme(self) -> str:
+        payload = self._load_payload()
+        theme = str(payload.get("theme", "Light")).strip().title()
+        return theme if theme in {"Light", "Dark"} else "Light"
+
+    def save_theme(self, theme: str) -> None:
+        normalized = str(theme or "").strip().title()
+        if normalized not in {"Light", "Dark"}:
+            normalized = "Light"
+        payload = self._load_payload()
+        payload["theme"] = normalized
+        self._save_payload(payload)
+
+    def _load_payload(self) -> dict:
+        if not UI_STATE_PATH.exists():
+            return {}
+        try:
+            with UI_STATE_PATH.open("r", encoding="utf-8") as file:
+                data = json.load(file)
+        except (OSError, json.JSONDecodeError) as exc:
+            log_exception("ui_state_load", exc)
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _save_payload(self, payload: dict) -> None:
         try:
             atomic_write_json(UI_STATE_PATH, payload)
         except OSError as exc:

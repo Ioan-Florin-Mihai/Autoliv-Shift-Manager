@@ -18,7 +18,6 @@ from logic.auth import (
     add_user,
     change_password,
     delete_user,
-    get_bootstrap_info_path,
     get_lockout_remaining_seconds,
     verify_login,
     verify_login_detailed,

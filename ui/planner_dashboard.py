@@ -539,7 +539,9 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
     def refresh_history(self):
         values = [f"{label} | {key}" for key, label, _ in self.store.get_week_history()] or [""]
         self.history_menu.configure(values=values)
-        self.history_var.set(values[0])
+        current_key = str(self.week_record.get("week_start", ""))
+        current_value = next((value for value in values if value.endswith(f"| {current_key}")), values[0])
+        self.history_var.set(current_value)
 
     def render_department_navigation(self):
         self.department_name_var.set(self.selected_department or "-")
@@ -553,7 +555,8 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
             if answer is None:   # Cancel - ramanem pe saptamana curenta
                 return
             if answer:           # Yes - salvam inainte de navigare
-                self.save_week()
+                if not self.save_week():
+                    return
         prev_dept = self.selected_department
         self.selected_date = selected_date
         self.ui_state_store.save_last_selected_date(self.selected_date)
@@ -645,16 +648,7 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
         if not selected_value or "|" not in selected_value:
             return
         week_key = selected_value.split("|")[-1].strip()
-        prev_dept = self.selected_department
-        self.selected_date = datetime.strptime(week_key, "%Y-%m-%d").date()
-        self.week_record = self.store.get_or_create_week(self.selected_date)
-        all_depts = self._all_departments()
-        if prev_dept not in all_depts:
-            self.selected_department = all_depts[0] if all_depts else ""
-        self.selected_day = DAY_NAMES[0]
-        self.selected_shift = SHIFTS[0]
-        self._grid_cell_frames = {}   # saptamana noua = grid trebuie reconstruit
-        self.refresh_all()
+        self._select_week(datetime.strptime(week_key, "%Y-%m-%d").date())
 
     def add_new_employee(self):
         from ui.employee_form import EmployeeRegistrationWindow
@@ -725,6 +719,7 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
     def toggle_theme(self):
         mode = self.theme_switch.get()
         ctk.set_appearance_mode(mode)
+        self.ui_state_store.save_theme(mode)
 
     def delete_employee_global(self):
         if not self._require_admin("stergere globala angajat"):
@@ -745,10 +740,21 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
         except (ImportError, OSError, ValueError, AttributeError):
             success_pm = False
             
-        if success_db or success_pm:
-            self.show_inline_message(f"Angajatul '{value}' a fost sters global.")
+        try:
+            removed_assignments = self.store.delete_employee(value, self._username or "")
+        except (OSError, ValueError, RuntimeError, PermissionError) as exc:
+            log_exception("delete_employee_global_schedule", exc)
+            removed_assignments = 0
+
+        if success_db or success_pm or removed_assignments:
+            self.week_record = self.store.get_or_create_week(self.selected_date)
+            self._grid_cell_frames = {}
+            self.show_inline_message(
+                f"Angajatul '{value}' a fost sters global. "
+                f"Alocari eliminate: {removed_assignments}."
+            )
             self.employee_search_var.set("")
-            self.refresh_suggestions()
+            self.refresh_all()
         else:
             self.show_inline_message(f"Angajatul '{value}' nu a fost gasit in baze de date.", is_error=True)
 
@@ -1167,7 +1173,7 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
         except tk.TclError:
             pass
 
-    def save_week(self):
+    def save_week(self) -> bool:
         try:
             self.store.update_week(self.week_record)
             self._dirty = False
@@ -1176,9 +1182,11 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
             self._update_dirty_indicator()
             self.refresh_history()
             self.show_inline_message("Saptamana salvata.")
+            return True
         except (OSError, ValueError, RuntimeError) as exc:
             log_exception("save_week", exc)
             self.show_inline_message("A aparut o eroare la salvare.", is_error=True)
+            return False
 
     def _employee_day_count(self, employee: str):
         count = 0
@@ -1208,7 +1216,7 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
         if answer is None:   # Cancel
             return False
         if answer:           # Yes
-            self.save_week()
+            return self.save_week()
         return True
 
     # Dirty indicator
@@ -1238,7 +1246,8 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
                 self.show_inline_message("Saptamana a fost deblocata pentru editare.")
             else:
                 if self._dirty:
-                    self.save_week()
+                    if not self.save_week():
+                        return
                 self.store.lock_week(self.week_record, self._username or "")
                 log_event(
                     action="lock_week",
