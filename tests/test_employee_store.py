@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -79,6 +80,16 @@ class TestSearch:
 
     def test_no_match_returns_empty(self, populated_store):
         assert populated_store.search("xxxxxxxxx") == []
+
+
+def test_employee_store_does_not_collect_names_from_schedule_history():
+    source = Path(emp_module.__file__).read_text(encoding="utf-8")
+    start = source.index("    def _collect_schedule_names")
+    end = source.index("    def _collect_names_from_mode", start)
+    method_source = source[start:end]
+
+    assert "SCHEDULE_PATH" not in method_source
+    assert "_collect_names_from_schedule" not in method_source
 
 
 class TestAddAndUpdateProfiles:

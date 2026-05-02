@@ -683,7 +683,7 @@ class PlannerDashboard(ScheduleGridMixin, LeftPanelMixin, RightPanelMixin, ctk.C
             messagebox.showwarning("Lipseste numele", "Introdu sau selecteaza un angajat.")
             return
         matches = self.employee_store.search(value)
-        employee = matches[0] if matches and matches[0].casefold() == value.casefold() else self.employee_store.add_employee(value)
+        employee = matches[0] if matches and matches[0].casefold() == value.casefold() else value
         self.add_employee_to_selected_cell(employee)
 
     def add_employee_to_selected_cell(self, employee: str):

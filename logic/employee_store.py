@@ -114,30 +114,6 @@ class EmployeeStore:
 
     def _collect_schedule_names(self, seen: set[str]) -> list[dict[str, str | None]]:
         discovered: list[dict[str, str | None]] = []
-
-        try:
-            from logic.schedule_store import SCHEDULE_PATH
-        except ImportError:
-            SCHEDULE_PATH = None
-
-        if SCHEDULE_PATH and SCHEDULE_PATH.exists():
-            try:
-                with SCHEDULE_PATH.open("r", encoding="utf-8") as file:
-                    schedule_data = json.load(file)
-
-                weeks = schedule_data.get("weeks", {})
-                if isinstance(weeks, dict):
-                    for week_record in weeks.values():
-                        if not isinstance(week_record, dict):
-                            continue
-                        if isinstance(week_record.get("modes"), dict):
-                            for mode_record in week_record["modes"].values():
-                                self._collect_names_from_mode(mode_record, seen, discovered)
-                        elif isinstance(week_record.get("schedule"), dict):
-                            self._collect_names_from_schedule(week_record["schedule"], seen, discovered)
-            except (OSError, json.JSONDecodeError):
-                pass
-
         self._collect_names_from_personnel_manager(seen, discovered)
         return discovered
 

@@ -81,6 +81,22 @@ class TestGetOrCreateWeek:
                         cell = mode["schedule"][department][day][shift]
                         assert cell == {"employees": [], "colors": {}}
 
+    def test_new_week_does_not_copy_previous_week_assignments(self, store):
+        week = store.get_or_create_week(date(2026, 4, 7))
+        cell = week["modes"]["Magazie"]["schedule"]["Sef schimb"]["Luni"]["Sch1"]
+        cell["employees"].append("Ion Pop")
+        cell["colors"]["Ion Pop"] = "#C0392B"
+        store.update_week(week)
+
+        next_week = store.get_or_create_week(date(2026, 4, 14))
+
+        for mode in next_week["modes"].values():
+            for department in mode["departments"]:
+                for day in DAY_NAMES:
+                    for shift in SHIFTS:
+                        cell = mode["schedule"][department][day][shift]
+                        assert cell == {"employees": [], "colors": {}}
+
     def test_missing_departments_are_restored_for_existing_week(self, store):
         week = store.get_or_create_week(date(2026, 4, 7))
         week["modes"]["Bucle"]["departments"] = ["BUCLA 02"]
