@@ -74,9 +74,23 @@ Build onefile:
 .\build_exe_onefile.cmd
 ```
 
+Verify the built `dist` folder:
+
+```powershell
+.\verify_build.cmd
+```
+
 Spec:
 
 * `Autoliv_Shift_Manager_Onefile.spec`
+
+## Operare productie locala
+
+* Release checklist: `docs/RELEASE_CHECKLIST.md`
+* Backup si restore: `docs/BACKUP_AND_RESTORE.md`
+* Support runbook: `docs/SUPPORT_RUNBOOK.md`
+* Backup extern optional: `external_backup.cmd "D:\Autoliv_Backups"`
+* Pachet suport sanitizat: `generate_support_bundle.cmd`
 
 ## Structura Proiectului
 

@@ -18,6 +18,8 @@ __pycache__/
 pytest-cache-files-*/
 tmp_pytest_run_clean_*/
 data__backup_before_migration_*/
+support_bundles/
+external_backups/
 
 # Build outputs
 build/
