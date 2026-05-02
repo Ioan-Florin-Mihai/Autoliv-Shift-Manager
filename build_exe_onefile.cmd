@@ -55,13 +55,15 @@ copy /y "release_defaults\data\audit_log.json" "dist\data\audit_log.json" >nul
 copy /y "release_defaults\data\employees.json" "dist\data\employees.json" >nul
 copy /y "release_defaults\data\ui_state.json" "dist\data\ui_state.json" >nul
 
-if exist "dist\data\users.json" del /f /q "dist\data\users.json" >nul 2>&1
-if exist "dist\data\bootstrap_admin.json" del /f /q "dist\data\bootstrap_admin.json" >nul 2>&1
-if exist "dist\data\runtime_root.txt" del /f /q "dist\data\runtime_root.txt" >nul 2>&1
-if exist "dist\data\planner.lock" del /f /q "dist\data\planner.lock" >nul 2>&1
-if exist "dist\data\tv_server.lock" del /f /q "dist\data\tv_server.lock" >nul 2>&1
-if exist "dist\data\audit_log.lock" del /f /q "dist\data\audit_log.lock" >nul 2>&1
-if exist "dist\logs\system.log" del /f /q "dist\logs\system.log" >nul 2>&1
+echo Curat fisiere runtime din dist...
+"%PYTHON_EXE%" tools\clean_dist_runtime.py --dist "dist"
+if errorlevel 1 (
+	echo.
+	echo ============================================
+	echo  Build esuat: dist contine fisiere runtime care nu au putut fi curatate.
+	echo ============================================
+	exit /b 1
+)
 
 echo.
 echo ============================================
